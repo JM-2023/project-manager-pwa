@@ -62,23 +62,24 @@ export function ownerEmail(env: AppEnv): string {
 }
 
 export async function verifyPassword(password: string, hashSetting: string | undefined): Promise<boolean> {
-  if (!hashSetting) {
-    throw new Error("APP_PASSWORD_HASH is missing");
+  const normalizedHash = hashSetting?.trim().replace(/^['"]|['"]$/g, "");
+  if (normalizedHash) {
+    try {
+      const [algorithm, iterationsText, saltText, expectedText] = normalizedHash.split("$");
+      const iterations = Number(iterationsText);
+      if (algorithm === "pbkdf2_sha256" && Number.isInteger(iterations) && iterations >= 100_000) {
+        const salt = base64UrlDecode(saltText);
+        const expected = base64UrlDecode(expectedText);
+        const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+        const derived = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: arrayBuffer(salt), iterations }, key, expected.length * 8);
+        if (await timingSafeEqual(base64UrlEncode(derived), base64UrlEncode(expected))) {
+          return true;
+        }
+      }
+    } catch {
+    }
   }
-  const [algorithm, iterationsText, saltText, expectedText] = hashSetting.split("$");
-  if (algorithm !== "pbkdf2_sha256") {
-    throw new Error("Unsupported password hash format");
-  }
-  const iterations = Number(iterationsText);
-  if (!Number.isInteger(iterations) || iterations < 100_000) {
-    throw new Error("Invalid password hash iterations");
-  }
-
-  const salt = base64UrlDecode(saltText);
-  const expected = base64UrlDecode(expectedText);
-  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
-  const derived = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: arrayBuffer(salt), iterations }, key, expected.length * 8);
-  return timingSafeEqual(base64UrlEncode(derived), base64UrlEncode(expected));
+  return false;
 }
 
 export async function createSessionCookie(env: AppEnv, email: string): Promise<string> {

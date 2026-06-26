@@ -42,6 +42,7 @@ export type AppAction =
   | { type: "setFilters"; payload: Partial<Filters> }
   | { type: "upsertProject"; payload: Project }
   | { type: "upsertTask"; payload: Task }
+  | { type: "deleteTask"; payload: string }
   | { type: "upsertTag"; payload: Tag }
   | { type: "upsertTaskTag"; payload: TaskTag }
   | { type: "setPendingCount"; payload: number }
@@ -130,6 +131,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, projects: byId(state.projects, action.payload) };
     case "upsertTask":
       return { ...state, tasks: byId(state.tasks, action.payload) };
+    case "deleteTask":
+      return { ...state, tasks: state.tasks.filter((task) => task.id !== action.payload) };
     case "upsertTag":
       return { ...state, tags: byId(state.tags, action.payload) };
     case "upsertTaskTag":

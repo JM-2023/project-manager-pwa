@@ -182,10 +182,6 @@ async function applyTask(context: AppContext, user: AuthUser, mutation: Incoming
     )
     .run();
 
-  await context.env.DB.prepare("INSERT INTO task_events (id, user_id, task_id, event_type, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(crypto.randomUUID(), user.id, id, "mutation_upsert", JSON.stringify({ mutationId: mutation.id, status: data.status }), timestamp)
-    .run();
-
   return { id: mutation.id, entity: "task", recordId: id, version, updated_at: timestamp };
 }
 
@@ -244,8 +240,8 @@ async function applyDelete(context: AppContext, user: AuthUser, mutation: Incomi
   if (mutation.entity === "task_tag") {
     const taskId = String(mutation.data.task_id ?? "");
     const tagId = String(mutation.data.tag_id ?? "");
-    await context.env.DB.prepare("UPDATE task_tags SET deleted_at = ? WHERE user_id = ? AND task_id = ? AND tag_id = ?")
-      .bind(timestamp, user.id, taskId, tagId)
+    await context.env.DB.prepare("DELETE FROM task_tags WHERE user_id = ? AND task_id = ? AND tag_id = ?")
+      .bind(user.id, taskId, tagId)
       .run();
     return { id: mutation.id, entity: mutation.entity, recordId: `${taskId}:${tagId}`, updated_at: timestamp };
   }
@@ -256,9 +252,16 @@ async function applyDelete(context: AppContext, user: AuthUser, mutation: Incomi
     await context.env.DB.prepare("DELETE FROM app_settings WHERE user_id = ? AND key = ?").bind(user.id, id).run();
     return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
   }
-  await context.env.DB.prepare(`UPDATE ${table} SET deleted_at = ?, updated_at = ?, archived = 1, version = version + 1 WHERE user_id = ? AND id = ?`)
-    .bind(timestamp, timestamp, user.id, id)
-    .run();
+  if (mutation.entity === "task") {
+    await context.env.DB.prepare("DELETE FROM task_tags WHERE user_id = ? AND task_id = ?").bind(user.id, id).run();
+    await context.env.DB.prepare("DELETE FROM task_events WHERE user_id = ? AND task_id = ?").bind(user.id, id).run();
+    await context.env.DB.prepare("DELETE FROM tasks WHERE user_id = ? AND id = ?").bind(user.id, id).run();
+  } else if (mutation.entity === "tag") {
+    await context.env.DB.prepare("DELETE FROM task_tags WHERE user_id = ? AND tag_id = ?").bind(user.id, id).run();
+    await context.env.DB.prepare("DELETE FROM tags WHERE user_id = ? AND id = ?").bind(user.id, id).run();
+  } else {
+    await context.env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ? AND id = ?`).bind(user.id, id).run();
+  }
   return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
 }
 
@@ -278,7 +281,10 @@ async function applyMutation(context: AppContext, user: AuthUser, mutation: Inco
     };
   }
 
-  if (mutation.operation === "delete") {
+  if (
+    mutation.operation === "delete" ||
+    (mutation.entity === "task" && (mutation.data.deleted_at || Number(mutation.data.archived ?? 0) !== 0))
+  ) {
     return applyDelete(context, user, mutation, timestamp);
   }
 

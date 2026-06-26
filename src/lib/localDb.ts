@@ -129,6 +129,13 @@ export async function saveEntity(storeName: EntityStore, record: Project | Task 
   await transactionDone(tx);
 }
 
+export async function deleteEntity(storeName: EntityStore, id: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(storeName, "readwrite");
+  tx.objectStore(storeName).delete(id);
+  await transactionDone(tx);
+}
+
 export async function queueMutation(mutation: ClientMutation): Promise<void> {
   const db = await openDb();
   const tx = db.transaction("pendingMutations", "readwrite");

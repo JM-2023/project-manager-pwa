@@ -18,6 +18,7 @@ import { nowIso } from "./lib/dates";
 import { getOrCreateClientId, newId, newMutationId } from "./lib/ids";
 import {
   getPendingMutations,
+  deleteEntity,
   loadLocalSnapshot,
   queueMutation,
   removePendingMutations,
@@ -315,12 +316,20 @@ export function App() {
     void persistMutation({ id: newMutationId(), entity: "task", operation: "upsert", baseVersion: null, data: task });
   }
 
-  function archiveTask(task: Task) {
-    updateTask(task, { archived: 1 });
+  function deleteTask(task: Task) {
+    dispatch({ type: "deleteTask", payload: task.id });
+    void deleteEntity("tasks", task.id);
+    void persistMutation({
+      id: newMutationId(),
+      entity: "task",
+      operation: "delete",
+      baseVersion: task.version,
+      data: { id: task.id }
+    });
   }
 
-  function deleteTask(task: Task) {
-    updateTask(task, { deleted_at: nowIso(), archived: 1 });
+  function archiveTask(task: Task) {
+    deleteTask(task);
   }
 
   function createProject(name: string): string {

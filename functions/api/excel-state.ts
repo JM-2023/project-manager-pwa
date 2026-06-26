@@ -207,10 +207,6 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
       .run();
   }
 
-  await context.env.DB.prepare("INSERT INTO export_logs (id, user_id, format, row_count, r2_key, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(crypto.randomUUID(), user.id, "xlsx", Number.isFinite(rowCount) ? rowCount : 0, archiveKey, timestamp)
-    .run();
-
   return json({
     ok: true,
     key: LATEST_EXCEL_KEY,

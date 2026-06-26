@@ -214,11 +214,5 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
     else updated += 1;
   }
 
-  await context.env.DB.prepare(
-    "INSERT INTO import_batches (id, user_id, filename, row_count, created_count, updated_count, skipped_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  )
-    .bind(batchId, user.id, nullableText(body.filename), rows.length, created, updated, skipped, timestamp)
-    .run();
-
   return json({ ok: true, batchId, created, updated, skipped });
 }

@@ -17,8 +17,8 @@ import {
 import { nowIso } from "./lib/dates";
 import { getOrCreateClientId, newId, newMutationId } from "./lib/ids";
 import {
-  getPendingMutations,
   deleteEntity,
+  getPendingMutations,
   loadLocalSnapshot,
   queueMutation,
   removePendingMutations,
@@ -218,11 +218,15 @@ export function App() {
 
     async function start() {
       dispatch({ type: "setSyncStatus", payload: "loading" });
-      const local = await loadLocalSnapshot();
-      if (cancelled) return;
-      dispatch({
-        type: "hydrateLocal",
-        payload: {
+      try {
+        const session = await getSession();
+        if (cancelled) return;
+        dispatch({ type: "setSession", payload: session });
+        stateRef.current = { ...stateRef.current, session, authRequired: false };
+
+        const local = await loadLocalSnapshot();
+        if (cancelled) return;
+        const payload = {
           projects: local.projects,
           tasks: local.tasks,
           tags: local.tags,
@@ -230,9 +234,20 @@ export function App() {
           settings: local.settings,
           pendingCount: local.pendingMutations.length,
           lastSync: local.lastSync
+        };
+        dispatch({ type: "hydrateLocal", payload });
+        stateRef.current = { ...stateRef.current, ...payload };
+        await syncNow();
+      } catch (error) {
+        if (cancelled) return;
+        if (error instanceof AuthRequiredError) {
+          dispatch({ type: "setAuthRequired", payload: true });
+          dispatch({ type: "setSyncStatus", payload: "idle" });
+        } else {
+          dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Startup failed" });
+          dispatch({ type: "setSyncStatus", payload: "error" });
         }
-      });
-      await syncNow();
+      }
     }
 
     void start();
@@ -402,6 +417,19 @@ export function App() {
     const session = await getSession();
     dispatch({ type: "setSession", payload: session });
     dispatch({ type: "setAuthRequired", payload: false });
+    stateRef.current = { ...stateRef.current, session, authRequired: false };
+    const local = await loadLocalSnapshot();
+    const payload = {
+      projects: local.projects,
+      tasks: local.tasks,
+      tags: local.tags,
+      taskTags: local.taskTags,
+      settings: local.settings,
+      pendingCount: local.pendingMutations.length,
+      lastSync: local.lastSync
+    };
+    dispatch({ type: "hydrateLocal", payload });
+    stateRef.current = { ...stateRef.current, ...payload };
     await syncNow();
   }
 

@@ -497,7 +497,6 @@ select {
 .search-filters > input,
 .project-create input,
 .tag-input input,
-.login-panel input,
 .field-label input,
 .field-label select,
 .field-label textarea,
@@ -539,7 +538,6 @@ textarea:focus {
 .search-filters > input:focus,
 .project-create input:focus,
 .tag-input input:focus,
-.login-panel input:focus,
 .field-label input:focus,
 .field-label select:focus,
 .field-label textarea:focus,
@@ -549,7 +547,7 @@ textarea:focus {
 .filter-grid select:focus,
 .task-title-input:focus,
 .task-notes textarea:focus,
-.cache-add input:focus,
+.cache-column header input:focus,
 .cache-item textarea:focus,
 .composer-project-row input:focus,
 .task-table-row select:focus,
@@ -945,6 +943,7 @@ textarea:focus {
 
 .tt-cell > textarea,
 .task-table-note-cell textarea {
+  overflow: hidden;
   resize: vertical;
 }
 
@@ -1166,7 +1165,8 @@ textarea:focus {
     background-color: transparent;
     border: 0;
     border-radius: 0;
-    resize: none;
+    overflow: hidden;
+    resize: vertical;
   }
 
   .tt-cell > select:focus,
@@ -1199,7 +1199,8 @@ textarea:focus {
     border: 0;
     border-right: 1px solid var(--line);
     border-radius: 0;
-    resize: none;
+    overflow: hidden;
+    resize: vertical;
   }
 
   .task-table-note-cell .icon-button {
@@ -1236,7 +1237,7 @@ textarea:focus {
 
 .composer-row button,
 .composer-project-row button,
-.cache-add button {
+.cache-column header button {
   display: inline-grid;
   min-height: 44px;
   place-items: center;
@@ -1249,13 +1250,13 @@ textarea:focus {
 }
 
 .composer-project-row button:hover,
-.cache-add button:hover {
+.cache-column header button:hover {
   filter: brightness(1.05);
   transform: translateY(-1px);
 }
 
 .composer-project-row button:active,
-.cache-add button:active {
+.cache-column header button:active {
   transform: scale(0.95);
 }
 
@@ -1621,11 +1622,19 @@ button.project-row > span {
    Next / cache board
    ========================================================================= */
 .cache-board {
-  display: grid;
+  display: flex;
+  flex-wrap: nowrap;
   gap: 12px;
+  width: 100%;
+  padding-bottom: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
 }
 
 .cache-column {
+  flex: 0 0 clamp(178px, 13vw, 240px);
   display: grid;
   align-content: start;
   gap: 10px;
@@ -1635,13 +1644,14 @@ button.project-row > span {
   border-radius: var(--r-md);
   box-shadow: var(--shadow);
   animation: fade-up var(--t-slow) var(--ease) both;
+  scroll-snap-align: start;
 }
 
 .cache-column header {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(62px, auto) minmax(82px, 1fr) 38px;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 7px;
 }
 
 .cache-column h2 {
@@ -1654,25 +1664,7 @@ button.project-row > span {
   white-space: nowrap;
 }
 
-.cache-column header span {
-  display: inline-grid;
-  min-width: 30px;
-  min-height: 30px;
-  place-items: center;
-  color: var(--primary-dark);
-  background: var(--primary-tint);
-  border-radius: var(--r-pill);
-  font-size: 0.78rem;
-  font-weight: 750;
-}
-
-.cache-add {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  gap: 8px;
-}
-
-.cache-add input,
+.cache-column header input,
 .cache-item textarea {
   width: 100%;
   min-width: 0;
@@ -1684,12 +1676,9 @@ button.project-row > span {
   transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 
-.cache-add input {
-  min-height: 44px;
-}
-
-.cache-add button {
-  min-height: 44px;
+.cache-column header input,
+.cache-column header button {
+  min-height: 38px;
 }
 
 .cache-items {
@@ -1714,12 +1703,12 @@ button.project-row > span {
 }
 
 .cache-item textarea {
+  overflow: hidden;
   resize: vertical;
   background: var(--field-bg);
 }
 
-.cache-item textarea:first-child {
-  grid-column: 1 / -1;
+.cache-item textarea {
   font-weight: 650;
 }
 
@@ -1926,40 +1915,65 @@ button.project-row > span {
   display: grid;
   min-height: 100vh;
   place-items: center;
-  padding: 24px;
+  padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  background: #fff;
 }
 
-.login-panel {
-  width: min(380px, 100%);
-  padding: 28px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-lg);
-  animation: scale-in var(--t-slow) var(--ease-spring) both;
-}
-
-.login-panel .primary-button {
-  width: 100%;
-  margin-top: 16px;
-}
-
-.login-icon {
+.pin-pad {
   display: grid;
-  width: 56px;
-  height: 56px;
-  place-items: center;
-  color: var(--primary-ink);
-  background: var(--accent-grad);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-primary);
+  width: min(300px, 100%);
+  gap: 22px;
 }
 
-.login-panel h1 {
-  margin: 18px 0 16px;
-  font-size: 1.65rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 13px;
+  min-height: 18px;
+}
+
+.pin-dots span {
+  width: 12px;
+  height: 12px;
+  border: 1px solid #a7b1ae;
+  border-radius: 50%;
+  background: transparent;
+}
+
+.pin-dots span.filled {
+  background: #16201e;
+  border-color: #16201e;
+}
+
+.pin-dots.error span {
+  border-color: var(--danger);
+}
+
+.pin-dots.error span.filled {
+  background: var(--danger);
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.keypad button {
+  display: grid;
+  min-height: 64px;
+  place-items: center;
+  color: #16201e;
+  background: #fff;
+  border: 1px solid #d9dfdf;
+  border-radius: 50%;
+  font-size: 1.35rem;
+  font-weight: 650;
+  box-shadow: none;
+}
+
+.keypad button:active {
+  background: #edf2f0;
 }
 
 /* =========================================================================
@@ -2074,11 +2088,6 @@ button.project-row > span {
 
   .settings-grid {
     grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-
-  .cache-board {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    align-items: start;
   }
 
   .metric.wide {

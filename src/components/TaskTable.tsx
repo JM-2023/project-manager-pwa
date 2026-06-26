@@ -1,5 +1,5 @@
 import { Archive, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type TextareaHTMLAttributes } from "react";
 import type { Project, Task } from "../lib/types";
 import {
   getTaskImportance,
@@ -34,6 +34,20 @@ interface TaskRowProps {
 }
 
 const importanceValues: TaskImportance[] = [1, 2, 3, 4];
+
+function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  const value = typeof props.value === "string" ? props.value : String(props.value ?? "");
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.style.height = "0px";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [value]);
+
+  return <textarea {...props} ref={ref} />;
+}
 
 function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: TaskRowProps) {
   const [title, setTitle] = useState(task.title);
@@ -131,7 +145,7 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
 
       <label className="tt-cell tt-task">
         <span className="tt-label">Task</span>
-        <textarea
+        <AutoTextarea
           className="task-table-title"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
@@ -176,23 +190,23 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
 
       <label className="tt-cell tt-output">
         <span className="tt-label">今日产出</span>
-        <textarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label="Output" />
+        <AutoTextarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label="Output" />
       </label>
 
       <label className="tt-cell tt-blocker">
         <span className="tt-label">卡住的地方</span>
-        <textarea value={blocker} onChange={(event) => setBlocker(event.target.value)} onBlur={commitText} rows={1} aria-label="Blocked" />
+        <AutoTextarea value={blocker} onChange={(event) => setBlocker(event.target.value)} onBlur={commitText} rows={1} aria-label="Blocked" />
       </label>
 
       <label className="tt-cell tt-next">
         <span className="tt-label">明天第一步</span>
-        <textarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label="Tomorrow first step" />
+        <AutoTextarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label="Tomorrow first step" />
       </label>
 
       <div className="tt-cell tt-notes">
         <span className="tt-label">Notes</span>
         <div className="task-table-note-cell">
-          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label="Note" />
+          <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label="Note" />
           <button type="button" className="icon-button" onClick={() => onArchive(task)} aria-label="Archive task" title="Archive">
             <Archive size={16} aria-hidden="true" />
           </button>

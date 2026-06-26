@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type TextareaHTMLAttributes } from "react";
 import { isProjectCacheTask, parseTaskExtra, stringifyTaskExtra } from "../lib/progress";
 import type { Project, Task } from "../lib/types";
 import type { TaskPageProps } from "./pageProps";
@@ -8,6 +8,20 @@ function projectItems(tasks: Task[], project: Project): Task[] {
   return tasks
     .filter((task) => !task.deleted_at && task.archived === 0 && task.project_id === project.id && isProjectCacheTask(task))
     .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title));
+}
+
+function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  const value = typeof props.value === "string" ? props.value : String(props.value ?? "");
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    element.style.height = "0px";
+    element.style.height = `${element.scrollHeight}px`;
+  }, [value]);
+
+  return <textarea {...props} ref={ref} />;
 }
 
 function CacheItem({
@@ -20,16 +34,12 @@ function CacheItem({
   onDelete: (task: Task) => void;
 }) {
   const [title, setTitle] = useState(task.title);
-  const [notes, setNotes] = useState(task.notes ?? "");
 
   function commit() {
     const changes: Partial<Task> = {};
     const cleanTitle = title.trim();
     if (cleanTitle && cleanTitle !== task.title) {
       changes.title = cleanTitle;
-    }
-    if (notes !== (task.notes ?? "")) {
-      changes.notes = notes || null;
     }
     if (Object.keys(changes).length > 0) {
       onUpdate(task, changes);
@@ -38,8 +48,7 @@ function CacheItem({
 
   return (
     <article className="cache-item">
-      <textarea value={title} onChange={(event) => setTitle(event.target.value)} onBlur={commit} rows={2} aria-label="Next item" />
-      <textarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commit} rows={1} placeholder="Note" aria-label="Next item note" />
+      <AutoTextarea value={title} onChange={(event) => setTitle(event.target.value)} onBlur={commit} rows={1} aria-label="Next item" />
       <button type="button" className="icon-button danger" onClick={() => onDelete(task)} aria-label="Delete next item" title="Delete">
         <Trash2 size={16} aria-hidden="true" />
       </button>
@@ -73,14 +82,11 @@ function CacheColumn({
     <section className="cache-column">
       <header>
         <h2>{project.name}</h2>
-        <span>{items.length}</span>
-      </header>
-      <div className="cache-add">
         <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Next thing to remember" aria-label={`New item for ${project.name}`} />
         <button type="button" onClick={createItem} aria-label={`Add item for ${project.name}`}>
           <Plus size={17} aria-hidden="true" />
         </button>
-      </div>
+      </header>
       <div className="cache-items">
         {items.map((task) => (
           <CacheItem key={task.id} task={task} onUpdate={onUpdate} onDelete={onDelete} />

@@ -60,7 +60,7 @@ export const initialState: AppState = {
   taskTags: [],
   settings: {},
   session: null,
-  authRequired: false,
+  authRequired: true,
   currentTab: "today",
   filters: {
     search: "",

@@ -14,7 +14,7 @@ database_id = "<your-d1-database-id>"
 # bucket_name = "project-manager-backups"
 
 [vars]
-AUTH_MODE = "none"
+AUTH_MODE = "local_password"
 OWNER_EMAIL = "owner@project-manager.local"
 ENABLE_R2_BACKUPS = "false"
 ENABLE_D1_EXCEL_STATE = "true"

@@ -7,5 +7,6 @@ export async function onRequest(context: AppContext): Promise<Response> {
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   headers.set("X-Frame-Options", "DENY");
+  headers.set("X-Robots-Tag", "noindex, nofollow, noarchive, noimageindex");
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
 }

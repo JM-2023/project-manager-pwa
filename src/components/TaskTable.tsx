@@ -1,5 +1,5 @@
 import { Archive, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { Project, Task } from "../lib/types";
 import {
   getTaskImportance,
@@ -7,6 +7,7 @@ import {
   importancePriority,
   parseTaskExtra,
   progressStatus,
+  progressTone,
   stringifyTaskExtra,
   worklogBlocker,
   worklogOutput,
@@ -32,7 +33,6 @@ interface TaskRowProps {
   onDelete: (task: Task) => void;
 }
 
-const progressValues: TaskProgress[] = [0, 25, 50, 75, 100];
 const importanceValues: TaskImportance[] = [1, 2, 3, 4];
 
 function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: TaskRowProps) {
@@ -41,6 +41,7 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
   const [blocker, setBlocker] = useState(worklogBlocker(task));
   const [nextAction, setNextAction] = useState(task.next_action ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
+  const [progress, setProgress] = useState<TaskProgress>(getTaskProgress(task));
 
   useEffect(() => {
     setTitle(task.title);
@@ -48,7 +49,8 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
     setBlocker(worklogBlocker(task));
     setNextAction(task.next_action ?? "");
     setNotes(task.notes ?? "");
-  }, [task.id, task.title, task.next_action, task.notes, task.extra_json]);
+    setProgress(getTaskProgress(task));
+  }, [task.id, task.title, task.next_action, task.notes, task.extra_json, task.status]);
 
   function commitText() {
     const changes: Partial<Task> = {};
@@ -85,13 +87,18 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
     });
   }
 
+  function commitProgress(value: TaskProgress) {
+    if (value !== getTaskProgress(task)) {
+      updateProgress(value);
+    }
+  }
+
   const importance = getTaskImportance(task);
-  const progress = getTaskProgress(task);
 
   return (
     <div className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}`}>
       <select
-        className="task-table-importance"
+        className={`task-table-importance imp-${importance}`}
         value={importance}
         onChange={(event) => updateImportance(Number(event.target.value) as TaskImportance)}
         aria-label="Importance"
@@ -125,13 +132,22 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
         aria-label="Task"
       />
 
-      <select value={progress} onChange={(event) => updateProgress(Number(event.target.value) as TaskProgress)} aria-label="Progress">
-        {progressValues.map((value) => (
-          <option key={value} value={value}>
-            {value}%
-          </option>
-        ))}
-      </select>
+      <div className={`task-table-progress tone-${progressTone(progress)}`} style={{ "--pct": `${progress}%` } as CSSProperties}>
+        <span className="progress-badge">{progress}%</span>
+        <input
+          type="range"
+          className="progress-slider"
+          min={0}
+          max={100}
+          step={25}
+          value={progress}
+          onChange={(event) => setProgress(Number(event.target.value) as TaskProgress)}
+          onPointerUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
+          onKeyUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
+          aria-label="Progress"
+          aria-valuetext={`${progress}%`}
+        />
+      </div>
 
       {showDate ? (
         <input type="date" value={task.start_date ?? ""} onChange={(event) => onUpdate(task, { start_date: event.target.value || null })} aria-label="Date" />

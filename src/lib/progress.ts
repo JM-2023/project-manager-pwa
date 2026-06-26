@@ -139,6 +139,17 @@ export function progressStatus(progress: TaskProgress): TaskStatus {
   return "doing";
 }
 
+export type ProgressTone = "none" | "low" | "mid" | "high" | "done";
+
+/** Maps a 0-100 progress value to a color band used across the UI. */
+export function progressTone(progress: number): ProgressTone {
+  if (progress >= 100) return "done";
+  if (progress >= 75) return "high";
+  if (progress >= 50) return "mid";
+  if (progress >= 25) return "low";
+  return "none";
+}
+
 export function priorityBand(priority: TaskPriority): "low" | "medium" | "high" {
   return priority === "low" ? "low" : priority === "medium" ? "medium" : "high";
 }

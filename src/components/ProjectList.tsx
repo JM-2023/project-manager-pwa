@@ -1,7 +1,17 @@
 import { Archive, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { Project, Task } from "../lib/types";
-import { isWorklogTask, summarizeWorklogOverview } from "../lib/progress";
+import { isWorklogTask, progressTone, summarizeWorklogOverview } from "../lib/progress";
+
+function ProgressMeter({ value }: { value: number }) {
+  return (
+    <span
+      className={`row-progress tone-${progressTone(value)}`}
+      style={{ "--pct": `${Math.max(0, Math.min(100, value))}%` } as CSSProperties}
+      aria-hidden="true"
+    />
+  );
+}
 
 interface ProjectListProps {
   projects: Project[];
@@ -38,6 +48,7 @@ export function ProjectList({ projects, tasks, selectedProjectId, onSelect, onCr
       <button type="button" className={!selectedProjectId ? "project-row active" : "project-row"} onClick={() => onSelect("")}>
         <span>All projects</span>
         <strong>{allSummary.averageProgress}%</strong>
+        <ProgressMeter value={allSummary.averageProgress} />
       </button>
       {projects.map((project) => {
         const projectTasks = tasks.filter((task) => task.project_id === project.id && isWorklogTask(task));
@@ -52,6 +63,7 @@ export function ProjectList({ projects, tasks, selectedProjectId, onSelect, onCr
             <button type="button" className="icon-button" onClick={() => onArchive(project)} aria-label={`Archive ${project.name}`}>
               <Archive size={16} aria-hidden="true" />
             </button>
+            <ProgressMeter value={summary.averageProgress} />
           </div>
         );
       })}

@@ -1,0 +1,35 @@
+{
+  "name": "project-manager-pwa",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "pages:dev": "vite build && wrangler pages dev dist --compatibility-date=2026-06-22",
+    "db:migrate:local": "wrangler d1 migrations apply project_manager --local",
+    "db:migrate:remote": "wrangler d1 migrations apply project_manager --remote",
+    "hash-password": "node scripts/hash-password.mjs",
+    "cf:types": "wrangler types"
+  },
+  "dependencies": {
+    "jose": "^5.9.6",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260620.0",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.5.4",
+    "vite": "^5.4.2",
+    "wrangler": "4.20.0"
+  }
+}

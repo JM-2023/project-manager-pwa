@@ -1,0 +1,28 @@
+import { authenticate, isResponse } from "./_utils/auth";
+import { readSettings } from "./_utils/db";
+import { json } from "./_utils/response";
+import { nowIso } from "./_utils/time";
+import type { AppContext } from "./_utils/types";
+
+export async function onRequestGet(context: AppContext): Promise<Response> {
+  const user = await authenticate(context);
+  if (isResponse(user)) return user;
+
+  const [projects, tasks, tags, taskTags, settings] = await Promise.all([
+    context.env.DB.prepare("SELECT * FROM projects WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order, name").bind(user.id).all(),
+    context.env.DB.prepare("SELECT * FROM tasks WHERE user_id = ? AND deleted_at IS NULL ORDER BY due_date, sort_order").bind(user.id).all(),
+    context.env.DB.prepare("SELECT * FROM tags WHERE user_id = ? AND deleted_at IS NULL ORDER BY name").bind(user.id).all(),
+    context.env.DB.prepare("SELECT * FROM task_tags WHERE user_id = ? AND deleted_at IS NULL").bind(user.id).all(),
+    readSettings(context.env, user.id, null)
+  ]);
+
+  return json({
+    exportedAt: nowIso(),
+    serverTime: nowIso(),
+    projects: projects.results,
+    tasks: tasks.results,
+    tags: tags.results,
+    taskTags: taskTags.results,
+    settings
+  });
+}

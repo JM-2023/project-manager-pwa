@@ -1,0 +1,23 @@
+name = "project-manager-pwa"
+compatibility_date = "2026-06-22"
+compatibility_flags = ["nodejs_compat"]
+pages_build_output_dir = "dist"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "project_manager"
+database_id = "<your-d1-database-id>"
+
+# Enable this after enabling R2 in the Cloudflare Dashboard.
+# [[r2_buckets]]
+# binding = "BACKUPS"
+# bucket_name = "project-manager-backups"
+
+[vars]
+AUTH_MODE = "none"
+OWNER_EMAIL = "owner@project-manager.local"
+ENABLE_R2_BACKUPS = "false"
+ENABLE_D1_EXCEL_STATE = "true"
+
+[observability]
+enabled = true

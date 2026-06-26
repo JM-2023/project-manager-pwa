@@ -1,0 +1,9 @@
+node_modules
+dist
+.wrangler
+.wrangler-home
+.dev.vars
+worker-configuration.d.ts
+.DS_Store
+output
+.playwright-cli

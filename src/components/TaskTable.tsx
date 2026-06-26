@@ -97,76 +97,109 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
 
   return (
     <div className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}`}>
-      <select
-        className={`task-table-importance imp-${importance}`}
-        value={importance}
-        onChange={(event) => updateImportance(Number(event.target.value) as TaskImportance)}
-        aria-label="Importance"
-      >
-        {importanceValues.map((value) => (
-          <option key={value} value={value}>
-            {value}
-          </option>
-        ))}
-      </select>
+      <label className="tt-cell tt-importance">
+        <span className="tt-label">重要程度</span>
+        <select
+          className={`task-table-importance imp-${importance}`}
+          value={importance}
+          onChange={(event) => updateImportance(Number(event.target.value) as TaskImportance)}
+          aria-label="Importance"
+        >
+          {importanceValues.map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </label>
 
-      <select
-        value={task.project_id ?? ""}
-        onChange={(event) => onUpdate(task, { project_id: event.target.value || null })}
-        aria-label="Project"
-      >
-        <option value="">No project</option>
-        {projects.map((project) => (
-          <option key={project.id} value={project.id}>
-            {project.name}
-          </option>
-        ))}
-      </select>
+      <label className="tt-cell tt-project">
+        <span className="tt-label">Project</span>
+        <select
+          value={task.project_id ?? ""}
+          onChange={(event) => onUpdate(task, { project_id: event.target.value || null })}
+          aria-label="Project"
+        >
+          <option value="">No project</option>
+          {projects.map((project) => (
+            <option key={project.id} value={project.id}>
+              {project.name}
+            </option>
+          ))}
+        </select>
+      </label>
 
-      <textarea
-        className="task-table-title"
-        value={title}
-        onChange={(event) => setTitle(event.target.value)}
-        onBlur={commitText}
-        rows={1}
-        aria-label="Task"
-      />
-
-      <div className={`task-table-progress tone-${progressTone(progress)}`} style={{ "--pct": `${progress}%` } as CSSProperties}>
-        <span className="progress-badge">{progress}%</span>
-        <input
-          type="range"
-          className="progress-slider"
-          min={0}
-          max={100}
-          step={25}
-          value={progress}
-          onChange={(event) => setProgress(Number(event.target.value) as TaskProgress)}
-          onPointerUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
-          onKeyUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
-          aria-label="Progress"
-          aria-valuetext={`${progress}%`}
+      <label className="tt-cell tt-task">
+        <span className="tt-label">Task</span>
+        <textarea
+          className="task-table-title"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          onBlur={commitText}
+          rows={1}
+          placeholder="New task…"
+          aria-label="Task"
         />
+      </label>
+
+      <div className="tt-cell tt-progress">
+        <span className="tt-label">Progress</span>
+        <div className={`task-table-progress tone-${progressTone(progress)}`} style={{ "--pct": `${progress}%` } as CSSProperties}>
+          <span className="progress-badge">{progress}%</span>
+          <input
+            type="range"
+            className="progress-slider"
+            min={0}
+            max={100}
+            step={25}
+            value={progress}
+            onChange={(event) => setProgress(Number(event.target.value) as TaskProgress)}
+            onPointerUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
+            onKeyUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
+            aria-label="Progress"
+            aria-valuetext={`${progress}%`}
+          />
+        </div>
       </div>
 
       {showDate ? (
-        <input type="date" value={task.start_date ?? ""} onChange={(event) => onUpdate(task, { start_date: event.target.value || null })} aria-label="Date" />
+        <label className="tt-cell tt-date">
+          <span className="tt-label">Date</span>
+          <input
+            type="date"
+            value={task.start_date ?? ""}
+            onChange={(event) => onUpdate(task, { start_date: event.target.value || null })}
+            aria-label="Date"
+          />
+        </label>
       ) : null}
 
-      <textarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label="Output" />
+      <label className="tt-cell tt-output">
+        <span className="tt-label">今日产出</span>
+        <textarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label="Output" />
+      </label>
 
-      <textarea value={blocker} onChange={(event) => setBlocker(event.target.value)} onBlur={commitText} rows={1} aria-label="Blocked" />
+      <label className="tt-cell tt-blocker">
+        <span className="tt-label">卡住的地方</span>
+        <textarea value={blocker} onChange={(event) => setBlocker(event.target.value)} onBlur={commitText} rows={1} aria-label="Blocked" />
+      </label>
 
-      <textarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label="Tomorrow first step" />
+      <label className="tt-cell tt-next">
+        <span className="tt-label">明天第一步</span>
+        <textarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label="Tomorrow first step" />
+      </label>
 
-      <div className="task-table-note-cell">
-        <textarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label="Note" />
-        <button type="button" className="icon-button" onClick={() => onArchive(task)} aria-label="Archive task" title="Archive">
-          <Archive size={16} aria-hidden="true" />
-        </button>
-        <button type="button" className="icon-button danger" onClick={() => onDelete(task)} aria-label="Delete task" title="Delete">
-          <Trash2 size={16} aria-hidden="true" />
-        </button>
+      <div className="tt-cell tt-notes">
+        <span className="tt-label">Notes</span>
+        <div className="task-table-note-cell">
+          <textarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label="Note" />
+          <button type="button" className="icon-button" onClick={() => onArchive(task)} aria-label="Archive task" title="Archive">
+            <Archive size={16} aria-hidden="true" />
+          </button>
+          <button type="button" className="icon-button danger" onClick={() => onDelete(task)} aria-label="Delete task" title="Delete">
+            <Trash2 size={16} aria-hidden="true" />
+          </button>
+        </div>
       </div>
     </div>
   );

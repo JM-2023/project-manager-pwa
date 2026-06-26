@@ -14,6 +14,7 @@ export function ProjectsPage(props: TaskPageProps) {
     onUpdateTask,
     onArchiveTask,
     onDeleteTask,
+    onCreateProject,
     onArchiveProject
   } = props;
 
@@ -37,6 +38,7 @@ export function ProjectsPage(props: TaskPageProps) {
         tasks={tasks}
         selectedProjectId={selectedProjectId}
         onSelect={(projectId) => onFiltersChange({ projectId })}
+        onCreate={onCreateProject}
         onArchive={onArchiveProject}
       />
       <TaskComposer

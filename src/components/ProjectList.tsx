@@ -39,7 +39,18 @@ export function ProjectList({ projects, tasks, selectedProjectId, onSelect, onCr
     <section className="project-list">
       {onCreate ? (
         <div className="project-create">
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="New project" aria-label="New project name" />
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                createProject();
+              }
+            }}
+            placeholder="New project"
+            aria-label="New project name"
+          />
           <button type="button" onClick={createProject} aria-label="Create project">
             <Plus size={18} aria-hidden="true" />
           </button>

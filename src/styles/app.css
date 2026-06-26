@@ -689,6 +689,43 @@ textarea:focus {
   gap: 12px;
 }
 
+/* "Add a row" affordance — appends an inline-editable task */
+.add-row-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 52px;
+  margin-bottom: 14px;
+  padding: 12px;
+  color: var(--primary-dark);
+  font-weight: 700;
+  background: var(--surface);
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--r-md);
+  transition: color var(--t) var(--ease), background var(--t) var(--ease),
+    border-color var(--t) var(--ease), transform var(--t-fast) var(--ease);
+}
+
+.add-row-button svg {
+  transition: transform var(--t) var(--ease-spring);
+}
+
+.add-row-button:hover {
+  border-color: var(--primary);
+  background: var(--primary-tint);
+  transform: translateY(-1px);
+}
+
+.add-row-button:hover svg {
+  transform: rotate(90deg) scale(1.1);
+}
+
+.add-row-button:active {
+  transform: scale(0.99);
+}
+
 .progress-summary {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -821,116 +858,99 @@ textarea:focus {
    ========================================================================= */
 .task-table-wrap {
   width: 100%;
-  overflow-x: auto;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow);
-  -webkit-overflow-scrolling: touch;
+  container-type: inline-size;
+  container-name: tasktable;
   animation: fade-up var(--t-slow) var(--ease) both;
 }
 
 .task-table {
   display: grid;
-  min-width: 1280px;
+  gap: 12px;
+  width: 100%;
 }
 
-.task-table-header,
-.task-table-row {
-  display: grid;
-  grid-template-columns: 86px 148px minmax(230px, 1.2fr) 104px minmax(180px, 0.8fr) minmax(170px, 0.75fr) minmax(180px, 0.8fr) minmax(220px, 1fr);
-  gap: 0;
-  align-items: stretch;
-}
-
-.task-table-header.with-date,
-.task-table-row.with-date {
-  grid-template-columns: 86px 148px minmax(230px, 1.2fr) 104px 128px minmax(180px, 0.8fr) minmax(170px, 0.75fr) minmax(180px, 0.8fr) minmax(220px, 1fr);
-}
-
+/* Header row only carries meaning in the wide spreadsheet layout */
 .task-table-header {
-  position: sticky;
+  display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Card layout (default / narrow screens) — every field stacks full width,
+   labelled, so a task is fully visible with no horizontal scrolling.
+   --------------------------------------------------------------------------- */
+.task-table-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 14px 14px 14px 18px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-sm);
+  animation: fade-up var(--t-slow) var(--ease) both;
+  transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
+}
+
+.task-table-row:hover {
+  box-shadow: var(--shadow);
+}
+
+/* Importance accent bar */
+.task-table-row::before {
+  content: "";
+  position: absolute;
   top: 0;
-  z-index: 1;
+  bottom: 0;
+  left: 0;
+  width: 5px;
+  background: var(--line-strong);
+}
+
+.task-table-row.importance-1::before { background: var(--danger); }
+.task-table-row.importance-2::before { background: var(--rust); }
+.task-table-row.importance-3::before { background: var(--sage); }
+.task-table-row.importance-4::before { background: var(--line-strong); }
+
+.tt-cell {
+  display: grid;
+  gap: 5px;
+  align-content: start;
+  min-width: 0;
+}
+
+.tt-label {
   color: var(--muted);
-  background: var(--table-head-bg);
-  border-bottom: 1px solid var(--line);
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: 0.72rem;
+  font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
-.task-table-header span {
-  min-height: 38px;
-  padding: 12px 9px;
-  border-right: 1px solid var(--line);
-}
-
-.task-table-header span:last-child {
-  border-right: 0;
-}
-
-.task-table-row {
-  min-height: 56px;
-  border-bottom: 1px solid var(--line);
-  transition: background var(--t) var(--ease);
-}
-
-.task-table-row:hover {
-  background: var(--surface-2);
-}
-
-.task-table-row:last-child {
-  border-bottom: 0;
-}
-
-.task-table-row.importance-1 {
-  box-shadow: inset 5px 0 0 var(--danger);
-}
-
-.task-table-row.importance-2 {
-  box-shadow: inset 5px 0 0 var(--rust);
-}
-
-.task-table-row.importance-3 {
-  box-shadow: inset 5px 0 0 var(--sage);
-}
-
-.task-table-row.importance-4 {
-  box-shadow: inset 5px 0 0 var(--line-strong);
-}
-
-.task-table-row select,
-.task-table-row input,
-.task-table-row textarea {
+.tt-cell > select,
+.tt-cell > input,
+.tt-cell > textarea,
+.task-table-note-cell textarea {
   width: 100%;
   min-width: 0;
-  min-height: 56px;
-  padding: 10px 9px;
+  min-height: 44px;
+  padding: 10px 12px;
   color: var(--ink);
-  background-color: transparent;
-  border: 0;
-  border-right: 1px solid var(--line);
-  border-radius: 0;
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease);
-}
-
-.task-table-row select:focus,
-.task-table-row input:focus,
-.task-table-row textarea:focus {
-  position: relative;
-  z-index: 1;
   background-color: var(--field-bg);
-  border-radius: var(--r-xs);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 
-.task-table-row textarea {
+.tt-cell > textarea,
+.task-table-note-cell textarea {
   resize: vertical;
 }
 
-.task-table-title {
+.tt-task .task-table-title {
   font-weight: 700;
+  font-size: 1rem;
 }
 
 /* Progress color tones — shared by slider, bars and rings */
@@ -953,9 +973,6 @@ textarea:focus {
   justify-content: center;
   gap: 7px;
   min-width: 0;
-  min-height: 56px;
-  padding: 9px 11px;
-  border-right: 1px solid var(--line);
 }
 
 .task-table-progress .progress-badge {
@@ -1023,26 +1040,19 @@ textarea:focus {
 
 .task-table-note-cell {
   display: grid;
-  grid-template-columns: minmax(170px, 1fr) 38px 38px;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  gap: 6px;
   align-items: stretch;
   min-width: 0;
 }
 
-.task-table-note-cell textarea {
-  border-right: 1px solid var(--line);
-}
-
 .task-table-note-cell .icon-button {
-  min-width: 38px;
-  min-height: 56px;
+  align-self: stretch;
+  min-width: 44px;
   color: var(--muted);
-  background: transparent;
-  border-radius: 0;
-  border-right: 1px solid var(--line);
-}
-
-.task-table-note-cell .icon-button:last-child {
-  border-right: 0;
+  background: var(--field-bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
 }
 
 .task-table-note-cell .icon-button:hover {
@@ -1055,6 +1065,155 @@ textarea:focus {
 
 .task-table-note-cell .icon-button.danger:hover {
   background: var(--danger-tint);
+}
+
+/* ---------------------------------------------------------------------------
+   Wide spreadsheet layout — aligned columns, sticky header, fits the
+   container width so wide screens are fully used.
+   --------------------------------------------------------------------------- */
+@container tasktable (min-width: 1040px) {
+  .task-table {
+    gap: 0;
+    overflow-x: auto;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow);
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .task-table-header {
+    display: grid;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    grid-template-columns: 60px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
+    color: var(--muted);
+    background: var(--table-head-bg);
+    border-bottom: 1px solid var(--line);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .task-table-header.with-date {
+    grid-template-columns: 60px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
+  }
+
+  .task-table-header span {
+    min-height: 38px;
+    padding: 12px 9px;
+    border-right: 1px solid var(--line);
+  }
+
+  .task-table-header span:last-child {
+    border-right: 0;
+  }
+
+  .task-table-row {
+    display: grid;
+    grid-template-columns: 60px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
+    gap: 0;
+    min-height: 56px;
+    padding: 0;
+    overflow: visible;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+  }
+
+  .task-table-row.with-date {
+    grid-template-columns: 60px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
+  }
+
+  .task-table-row:last-child {
+    border-bottom: 0;
+  }
+
+  .task-table-row:hover {
+    background: var(--surface-2);
+    box-shadow: none;
+  }
+
+  .task-table-row::before {
+    width: 4px;
+    z-index: 1;
+  }
+
+  .tt-label {
+    display: none;
+  }
+
+  .tt-cell {
+    display: flex;
+    gap: 0;
+    border-right: 1px solid var(--line);
+  }
+
+  .tt-notes {
+    border-right: 0;
+  }
+
+  .tt-cell > select,
+  .tt-cell > input,
+  .tt-cell > textarea {
+    min-height: 56px;
+    padding: 10px 9px;
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
+    resize: none;
+  }
+
+  .tt-cell > select:focus,
+  .tt-cell > input:focus,
+  .tt-cell > textarea:focus,
+  .task-table-note-cell textarea:focus {
+    position: relative;
+    z-index: 1;
+    background-color: var(--field-bg);
+    border-radius: var(--r-xs);
+    box-shadow: none;
+  }
+
+  .task-table-progress {
+    width: 100%;
+    min-height: 56px;
+    padding: 9px 11px;
+  }
+
+  .tt-notes .task-table-note-cell {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) 38px 38px;
+    gap: 0;
+  }
+
+  .task-table-note-cell textarea {
+    min-height: 56px;
+    padding: 10px 9px;
+    background-color: transparent;
+    border: 0;
+    border-right: 1px solid var(--line);
+    border-radius: 0;
+    resize: none;
+  }
+
+  .task-table-note-cell .icon-button {
+    min-width: 38px;
+    min-height: 56px;
+    background: transparent;
+    border: 0;
+    border-right: 1px solid var(--line);
+    border-radius: 0;
+  }
+
+  .task-table-note-cell .icon-button:last-child {
+    border-right: 0;
+  }
 }
 
 .composer-project-row {
@@ -1837,7 +1996,7 @@ button.project-row > span {
   }
 
   .page-content {
-    width: min(1280px, 100%);
+    width: min(1680px, 100%);
     padding: calc(24px + env(safe-area-inset-top)) 28px 36px;
   }
 
@@ -1890,10 +2049,6 @@ button.project-row > span {
   .task-list {
     grid-template-columns: repeat(auto-fit, minmax(370px, 1fr));
     align-items: start;
-  }
-
-  .task-table {
-    min-width: 1280px;
   }
 
   .task-card {

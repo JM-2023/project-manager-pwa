@@ -10,22 +10,22 @@ export function ProgressSummary({ summary, label }: ProgressSummaryProps) {
   return (
     <section className="progress-summary" aria-label={label}>
       <div className="summary-hero">
-        <span>核心任务进度</span>
+        <span>加权推进</span>
         <div
-          className={`metric-ring tone-${progressTone(summary.corePercent)}`}
-          style={{ "--pct": `${summary.corePercent}%` } as CSSProperties}
+          className={`metric-ring tone-${progressTone(summary.weightedPercent)}`}
+          style={{ "--pct": `${summary.weightedPercent}%` } as CSSProperties}
           role="img"
-          aria-label={`核心任务进度 ${summary.corePercent}%`}
+          aria-label={`加权推进 ${summary.weightedPercent}%`}
         >
-          <strong>{progressLabel(summary.corePercent)}</strong>
+          <strong>{progressLabel(summary.weightedPercent)}</strong>
         </div>
       </div>
       <div className="summary-meter">
-        <span>加权推进</span>
-        <strong>{progressLabel(summary.weightedPercent)}</strong>
+        <span>核心任务进度</span>
+        <strong>{progressLabel(summary.corePercent)}</strong>
         <span
-          className={`mini-bar tone-${progressTone(summary.weightedPercent)}`}
-          style={{ "--pct": `${summary.weightedPercent}%` } as CSSProperties}
+          className={`mini-bar tone-${progressTone(summary.corePercent)}`}
+          style={{ "--pct": `${summary.corePercent}%` } as CSSProperties}
           aria-hidden="true"
         />
       </div>

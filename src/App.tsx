@@ -190,7 +190,6 @@ export function App() {
         await importRows(CLOUD_EXCEL_FILENAME, rows);
         localStorage.setItem(CLOUD_EXCEL_ETAG_KEY, cloudState.etag);
         await syncNow();
-        scheduleCloudExcelUpload(1500);
       } else {
         localStorage.setItem(CLOUD_EXCEL_ETAG_KEY, cloudState.etag);
       }
@@ -202,7 +201,7 @@ export function App() {
     } finally {
       cloudExcelImporting.current = false;
     }
-  }, [scheduleCloudExcelUpload, syncNow]);
+  }, [syncNow]);
 
   const scheduleSync = useCallback(() => {
     if (syncTimer.current) {

@@ -414,17 +414,19 @@ select {
   gap: 8px;
 }
 
-.today-date-switcher > div {
+.today-title-button {
   display: grid;
   min-width: 0;
   gap: 2px;
+  justify-items: start;
+  text-align: left;
 }
 
-.today-date-switcher h1 {
+.today-title-button h1 {
   line-height: 1;
 }
 
-.today-date-switcher span {
+.today-title-button span {
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 700;
@@ -2299,6 +2301,7 @@ button.project-row > span {
 .add-row-button,
 .keypad button,
 .icon-button,
+.today-title-button,
 .bottom-nav button,
 .project-row > button:first-child,
 button.project-row,
@@ -2367,6 +2370,7 @@ button.project-row,
 .project-create button,
 .tag-input button,
 .icon-button,
+.today-title-button,
 .bottom-nav button,
 .task-action-menu button,
 .offline-banner button {
@@ -2466,6 +2470,16 @@ button.project-row svg,
   --btn-hover-radius: 20px;
 }
 
+.today-title-button {
+  --btn-py: 8px;
+  --btn-px: 12px;
+  --btn-hover-py: 10px;
+  --btn-hover-px: 14px;
+  --btn-radius: 16px;
+  --btn-hover-radius: 20px;
+  padding: var(--btn-py) var(--btn-px);
+}
+
 .task-table-note-cell .icon-button,
 .cache-item .icon-button {
   --btn-py: 8px;
@@ -2540,6 +2554,7 @@ button.project-row {
 }
 
 .bottom-nav button.active,
+.today-title-button.active,
 .quick-status button.active,
 button.project-row.active,
 .project-row.active > button:first-child {
@@ -2576,6 +2591,7 @@ button.project-row.active,
   .add-row-button:hover,
   .keypad button:hover:not(:disabled),
   .icon-button:hover,
+  .today-title-button:hover,
   .bottom-nav button:hover,
   .project-row > button:first-child:hover,
   button.project-row:hover,
@@ -2599,6 +2615,7 @@ button.project-row.active,
   .project-create button:hover,
   .tag-input button:hover,
   .add-row-button:hover,
+  .today-title-button:hover,
   .bottom-nav button:hover,
   .project-row > button:first-child:hover,
   button.project-row:hover,
@@ -2664,6 +2681,7 @@ button.project-row.active,
 .add-row-button:active,
 .keypad button:active:not(:disabled),
 .icon-button:active,
+.today-title-button:active,
 .project-row > button:first-child:active,
 button.project-row:active,
 .bottom-nav button:active,

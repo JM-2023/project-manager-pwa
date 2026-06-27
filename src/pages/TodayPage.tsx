@@ -42,10 +42,16 @@ export function TodayPage(props: TaskPageProps) {
           <button type="button" className="icon-button date-nav-button" onClick={() => setViewDate((date) => addDays(date, -1))} aria-label="Previous day">
             <ChevronLeft size={18} aria-hidden="true" />
           </button>
-          <div>
+          <button
+            type="button"
+            className={`today-title-button${viewDate === today ? " active" : ""}`}
+            onClick={() => setViewDate(today)}
+            aria-label="Return to today"
+            aria-current={viewDate === today ? "date" : undefined}
+          >
             <h1>Today</h1>
             <span>{formatShortDate(viewDate)}</span>
-          </div>
+          </button>
           <button type="button" className="icon-button date-nav-button" onClick={() => setViewDate((date) => addDays(date, 1))} aria-label="Next day">
             <ChevronRight size={18} aria-hidden="true" />
           </button>

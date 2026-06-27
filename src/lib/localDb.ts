@@ -108,6 +108,9 @@ export async function saveBootstrapSnapshot(snapshot: BootstrapResponse): Promis
   const db = await openDb();
   const tx = db.transaction(["projects", "tasks", "tags", "taskTags", "meta"], "readwrite");
 
+  for (const storeName of ["projects", "tasks", "tags", "taskTags"] as const) {
+    tx.objectStore(storeName).clear();
+  }
   for (const project of snapshot.projects) tx.objectStore("projects").put(project);
   for (const task of snapshot.tasks) tx.objectStore("tasks").put(task);
   for (const tag of snapshot.tags) tx.objectStore("tags").put(tag);

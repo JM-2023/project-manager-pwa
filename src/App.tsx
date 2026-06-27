@@ -26,7 +26,7 @@ import {
   saveEntity
 } from "./lib/localDb";
 import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
-import { mergeBootstrap, visibleProjects, visibleTasks } from "./lib/sync";
+import { visibleProjects, visibleTasks } from "./lib/sync";
 import type { BootstrapResponse, ClientMutation, ImportRow, Project, Tag, Task, TaskTag } from "./lib/types";
 import { LoginPage } from "./pages/LoginPage";
 import { NextPage } from "./pages/NextPage";
@@ -134,17 +134,6 @@ function keepaliveBody(clientId: string, groups: PendingMutationGroup[]): Blob |
     selected = selected.slice(Math.ceil(selected.length / 2));
   }
   return null;
-}
-
-function snapshotFromState(state: AppState, serverTime: string): BootstrapResponse {
-  return {
-    serverTime,
-    projects: state.projects,
-    tasks: state.tasks,
-    tags: state.tags,
-    taskTags: state.taskTags,
-    settings: state.settings
-  };
 }
 
 function stateWithBootstrap(state: AppState, snapshot: BootstrapResponse): AppState {
@@ -351,11 +340,6 @@ export function App() {
         dispatch({ type: "setSession", payload: session });
       }
 
-      const pulled = await bootstrap(stateRef.current.lastSync);
-      const merged = mergeBootstrap(snapshotFromState(stateRef.current, pulled.serverTime), pulled);
-      await applyBootstrapSnapshot(merged);
-      shouldUploadCloudExcel = Boolean(excelDirtyAt(merged.settings));
-
       await settlePendingWrites();
       const pending = mergePendingMutations(await getPendingMutations(), pendingMutationsRef.current);
       pendingMutationsRef.current = pending;
@@ -370,11 +354,12 @@ export function App() {
         await removePendingMutations(sourceIdsToRemove);
         forgetPendingMutations(sourceIdsToRemove);
         dispatch({ type: "setConflicts", payload: result.conflicts.length });
-        const refreshed = await bootstrap(null);
-        await applyBootstrapSnapshot(refreshed);
-        shouldUploadCloudExcel = result.applied.length > 0 || Boolean(excelDirtyAt(refreshed.settings));
+        shouldUploadCloudExcel = result.applied.length > 0;
       }
 
+      const refreshed = await bootstrap(null);
+      await applyBootstrapSnapshot(refreshed);
+      shouldUploadCloudExcel = shouldUploadCloudExcel || Boolean(excelDirtyAt(refreshed.settings));
       await updatePendingCount();
       dispatch({ type: "setAuthRequired", payload: false });
       dispatch({ type: "setSyncStatus", payload: "idle" });

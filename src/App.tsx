@@ -43,6 +43,7 @@ const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
 const SYNC_DEBOUNCE_MS = 850;
 const KEEPALIVE_MAX_BYTES = 60_000;
 const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
+const FULL_SYNC_REQUIRED_SETTING_KEY = "full_sync_required_at";
 
 interface PendingMutationGroup {
   mutation: ClientMutation;
@@ -116,6 +117,11 @@ function mergePendingMutations(...lists: ClientMutation[][]): ClientMutation[] {
 
 function excelDirtyAt(settings: Record<string, unknown>): string | null {
   const value = settings[EXCEL_DIRTY_SETTING_KEY];
+  return typeof value === "string" && value ? value : null;
+}
+
+function fullSyncRequiredAt(settings: Record<string, unknown>): string | null {
+  const value = settings[FULL_SYNC_REQUIRED_SETTING_KEY];
   return typeof value === "string" && value ? value : null;
 }
 
@@ -535,8 +541,13 @@ export function App() {
       }
 
       const lastSync = stateRef.current.lastSync;
-      const refreshed = await bootstrap(lastSync);
-      await applyBootstrapSnapshot(refreshed, !lastSync);
+      let refreshed = await bootstrap(lastSync);
+      let replaceMode = !lastSync;
+      if (lastSync && fullSyncRequiredAt(refreshed.settings)) {
+        refreshed = await bootstrap(null);
+        replaceMode = true;
+      }
+      await applyBootstrapSnapshot(refreshed, replaceMode);
       shouldUploadCloudExcel = shouldUploadCloudExcel || Boolean(excelDirtyAt(refreshed.settings));
       await updatePendingCount();
       dispatch({ type: "setAuthRequired", payload: false });

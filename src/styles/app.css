@@ -103,16 +103,17 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     inset 0 -1px 0 rgba(17, 24, 39, 0.04);
   --glass-button-fill:
-    radial-gradient(120% 110% at 18% 0%, rgba(255, 255, 255, 0.90), transparent 58%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.16));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
   --glass-button-hover-fill:
-    radial-gradient(120% 110% at 18% 0%, rgba(255, 255, 255, 0.96), transparent 58%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.22));
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
   --glass-button-border: rgba(17, 24, 39, 0.16);
   --glass-button-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.95),
-    inset 0 -1px 0 rgba(17, 24, 39, 0.05),
-    0 6px 18px rgba(16, 24, 40, 0.07);
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    0 12px 35px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.10);
+  --glass-button-hover-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.20),
+    0 12px 35px rgba(0, 0, 0, 0.16);
 
   background: var(--bg);
   color: var(--ink);
@@ -185,16 +186,17 @@
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
     --glass-button-fill:
-      radial-gradient(120% 110% at 18% 0%, rgba(255, 255, 255, 0.12), transparent 58%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+      linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
     --glass-button-hover-fill:
-      radial-gradient(120% 110% at 18% 0%, rgba(255, 255, 255, 0.16), transparent 58%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+      linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
     --glass-button-border: rgba(255, 255, 255, 0.14);
     --glass-button-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.12),
-      inset 0 -1px 0 rgba(255, 255, 255, 0.04),
-      0 6px 18px rgba(0, 0, 0, 0.20);
+      inset 0 1px 0 rgba(255, 255, 255, 0.20),
+      0 12px 35px rgba(0, 0, 0, 0.25),
+      0 2px 8px rgba(0, 0, 0, 0.15);
+    --glass-button-hover-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.20),
+      0 12px 35px rgba(0, 0, 0, 0.22);
   }
 }
 
@@ -723,12 +725,12 @@ textarea:focus {
 }
 
 .composer-row {
-  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) minmax(122px, 0.9fr) 58px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) minmax(122px, 0.9fr) 76px;
 }
 
 /* Today's composer hides the date input — collapse the empty grid track */
 .composer-row:not(:has(input[type="date"])) {
-  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) 58px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) 76px;
 }
 
 /* =========================================================================
@@ -1340,7 +1342,7 @@ textarea:focus {
 
 .composer-project-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 58px;
+  grid-template-columns: minmax(0, 1fr) 76px;
   gap: 8px;
   margin-top: 8px;
 }
@@ -1635,7 +1637,7 @@ textarea:focus {
 .project-row,
 .project-row button:first-child {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 58px;
+  grid-template-columns: minmax(0, 1fr) 76px;
   gap: 8px;
 }
 
@@ -1855,7 +1857,7 @@ button.project-row > span {
 /* New-note row directly under the project name */
 .cache-add {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 58px;
+  grid-template-columns: minmax(0, 1fr) 76px;
   gap: 8px;
   overflow: visible;
 }
@@ -2544,24 +2546,28 @@ button.project-row > span {
 .keypad button,
 .icon-button,
 .offline-banner button {
-  --btn-py: 9px;
-  --btn-px: 14px;
-  --btn-hover-py: 10px;
-  --btn-hover-px: 18px;
+  --btn-py: 12px;
+  --btn-px: 22px;
+  --btn-hover-py: 14px;
+  --btn-hover-px: 25px;
+  --btn-radius: 20px;
+  --btn-hover-radius: 24px;
   color: var(--ink-soft);
   background: var(--glass-button-fill);
-  border: 1px solid var(--glass-button-border);
-  border-radius: var(--r-sm);
+  border: 1.5px solid var(--glass-button-border);
+  border-radius: var(--btn-radius);
   box-shadow: var(--glass-button-shadow);
   filter: none;
   transform: none;
+  overflow: hidden;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   transition:
-    padding 0.42s var(--spring),
-    border-radius 0.42s var(--spring),
-    background var(--t) var(--ease),
-    color var(--t) var(--ease),
-    border-color var(--t) var(--ease),
-    box-shadow var(--t) var(--ease);
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    padding 0.4s var(--spring),
+    border-radius 0.4s var(--spring);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .primary-button,
@@ -2595,35 +2601,75 @@ button.project-row > span {
 .tag-input button,
 .icon-button,
 .offline-banner button {
-  --btn-py: 9px;
-  --btn-px: 9px;
-  --btn-hover-py: 9px;
-  --btn-hover-px: 13px;
   display: inline-grid;
   place-items: center;
   padding: var(--btn-py) var(--btn-px);
 }
 
+.composer-row button,
+.composer-project-row button,
+.cache-add button,
+.project-create button {
+  width: max-content;
+  min-width: 64px;
+  justify-self: center;
+  align-self: center;
+}
+
 .quick-status button,
 .keypad button {
-  --btn-py: 0px;
-  --btn-px: 0px;
-  --btn-hover-py: var(--btn-py);
-  --btn-hover-px: var(--btn-px);
+  --btn-py: 10px;
+  --btn-px: 12px;
+  --btn-hover-py: 12px;
+  --btn-hover-px: 15px;
+  padding: var(--btn-py) var(--btn-px);
 }
 
 .quick-status button {
   --btn-py: 5px;
   --btn-px: 2px;
+  --btn-hover-py: 7px;
+  --btn-hover-px: 5px;
+}
+
+.keypad button {
+  width: max-content;
+  min-width: 64px;
+  min-height: 54px;
+  justify-self: center;
+  align-self: center;
+  aspect-ratio: auto;
 }
 
 .add-row-button {
-  --btn-py: 12px;
-  --btn-px: 12px;
-  --btn-hover-py: 14px;
-  --btn-hover-px: 18px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 168px;
+  margin-right: auto;
+  margin-left: auto;
   padding: var(--btn-py) var(--btn-px);
   border-style: dashed;
+}
+
+.icon-button,
+.tag-input button,
+.offline-banner button {
+  --btn-py: 10px;
+  --btn-px: 13px;
+  --btn-hover-py: 12px;
+  --btn-hover-px: 16px;
+  --btn-radius: 16px;
+  --btn-hover-radius: 20px;
+}
+
+.task-table-note-cell .icon-button,
+.cache-item .icon-button {
+  --btn-py: 8px;
+  --btn-px: 10px;
+  --btn-hover-py: 10px;
+  --btn-hover-px: 12px;
+  --btn-radius: 12px;
+  --btn-hover-radius: 16px;
 }
 
 .bottom-nav button {
@@ -2632,11 +2678,9 @@ button.project-row > span {
   box-shadow: none;
   transform: none;
   transition:
-    border-radius 0.42s var(--spring),
-    background var(--t) var(--ease),
-    color var(--t) var(--ease),
-    border-color var(--t) var(--ease),
-    box-shadow var(--t) var(--ease);
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    border-radius 0.4s var(--spring);
 }
 
 .bottom-nav button.active,
@@ -2670,13 +2714,9 @@ button.project-row > span {
   .icon-button:hover,
   .offline-banner button:hover {
     padding: var(--btn-hover-py) var(--btn-hover-px);
-    color: var(--ink);
     background: var(--glass-button-hover-fill);
-    border-color: color-mix(in srgb, var(--glass-button-border) 80%, var(--ink) 20%);
-    border-radius: var(--r-md);
-    box-shadow:
-      var(--glass-button-shadow),
-      0 10px 28px rgba(16, 24, 40, 0.08);
+    border-radius: var(--btn-hover-radius);
+    box-shadow: var(--glass-button-hover-shadow);
     filter: none;
     transform: none;
   }
@@ -2697,14 +2737,13 @@ button.project-row > span {
   .icon-button.danger:hover {
     color: var(--danger);
     background: var(--glass-button-hover-fill);
-    border-color: color-mix(in srgb, var(--danger) 35%, var(--glass-button-border) 65%);
   }
 
   .bottom-nav button:hover {
     background: var(--glass-button-fill);
     border-color: var(--glass-button-border);
-    border-radius: var(--r-md);
-    box-shadow: var(--glass-button-shadow);
+    border-radius: 20px;
+    box-shadow: var(--glass-button-hover-shadow);
     transform: none;
   }
 

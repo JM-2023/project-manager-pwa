@@ -2654,6 +2654,7 @@ button.project-row > span {
   margin-right: auto;
   margin-left: auto;
   padding: var(--btn-py) var(--btn-px);
+  border-color: transparent;
 }
 
 .icon-button,
@@ -2678,6 +2679,8 @@ button.project-row > span {
 }
 
 .bottom-nav button {
+  --btn-radius: 16px;
+  --btn-hover-radius: 20px;
   background: transparent;
   border: 1px solid transparent;
   box-shadow: none;
@@ -2720,6 +2723,7 @@ button.project-row > span {
   .offline-banner button:hover {
     padding: var(--btn-hover-py) var(--btn-hover-px);
     background: var(--glass-button-hover-fill);
+    border-color: var(--glass-button-border);
     border-radius: var(--btn-hover-radius);
     box-shadow: var(--glass-button-hover-shadow);
     filter: none;
@@ -2736,12 +2740,14 @@ button.project-row > span {
   .tag-input button:hover,
   .add-row-button:hover {
     color: var(--primary-dark);
+    border-color: transparent;
   }
 
   .ghost-button.danger:hover,
   .icon-button.danger:hover {
     color: var(--danger);
     background: var(--glass-button-hover-fill);
+    border-color: var(--glass-button-border);
   }
 
   .bottom-nav button:hover {
@@ -2791,6 +2797,15 @@ button.project-row > span {
 .icon-button:active,
 .bottom-nav button:active,
 .offline-banner button:active {
+  background: var(--glass-button-fill);
+  border-color: var(--glass-button-border);
+  border-radius: var(--btn-radius);
+  box-shadow: var(--glass-button-shadow);
   filter: none;
   transform: none;
+}
+
+.offline-banner button:active {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.26);
 }

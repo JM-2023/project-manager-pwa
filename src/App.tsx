@@ -27,7 +27,7 @@ import {
 } from "./lib/localDb";
 import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
-import type { BootstrapResponse, ClientMutation, ImportRow, Project, Tag, Task, TaskTag } from "./lib/types";
+import type { BootstrapResponse, ClientMutation, ImportRow, MutationResult, Project, Tag, Task, TaskTag } from "./lib/types";
 import { LoginPage } from "./pages/LoginPage";
 import { NextPage } from "./pages/NextPage";
 import type { TaskPageProps } from "./pages/pageProps";
@@ -149,6 +149,124 @@ function stateWithBootstrap(state: AppState, snapshot: BootstrapResponse): AppSt
   };
 }
 
+function pendingRecordKeys(mutations: ClientMutation[]): Set<string> {
+  const keys = new Set<string>();
+  for (const mutation of mutations) {
+    const key = mutationRecordKey(mutation);
+    if (key) {
+      keys.add(key);
+    }
+  }
+  return keys;
+}
+
+function entityRecordKey(entity: "project" | "task" | "tag", id: string): string {
+  return `${entity}:${id}`;
+}
+
+function mergeRecordsForSync<T extends { id: string; updated_at?: string }>(
+  local: T[],
+  incoming: T[],
+  entity: "project" | "task" | "tag",
+  protectedKeys: Set<string>,
+  replaceMode: boolean
+): T[] {
+  if (replaceMode) {
+    const records = new Map<string, T>();
+    for (const record of incoming) {
+      if (!protectedKeys.has(entityRecordKey(entity, record.id))) {
+        records.set(record.id, record);
+      }
+    }
+    for (const record of local) {
+      if (protectedKeys.has(entityRecordKey(entity, record.id))) {
+        records.set(record.id, record);
+      }
+    }
+    return [...records.values()];
+  }
+
+  const records = new Map(local.map((record) => [record.id, record]));
+  for (const record of incoming) {
+    if (protectedKeys.has(entityRecordKey(entity, record.id))) {
+      continue;
+    }
+    const existing = records.get(record.id);
+    if (!existing || String(record.updated_at ?? "") >= String(existing.updated_at ?? "")) {
+      records.set(record.id, record);
+    }
+  }
+  return [...records.values()];
+}
+
+function mergeTaskTagsForSync(local: TaskTag[], incoming: TaskTag[], protectedKeys: Set<string>, replaceMode: boolean): TaskTag[] {
+  const keyFor = (tag: TaskTag) => `task_tag:${tag.task_id}:${tag.tag_id}`;
+  const records = new Map<string, TaskTag>();
+
+  if (!replaceMode) {
+    for (const tag of local) {
+      records.set(keyFor(tag), tag);
+    }
+  }
+
+  for (const tag of incoming) {
+    const key = keyFor(tag);
+    if (!protectedKeys.has(key)) {
+      records.set(key, tag);
+    }
+  }
+
+  if (replaceMode) {
+    for (const tag of local) {
+      const key = keyFor(tag);
+      if (protectedKeys.has(key)) {
+        records.set(key, tag);
+      }
+    }
+  }
+
+  return [...records.values()];
+}
+
+function mergeSettingsForSync(
+  local: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+  protectedKeys: Set<string>,
+  replaceMode: boolean
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = replaceMode ? {} : { ...local };
+  for (const [key, value] of Object.entries(incoming)) {
+    if (!protectedKeys.has(`setting:${key}`)) {
+      merged[key] = value;
+    }
+  }
+  if (replaceMode) {
+    for (const [key, value] of Object.entries(local)) {
+      if (protectedKeys.has(`setting:${key}`)) {
+        merged[key] = value;
+      }
+    }
+  }
+  return merged;
+}
+
+function mergeBootstrapForLocal(
+  current: Pick<AppState, "projects" | "tasks" | "tags" | "taskTags" | "settings">,
+  snapshot: BootstrapResponse,
+  pendingMutations: ClientMutation[],
+  replaceMode: boolean
+): BootstrapResponse {
+  const protectedKeys = pendingRecordKeys(pendingMutations);
+  return {
+    serverTime: snapshot.serverTime,
+    projects: mergeRecordsForSync(current.projects, snapshot.projects, "project", protectedKeys, replaceMode),
+    tasks: mergeRecordsForSync(current.tasks, snapshot.tasks, "task", protectedKeys, replaceMode),
+    tags: mergeRecordsForSync(current.tags, snapshot.tags, "tag", protectedKeys, replaceMode),
+    taskTags: mergeTaskTagsForSync(current.taskTags, snapshot.taskTags, protectedKeys, replaceMode),
+    settings: mergeSettingsForSync(current.settings, snapshot.settings, protectedKeys, replaceMode)
+  };
+}
+
 function upsertRecord<T extends { id: string }>(records: T[], record: T): T[] {
   const index = records.findIndex((item) => item.id === record.id);
   if (index < 0) {
@@ -213,10 +331,11 @@ export function App() {
     stateRef.current = state;
   }, [state]);
 
-  const applyBootstrapSnapshot = useCallback(async (snapshot: BootstrapResponse) => {
-    stateRef.current = stateWithBootstrap(stateRef.current, snapshot);
-    dispatch({ type: "replaceBootstrap", payload: snapshot });
-    await saveBootstrapSnapshot(snapshot);
+  const applyBootstrapSnapshot = useCallback(async (snapshot: BootstrapResponse, replaceMode: boolean) => {
+    const merged = mergeBootstrapForLocal(stateRef.current, snapshot, pendingMutationsRef.current, replaceMode);
+    stateRef.current = stateWithBootstrap(stateRef.current, merged);
+    dispatch({ type: "replaceBootstrap", payload: merged });
+    await saveBootstrapSnapshot(merged);
   }, []);
 
   const updatePendingCount = useCallback(async () => {
@@ -252,6 +371,63 @@ export function App() {
     const writes = [...pendingWritePromises.current];
     if (writes.length > 0) {
       await Promise.allSettled(writes);
+    }
+  }, []);
+
+  const applyMutationMetadata = useCallback(async (applied: MutationResult[], sentGroups: PendingMutationGroup[]) => {
+    if (applied.length === 0) {
+      return;
+    }
+
+    const groupByMutationId = new Map(sentGroups.map((group) => [group.mutation.id, group]));
+    const protectedKeys = pendingRecordKeys(pendingMutationsRef.current);
+    const saves: Promise<void>[] = [];
+
+    for (const result of applied) {
+      const group = groupByMutationId.get(result.id);
+      const key = group ? mutationRecordKey(group.mutation) : null;
+      if (key && protectedKeys.has(key)) {
+        continue;
+      }
+
+      if (result.entity === "task") {
+        const existing = stateRef.current.tasks.find((task) => task.id === result.recordId);
+        if (!existing) continue;
+        const next = {
+          ...existing,
+          version: result.version ?? existing.version,
+          updated_at: result.updated_at ?? existing.updated_at
+        };
+        stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, next) };
+        dispatch({ type: "upsertTask", payload: next });
+        saves.push(saveEntity("tasks", next));
+      } else if (result.entity === "project") {
+        const existing = stateRef.current.projects.find((project) => project.id === result.recordId);
+        if (!existing) continue;
+        const next = {
+          ...existing,
+          version: result.version ?? existing.version,
+          updated_at: result.updated_at ?? existing.updated_at
+        };
+        stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
+        dispatch({ type: "upsertProject", payload: next });
+        saves.push(saveEntity("projects", next));
+      } else if (result.entity === "tag") {
+        const existing = stateRef.current.tags.find((tag) => tag.id === result.recordId);
+        if (!existing) continue;
+        const next = {
+          ...existing,
+          version: result.version ?? existing.version,
+          updated_at: result.updated_at ?? existing.updated_at
+        };
+        stateRef.current = { ...stateRef.current, tags: upsertRecord(stateRef.current.tags, next) };
+        dispatch({ type: "upsertTag", payload: next });
+        saves.push(saveEntity("tags", next));
+      }
+    }
+
+    if (saves.length > 0) {
+      await Promise.all(saves);
     }
   }, []);
 
@@ -353,12 +529,14 @@ export function App() {
         const sourceIdsToRemove = pendingGroups.flatMap((group) => (appliedIds.has(group.mutation.id) ? group.sourceIds : []));
         await removePendingMutations(sourceIdsToRemove);
         forgetPendingMutations(sourceIdsToRemove);
+        await applyMutationMetadata(result.applied, pendingGroups);
         dispatch({ type: "setConflicts", payload: result.conflicts.length });
         shouldUploadCloudExcel = result.applied.length > 0;
       }
 
-      const refreshed = await bootstrap(null);
-      await applyBootstrapSnapshot(refreshed);
+      const lastSync = stateRef.current.lastSync;
+      const refreshed = await bootstrap(lastSync);
+      await applyBootstrapSnapshot(refreshed, !lastSync);
       shouldUploadCloudExcel = shouldUploadCloudExcel || Boolean(excelDirtyAt(refreshed.settings));
       await updatePendingCount();
       dispatch({ type: "setAuthRequired", payload: false });
@@ -382,7 +560,7 @@ export function App() {
         window.setTimeout(() => void syncNow(), 0);
       }
     }
-  }, [applyBootstrapSnapshot, clientId, forgetPendingMutations, scheduleCloudExcelUpload, settlePendingWrites, updatePendingCount]);
+  }, [applyBootstrapSnapshot, applyMutationMetadata, clientId, forgetPendingMutations, scheduleCloudExcelUpload, settlePendingWrites, updatePendingCount]);
 
   const importCloudExcelIfNeeded = useCallback(async () => {
     if (cloudExcelImporting.current || !stateRef.current.session?.features.excelAutosync) {

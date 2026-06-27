@@ -82,6 +82,13 @@ function isStaleTextConflict(mutation: IncomingMutation, existing: Record<string
   return false;
 }
 
+function taskTitle(value: unknown, existing: Record<string, unknown> | null): string {
+  if (typeof value === "string") {
+    return value.trim();
+  }
+  return String(existing?.title ?? "");
+}
+
 async function findExisting(context: AppContext, user: AuthUser, mutation: IncomingMutation): Promise<Record<string, unknown> | null> {
   const id = String(mutation.data.id ?? mutation.data.task_id ?? "");
   if (mutation.entity === "task_tag") {
@@ -179,7 +186,7 @@ async function applyTask(context: AppContext, user: AuthUser, mutation: Incoming
       id,
       user.id,
       nullableText(data.project_id),
-      nullableText(data.title) ?? "Untitled task",
+      taskTitle(data.title, existing),
       nullableText(data.description),
       normalizeStatus(data.status),
       normalizePriority(data.priority),

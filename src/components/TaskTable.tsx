@@ -68,20 +68,41 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
   const [progress, setProgress] = useState<TaskProgress>(getTaskProgress(task));
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const previousTaskRef = useRef(task);
 
   useEffect(() => {
-    setTitle(task.title);
-    setOutput(worklogOutput(task));
-    setBlocker(worklogBlocker(task));
-    setNextAction(task.next_action ?? "");
-    setNotes(task.notes ?? "");
-    setProgress(getTaskProgress(task));
-  }, [task.id, task.title, task.next_action, task.notes, task.extra_json, task.status]);
+    const previous = previousTaskRef.current;
+    const nextOutput = worklogOutput(task);
+    const nextBlocker = worklogBlocker(task);
+    const nextProgress = getTaskProgress(task);
+
+    if (task.id !== previous.id) {
+      setTitle(task.title);
+      setOutput(nextOutput);
+      setBlocker(nextBlocker);
+      setNextAction(task.next_action ?? "");
+      setNotes(task.notes ?? "");
+      setProgress(nextProgress);
+      previousTaskRef.current = task;
+      return;
+    }
+
+    const previousOutput = worklogOutput(previous);
+    const previousBlocker = worklogBlocker(previous);
+    const previousProgress = getTaskProgress(previous);
+    setTitle((current) => (current === previous.title ? task.title : current));
+    setOutput((current) => (current === previousOutput ? nextOutput : current));
+    setBlocker((current) => (current === previousBlocker ? nextBlocker : current));
+    setNextAction((current) => (current === (previous.next_action ?? "") ? task.next_action ?? "" : current));
+    setNotes((current) => (current === (previous.notes ?? "") ? task.notes ?? "" : current));
+    setProgress((current) => (current === previousProgress ? nextProgress : current));
+    previousTaskRef.current = task;
+  }, [task]);
 
   const commitText = useCallback(() => {
     const changes: Partial<Task> = {};
     const extra = parseTaskExtra(task);
-    if (title.trim() && title.trim() !== task.title) changes.title = title.trim();
+    if (title.trim() !== task.title) changes.title = title.trim();
     if (output !== worklogOutput(task)) extra.daily_output = output || undefined;
     if (blocker !== worklogBlocker(task)) extra.blocker = blocker || undefined;
     if (nextAction !== (task.next_action ?? "")) changes.next_action = nextAction || null;
@@ -101,7 +122,7 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
 
   useEffect(() => {
     const changed =
-      (title.trim() && title.trim() !== task.title) ||
+      title.trim() !== task.title ||
       output !== worklogOutput(task) ||
       blocker !== worklogBlocker(task) ||
       nextAction !== (task.next_action ?? "") ||

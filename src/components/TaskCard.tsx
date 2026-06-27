@@ -1,5 +1,5 @@
 import { Archive, Ban, CheckCircle2, Circle, Clock3, Hourglass, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DatePicker } from "./DatePicker";
 import { StatusPill } from "./StatusPill";
 import type { Tag, Task, TaskPriority, TaskStatus, TaskTag } from "../lib/types";
@@ -30,12 +30,23 @@ export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchiv
   const [nextAction, setNextAction] = useState(task.next_action ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
   const [tagName, setTagName] = useState("");
+  const previousTaskRef = useRef(task);
 
   useEffect(() => {
-    setTitle(task.title);
-    setNextAction(task.next_action ?? "");
-    setNotes(task.notes ?? "");
-  }, [task.id, task.title, task.next_action, task.notes]);
+    const previous = previousTaskRef.current;
+    if (task.id !== previous.id) {
+      setTitle(task.title);
+      setNextAction(task.next_action ?? "");
+      setNotes(task.notes ?? "");
+      previousTaskRef.current = task;
+      return;
+    }
+
+    setTitle((current) => (current === previous.title ? task.title : current));
+    setNextAction((current) => (current === (previous.next_action ?? "") ? task.next_action ?? "" : current));
+    setNotes((current) => (current === (previous.notes ?? "") ? task.notes ?? "" : current));
+    previousTaskRef.current = task;
+  }, [task]);
 
   const attachedTags = useMemo(() => {
     const tagIds = new Set(taskTags.filter((link) => link.task_id === task.id && !link.deleted_at).map((link) => link.tag_id));
@@ -44,7 +55,7 @@ export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchiv
 
   function commitText() {
     const changes: Partial<Task> = {};
-    if (title.trim() && title.trim() !== task.title) changes.title = title.trim();
+    if (title.trim() !== task.title) changes.title = title.trim();
     if (nextAction !== (task.next_action ?? "")) changes.next_action = nextAction || null;
     if (notes !== (task.notes ?? "")) changes.notes = notes || null;
     if (Object.keys(changes).length > 0) {

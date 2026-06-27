@@ -5,6 +5,7 @@ import type { AppContext } from "./_utils/types";
 
 const LATEST_EXCEL_KEY = "latest/project-manager-latest.xlsx";
 const D1_EXCEL_STATE_KEY = "cloud_excel_latest";
+const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
 const EXCEL_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 interface D1ExcelState {
@@ -206,6 +207,8 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
       .bind(user.id, D1_EXCEL_STATE_KEY, JSON.stringify(state), timestamp)
       .run();
   }
+
+  await context.env.DB.prepare("DELETE FROM app_settings WHERE user_id = ? AND key = ?").bind(user.id, EXCEL_DIRTY_SETTING_KEY).run();
 
   return json({
     ok: true,

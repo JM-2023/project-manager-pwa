@@ -1,5 +1,14 @@
 import { Archive, Trash2 } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type TextareaHTMLAttributes } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type TextareaHTMLAttributes
+} from "react";
 import type { Project, Task } from "../lib/types";
 import {
   getTaskImportance,
@@ -66,7 +75,7 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
     setProgress(getTaskProgress(task));
   }, [task.id, task.title, task.next_action, task.notes, task.extra_json, task.status]);
 
-  function commitText() {
+  const commitText = useCallback(() => {
     const changes: Partial<Task> = {};
     const extra = parseTaskExtra(task);
     if (title.trim() && title.trim() !== task.title) changes.title = title.trim();
@@ -79,7 +88,47 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
     if (Object.keys(changes).length > 0) {
       onUpdate(task, changes);
     }
-  }
+  }, [blocker, nextAction, notes, onUpdate, output, task, title]);
+
+  const commitTextRef = useRef(commitText);
+
+  useEffect(() => {
+    commitTextRef.current = commitText;
+  }, [commitText]);
+
+  useEffect(() => {
+    const changed =
+      (title.trim() && title.trim() !== task.title) ||
+      output !== worklogOutput(task) ||
+      blocker !== worklogBlocker(task) ||
+      nextAction !== (task.next_action ?? "") ||
+      notes !== (task.notes ?? "");
+    if (!changed) {
+      return;
+    }
+    const timer = window.setTimeout(() => commitTextRef.current(), 1200);
+    return () => window.clearTimeout(timer);
+  }, [blocker, nextAction, notes, output, task, title]);
+
+  useEffect(() => {
+    function flushDraft() {
+      commitTextRef.current();
+    }
+    function flushWhenHidden() {
+      if (document.visibilityState === "hidden") {
+        flushDraft();
+      }
+    }
+
+    document.addEventListener("visibilitychange", flushWhenHidden);
+    window.addEventListener("pagehide", flushDraft);
+    window.addEventListener("beforeunload", flushDraft);
+    return () => {
+      document.removeEventListener("visibilitychange", flushWhenHidden);
+      window.removeEventListener("pagehide", flushDraft);
+      window.removeEventListener("beforeunload", flushDraft);
+    };
+  }, []);
 
   function updateImportance(value: TaskImportance) {
     const extra = parseTaskExtra(task);

@@ -44,6 +44,25 @@ interface Conflict {
   serverRecord?: unknown;
 }
 
+const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
+
+function excelAutosyncEnabled(context: AppContext): boolean {
+  return (context.env.ENABLE_R2_BACKUPS === "true" && Boolean(context.env.BACKUPS)) || context.env.ENABLE_D1_EXCEL_STATE === "true";
+}
+
+async function markExcelDirty(context: AppContext, user: AuthUser, timestamp: string): Promise<void> {
+  if (!excelAutosyncEnabled(context)) {
+    return;
+  }
+  await context.env.DB.prepare(
+    `INSERT INTO app_settings (user_id, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
+  )
+    .bind(user.id, EXCEL_DIRTY_SETTING_KEY, JSON.stringify(timestamp), timestamp)
+    .run();
+}
+
 function isStaleTextConflict(mutation: IncomingMutation, existing: Record<string, unknown> | null): boolean {
   if (!existing || mutation.baseVersion === null || mutation.baseVersion === undefined) {
     return false;
@@ -331,6 +350,10 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
         reason: error instanceof Error ? error.message : "Mutation failed"
       });
     }
+  }
+
+  if (applied.length > 0) {
+    await markExcelDirty(context, user, timestamp);
   }
 
   return json({ ok: true, serverTime: timestamp, applied, conflicts });

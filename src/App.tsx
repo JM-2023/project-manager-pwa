@@ -40,7 +40,9 @@ import { appReducer, initialState, sortedProjects, sortedTasks, type AppState } 
 const PROJECT_COLORS = ["#1f6f68", "#a64b2a", "#5b6c5d", "#3f5f8f", "#7a5c99", "#8a6a23"];
 const CLOUD_EXCEL_ETAG_KEY = "project-manager-cloud-excel-etag";
 const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
-const SYNC_DEBOUNCE_MS = 3000;
+const SYNC_DEBOUNCE_MS = 850;
+const KEEPALIVE_MAX_BYTES = 60_000;
+const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
 
 interface PendingMutationGroup {
   mutation: ClientMutation;
@@ -49,6 +51,10 @@ interface PendingMutationGroup {
 
 function mutationData(mutation: ClientMutation): Record<string, unknown> {
   return mutation.data && typeof mutation.data === "object" ? (mutation.data as Record<string, unknown>) : {};
+}
+
+function mutationCreatedAt(mutation: ClientMutation): string {
+  return String(mutation.createdAt ?? "");
 }
 
 function mutationRecordKey(mutation: ClientMutation): string | null {
@@ -73,7 +79,7 @@ function compactPendingMutations(mutations: ClientMutation[]): PendingMutationGr
     .map((mutation, index) => ({ mutation, index }))
     .sort(
       (left, right) =>
-        String(left.mutation.createdAt ?? "").localeCompare(String(right.mutation.createdAt ?? "")) || left.index - right.index
+        mutationCreatedAt(left.mutation).localeCompare(mutationCreatedAt(right.mutation)) || left.index - right.index
     );
 
   for (const { mutation } of ordered) {
@@ -96,6 +102,38 @@ function compactPendingMutations(mutations: ClientMutation[]): PendingMutationGr
   }
 
   return groups;
+}
+
+function mergePendingMutations(...lists: ClientMutation[][]): ClientMutation[] {
+  const byId = new Map<string, ClientMutation>();
+  for (const list of lists) {
+    for (const mutation of list) {
+      byId.set(mutation.id, mutation);
+    }
+  }
+  return [...byId.values()].sort((left, right) => mutationCreatedAt(left).localeCompare(mutationCreatedAt(right)));
+}
+
+function excelDirtyAt(settings: Record<string, unknown>): string | null {
+  const value = settings[EXCEL_DIRTY_SETTING_KEY];
+  return typeof value === "string" && value ? value : null;
+}
+
+function keepaliveBody(clientId: string, groups: PendingMutationGroup[]): Blob | null {
+  let selected = groups;
+  while (selected.length > 0) {
+    const payload = JSON.stringify({
+      clientId,
+      flush: true,
+      mutations: selected.map((group) => group.mutation)
+    });
+    const blob = new Blob([payload], { type: "application/json" });
+    if (blob.size <= KEEPALIVE_MAX_BYTES) {
+      return blob;
+    }
+    selected = selected.slice(Math.ceil(selected.length / 2));
+  }
+  return null;
 }
 
 function snapshotFromState(state: AppState, serverTime: string): BootstrapResponse {
@@ -133,8 +171,11 @@ export function App() {
   const syncInFlight = useRef(false);
   const syncAgainAfterCurrent = useRef(false);
   const excelUploadTimer = useRef<number | null>(null);
+  const excelUploadInFlight = useRef(false);
   const cloudExcelChecked = useRef(false);
   const cloudExcelImporting = useRef(false);
+  const pendingMutationsRef = useRef<ClientMutation[]>([]);
+  const pendingWritePromises = useRef<Set<Promise<void>>>(new Set());
   const clientId = useMemo(() => getOrCreateClientId(), []);
 
   useEffect(() => {
@@ -142,10 +183,39 @@ export function App() {
   }, [state]);
 
   const updatePendingCount = useCallback(async () => {
-    const pending = await getPendingMutations();
-    const compactedCount = compactPendingMutations(pending).length;
+    const persisted = await getPendingMutations();
+    pendingMutationsRef.current = mergePendingMutations(persisted, pendingMutationsRef.current);
+    const compactedCount = compactPendingMutations(pendingMutationsRef.current).length;
     dispatch({ type: "setPendingCount", payload: compactedCount });
-    return pending;
+    return pendingMutationsRef.current;
+  }, []);
+
+  const rememberPendingMutation = useCallback((mutation: ClientMutation) => {
+    pendingMutationsRef.current = mergePendingMutations(pendingMutationsRef.current, [mutation]);
+    dispatch({ type: "setPendingCount", payload: compactPendingMutations(pendingMutationsRef.current).length });
+  }, []);
+
+  const forgetPendingMutations = useCallback((ids: string[]) => {
+    if (ids.length === 0) {
+      return;
+    }
+    const removed = new Set(ids);
+    pendingMutationsRef.current = pendingMutationsRef.current.filter((mutation) => !removed.has(mutation.id));
+    dispatch({ type: "setPendingCount", payload: compactPendingMutations(pendingMutationsRef.current).length });
+  }, []);
+
+  const trackPendingWrite = useCallback((promise: Promise<void>) => {
+    pendingWritePromises.current.add(promise);
+    void promise.finally(() => {
+      pendingWritePromises.current.delete(promise);
+    });
+  }, []);
+
+  const settlePendingWrites = useCallback(async () => {
+    const writes = [...pendingWritePromises.current];
+    if (writes.length > 0) {
+      await Promise.allSettled(writes);
+    }
   }, []);
 
   const scheduleCloudExcelUpload = useCallback((delayMs = 5000) => {
@@ -160,6 +230,11 @@ export function App() {
     }
 
     excelUploadTimer.current = window.setTimeout(async () => {
+      if (excelUploadInFlight.current) {
+        scheduleCloudExcelUpload(delayMs);
+        return;
+      }
+      excelUploadInFlight.current = true;
       try {
         const data = await getExportData();
         const { workbookBlob } = await import("./lib/excelExport");
@@ -172,9 +247,33 @@ export function App() {
           type: "setError",
           payload: error instanceof Error ? `Cloud Excel sync failed: ${error.message}` : "Cloud Excel sync failed"
         });
+      } finally {
+        excelUploadInFlight.current = false;
       }
     }, delayMs);
   }, []);
+
+  const flushPendingWithKeepalive = useCallback(() => {
+    if (!navigator.onLine || !stateRef.current.session || pendingMutationsRef.current.length === 0) {
+      return;
+    }
+
+    const body = keepaliveBody(clientId, compactPendingMutations(pendingMutationsRef.current));
+    if (!body) {
+      return;
+    }
+
+    if (navigator.sendBeacon?.("/api/mutations", body)) {
+      return;
+    }
+
+    void fetch("/api/mutations", {
+      method: "POST",
+      body,
+      credentials: "same-origin",
+      keepalive: true
+    }).catch(() => undefined);
+  }, [clientId]);
 
   const syncNow = useCallback(async () => {
     if (syncTimer.current) {
@@ -208,8 +307,11 @@ export function App() {
       const merged = mergeBootstrap(snapshotFromState(stateRef.current, pulled.serverTime), pulled);
       dispatch({ type: "applyBootstrap", payload: merged });
       await saveBootstrapSnapshot(merged);
+      shouldUploadCloudExcel = Boolean(excelDirtyAt(merged.settings));
 
-      const pending = await getPendingMutations();
+      await settlePendingWrites();
+      const pending = mergePendingMutations(await getPendingMutations(), pendingMutationsRef.current);
+      pendingMutationsRef.current = pending;
       const pendingGroups = compactPendingMutations(pending);
       if (pendingGroups.length > 0) {
         const result = await sendMutations(
@@ -219,11 +321,12 @@ export function App() {
         const appliedIds = new Set(result.applied.map((item) => item.id));
         const sourceIdsToRemove = pendingGroups.flatMap((group) => (appliedIds.has(group.mutation.id) ? group.sourceIds : []));
         await removePendingMutations(sourceIdsToRemove);
+        forgetPendingMutations(sourceIdsToRemove);
         dispatch({ type: "setConflicts", payload: result.conflicts.length });
         const refreshed = await bootstrap(null);
         dispatch({ type: "applyBootstrap", payload: refreshed });
         await saveBootstrapSnapshot(refreshed);
-        shouldUploadCloudExcel = result.applied.length > 0;
+        shouldUploadCloudExcel = result.applied.length > 0 || Boolean(excelDirtyAt(refreshed.settings));
       }
 
       await updatePendingCount();
@@ -248,7 +351,7 @@ export function App() {
         window.setTimeout(() => void syncNow(), 0);
       }
     }
-  }, [clientId, scheduleCloudExcelUpload, updatePendingCount]);
+  }, [clientId, forgetPendingMutations, scheduleCloudExcelUpload, settlePendingWrites, updatePendingCount]);
 
   const importCloudExcelIfNeeded = useCallback(async () => {
     if (cloudExcelImporting.current || !stateRef.current.session?.features.excelAutosync) {
@@ -321,6 +424,7 @@ export function App() {
 
         const local = await loadLocalSnapshot();
         if (cancelled) return;
+        pendingMutationsRef.current = local.pendingMutations;
         const payload = {
           projects: local.projects,
           tasks: local.tasks,
@@ -377,9 +481,37 @@ export function App() {
     };
   }, [syncNow]);
 
-  async function persistMutation(mutation: ClientMutation) {
-    await queueMutation({ ...mutation, createdAt: nowIso() });
-    await updatePendingCount();
+  useEffect(() => {
+    function flushAfterCurrentEvent() {
+      queueMicrotask(() => flushPendingWithKeepalive());
+    }
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        flushAfterCurrentEvent();
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", flushAfterCurrentEvent);
+    window.addEventListener("beforeunload", flushAfterCurrentEvent);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", flushAfterCurrentEvent);
+      window.removeEventListener("beforeunload", flushAfterCurrentEvent);
+    };
+  }, [flushPendingWithKeepalive]);
+
+  function persistMutation(mutation: ClientMutation) {
+    const queuedMutation = { ...mutation, createdAt: nowIso() };
+    rememberPendingMutation(queuedMutation);
+    trackPendingWrite(
+      queueMutation(queuedMutation)
+        .then(() => updatePendingCount())
+        .then(() => undefined)
+        .catch((error) => {
+          dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Local save failed" });
+        })
+    );
     scheduleSync();
   }
 
@@ -537,6 +669,7 @@ export function App() {
     dispatch({ type: "setAuthRequired", payload: false });
     stateRef.current = { ...stateRef.current, session, authRequired: false };
     const local = await loadLocalSnapshot();
+    pendingMutationsRef.current = local.pendingMutations;
     const payload = {
       projects: local.projects,
       tasks: local.tasks,

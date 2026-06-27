@@ -1186,6 +1186,20 @@ textarea:focus {
     resize: vertical;
   }
 
+  /* The Date column is narrow, so the native calendar picker indicator would
+     otherwise overlap the day and clip the last digit ("2026/06/2▯"). Tighten
+     the text and the indicator so the full date and the icon fit side by side. */
+  .tt-date > input[type="date"] {
+    padding-left: 7px;
+    padding-right: 4px;
+    font-size: 0.82rem;
+  }
+
+  .tt-date > input[type="date"]::-webkit-calendar-picker-indicator {
+    margin-left: 1px;
+    padding: 2px 0;
+  }
+
   .tt-cell > select:focus,
   .tt-cell > input:focus,
   .tt-cell > textarea:focus,

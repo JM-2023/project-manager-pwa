@@ -91,10 +91,15 @@
   --t-slow: 0.28s;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
-  /* Liquid-glass surface (no backdrop sampling — nothing behind the glass) */
-  --glass-fill: linear-gradient(160deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.72) 100%);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  /* Signature liquid-glass "swell" — overshoots then settles */
+  --spring: cubic-bezier(0.175, 0.885, 0.32, 2.2);
+  /* Liquid-glass surface (no backdrop sampling — nothing behind the glass):
+     a top-left specular sheen over a translucent tint, plus a light rim. */
+  --glass-fill:
+    radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.55), transparent 55%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.70) 100%);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
 
   background: var(--bg);
   color: var(--ink);
@@ -161,9 +166,11 @@
     --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.45);
     --shadow-primary: 0 4px 12px rgba(129, 140, 248, 0.30);
 
-    --glass-fill: linear-gradient(160deg, rgba(35, 39, 51, 0.82) 0%, rgba(24, 27, 35, 0.72) 100%);
-    --glass-border: rgba(255, 255, 255, 0.08);
-    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --glass-fill:
+      radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.07), transparent 55%),
+      linear-gradient(160deg, rgba(35, 39, 51, 0.82) 0%, rgba(24, 27, 35, 0.72) 100%);
+    --glass-border: rgba(255, 255, 255, 0.10);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -264,6 +271,11 @@ select {
 
 @keyframes slide-down {
   from { opacity: 0; transform: translateY(-100%); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.96); }
   to { opacity: 1; transform: none; }
 }
 
@@ -432,22 +444,40 @@ select {
    Offline / sync banner
    ========================================================================= */
 .offline-banner {
-  position: sticky;
-  top: 0;
-  z-index: 9;
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: calc(8px + env(safe-area-inset-top)) 14px 8px;
+  width: min(360px, calc(100vw - 24px));
+  min-height: 48px;
+  padding: 9px 10px 9px 13px;
   color: #fff;
   background: linear-gradient(180deg, color-mix(in srgb, var(--warning) 92%, #000 8%), var(--warning));
-  box-shadow: var(--shadow-sm);
-  animation: slide-down var(--t) var(--ease) both;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lg);
+  animation: toast-in var(--t) var(--ease) both;
+  transform-origin: top right;
 }
 
 .offline-banner.offline {
   background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 92%, #000 8%), var(--danger));
+}
+
+.offline-banner.error {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 92%, #000 8%), var(--danger));
+}
+
+.offline-banner.syncing {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 92%, #000 8%), var(--primary));
+}
+
+.offline-banner.queued {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--warning) 92%, #000 8%), var(--warning));
 }
 
 .offline-banner div {
@@ -460,6 +490,10 @@ select {
 .offline-banner div svg {
   flex: none;
   animation: pulse-dot 2.2s var(--ease) infinite;
+}
+
+.offline-banner.syncing div svg {
+  animation: spin 1s linear infinite;
 }
 
 .offline-banner span {
@@ -492,6 +526,25 @@ select {
 
 .offline-banner button:active svg {
   animation: spin 0.7s var(--ease);
+}
+
+@media (max-width: 640px) {
+  .offline-banner {
+    top: max(10px, env(safe-area-inset-top));
+    right: max(10px, env(safe-area-inset-right));
+    width: min(320px, calc(100vw - 20px));
+    min-height: 44px;
+    padding: 8px 9px 8px 12px;
+  }
+
+  .offline-banner span {
+    font-size: 0.82rem;
+  }
+
+  .offline-banner button {
+    min-width: 34px;
+    min-height: 34px;
+  }
 }
 
 /* Neutral icon button (lists, table cells) */
@@ -2429,4 +2482,120 @@ button.project-row > span {
   font-size: 0.82rem;
   font-weight: 600;
   text-align: center;
+}
+
+/* =========================================================================
+   Liquid-glass buttons — every button becomes a light-catching glass chip
+   (rim + inner highlight + top sheen) and gains the signature springy
+   "swell" on hover plus a tactile press. No backdrop sampling: the glass is
+   built from gradients and borders only.
+   ========================================================================= */
+
+/* Filled accent actions — glassy sheen layered over the indigo gradient.
+   (This also restyles the previously plain Projects "New project" + button.) */
+.primary-button,
+.composer-row button,
+.composer-project-row button,
+.cache-add button,
+.project-create button,
+.tag-input button {
+  color: var(--primary-ink);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 48%),
+    var(--accent-grad);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: var(--glass-highlight), var(--shadow-primary);
+}
+
+/* Light / subtle actions — frosted-glass chips */
+.secondary-button,
+.ghost-button,
+.file-picker,
+.add-row-button {
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow-sm);
+}
+.secondary-button { color: var(--primary-dark); }
+.file-picker { color: var(--primary-dark); }
+.ghost-button { color: var(--ink-soft); }
+.ghost-button.danger { color: var(--danger); }
+.add-row-button { color: var(--primary-dark); border-style: dashed; }
+
+/* Shared spring motion */
+.primary-button,
+.secondary-button,
+.ghost-button,
+.file-picker,
+.tag-input button,
+.composer-row button,
+.composer-project-row button,
+.cache-add button,
+.project-create button,
+.add-row-button,
+.keypad button,
+.icon-button,
+.offline-banner button {
+  transition:
+    transform 0.42s var(--spring),
+    border-radius 0.42s var(--spring),
+    background var(--t) var(--ease),
+    color var(--t) var(--ease),
+    border-color var(--t) var(--ease),
+    box-shadow var(--t) var(--ease),
+    filter var(--t) var(--ease);
+  will-change: transform;
+}
+
+/* Hover = the glass chip swells & rounds (pointer devices only) */
+@media (hover: hover) {
+  .primary-button:hover,
+  .secondary-button:hover,
+  .ghost-button:hover,
+  .file-picker:hover,
+  .tag-input button:hover,
+  .composer-row button:hover,
+  .composer-project-row button:hover,
+  .cache-add button:hover,
+  .project-create button:hover,
+  .add-row-button:hover,
+  .keypad button:hover:not(:disabled),
+  .icon-button:hover {
+    transform: scale(1.06);
+    filter: brightness(1.05);
+  }
+
+  /* Icon eases down as the chip springs out — the signature detail */
+  .primary-button:hover svg,
+  .secondary-button:hover svg,
+  .ghost-button:hover svg,
+  .tag-input button:hover svg,
+  .composer-project-row button:hover svg {
+    transform: scale(0.9);
+  }
+}
+
+/* Tactile press everywhere (covers touch, which has no hover) */
+.primary-button:active,
+.secondary-button:active,
+.ghost-button:active,
+.file-picker:active,
+.tag-input button:active,
+.composer-row button:active,
+.composer-project-row button:active,
+.cache-add button:active,
+.project-create button:active,
+.add-row-button:active,
+.keypad button:active:not(:disabled),
+.icon-button:active {
+  transform: scale(0.94);
+}
+
+/* The Projects "New project" + was never given button base styles — fix it. */
+.project-create button {
+  display: inline-grid;
+  place-items: center;
+  min-height: 44px;
+  padding: 0;
+  border-radius: var(--r-sm);
 }

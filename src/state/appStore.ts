@@ -3,7 +3,7 @@ import { visibleProjects, visibleTasks } from "../lib/sync";
 import { priorityScore } from "../lib/validation";
 
 export type TabId = "today" | "projects" | "next" | "search" | "settings";
-export type SyncStatus = "idle" | "loading" | "syncing" | "offline" | "error";
+export type SyncStatus = "idle" | "loading" | "queued" | "syncing" | "offline" | "error";
 
 export interface Filters {
   search: string;

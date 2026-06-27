@@ -40,6 +40,63 @@ import { appReducer, initialState, sortedProjects, sortedTasks, type AppState } 
 const PROJECT_COLORS = ["#1f6f68", "#a64b2a", "#5b6c5d", "#3f5f8f", "#7a5c99", "#8a6a23"];
 const CLOUD_EXCEL_ETAG_KEY = "project-manager-cloud-excel-etag";
 const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
+const SYNC_DEBOUNCE_MS = 3000;
+
+interface PendingMutationGroup {
+  mutation: ClientMutation;
+  sourceIds: string[];
+}
+
+function mutationData(mutation: ClientMutation): Record<string, unknown> {
+  return mutation.data && typeof mutation.data === "object" ? (mutation.data as Record<string, unknown>) : {};
+}
+
+function mutationRecordKey(mutation: ClientMutation): string | null {
+  const data = mutationData(mutation);
+  if (mutation.entity === "task_tag") {
+    const taskId = data.task_id ? String(data.task_id) : "";
+    const tagId = data.tag_id ? String(data.tag_id) : "";
+    return taskId && tagId ? `${mutation.entity}:${taskId}:${tagId}` : null;
+  }
+  if (mutation.entity === "setting") {
+    const key = data.key ?? data.id;
+    return key ? `${mutation.entity}:${String(key)}` : null;
+  }
+  const id = data.id;
+  return id ? `${mutation.entity}:${String(id)}` : null;
+}
+
+function compactPendingMutations(mutations: ClientMutation[]): PendingMutationGroup[] {
+  const groups: PendingMutationGroup[] = [];
+  const groupByRecord = new Map<string, PendingMutationGroup>();
+  const ordered = mutations
+    .map((mutation, index) => ({ mutation, index }))
+    .sort(
+      (left, right) =>
+        String(left.mutation.createdAt ?? "").localeCompare(String(right.mutation.createdAt ?? "")) || left.index - right.index
+    );
+
+  for (const { mutation } of ordered) {
+    const key = mutationRecordKey(mutation);
+    if (!key) {
+      groups.push({ mutation, sourceIds: [mutation.id] });
+      continue;
+    }
+
+    const existing = groupByRecord.get(key);
+    if (!existing) {
+      const group = { mutation, sourceIds: [mutation.id] };
+      groupByRecord.set(key, group);
+      groups.push(group);
+      continue;
+    }
+
+    existing.sourceIds.push(mutation.id);
+    existing.mutation = mutation;
+  }
+
+  return groups;
+}
 
 function snapshotFromState(state: AppState, serverTime: string): BootstrapResponse {
   return {
@@ -73,6 +130,8 @@ export function App() {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const stateRef = useRef(state);
   const syncTimer = useRef<number | null>(null);
+  const syncInFlight = useRef(false);
+  const syncAgainAfterCurrent = useRef(false);
   const excelUploadTimer = useRef<number | null>(null);
   const cloudExcelChecked = useRef(false);
   const cloudExcelImporting = useRef(false);
@@ -84,7 +143,9 @@ export function App() {
 
   const updatePendingCount = useCallback(async () => {
     const pending = await getPendingMutations();
-    dispatch({ type: "setPendingCount", payload: pending.length });
+    const compactedCount = compactPendingMutations(pending).length;
+    dispatch({ type: "setPendingCount", payload: compactedCount });
+    return pending;
   }, []);
 
   const scheduleCloudExcelUpload = useCallback((delayMs = 5000) => {
@@ -116,11 +177,22 @@ export function App() {
   }, []);
 
   const syncNow = useCallback(async () => {
+    if (syncTimer.current) {
+      window.clearTimeout(syncTimer.current);
+      syncTimer.current = null;
+    }
+
     if (!navigator.onLine) {
       dispatch({ type: "setSyncStatus", payload: "offline" });
       return;
     }
+    if (syncInFlight.current) {
+      syncAgainAfterCurrent.current = true;
+      return;
+    }
 
+    syncInFlight.current = true;
+    let canRunQueuedSync = true;
     dispatch({ type: "setSyncStatus", payload: "syncing" });
     dispatch({ type: "setError", payload: null });
 
@@ -138,9 +210,15 @@ export function App() {
       await saveBootstrapSnapshot(merged);
 
       const pending = await getPendingMutations();
-      if (pending.length > 0) {
-        const result = await sendMutations(clientId, pending);
-        await removePendingMutations(result.applied.map((item) => item.id));
+      const pendingGroups = compactPendingMutations(pending);
+      if (pendingGroups.length > 0) {
+        const result = await sendMutations(
+          clientId,
+          pendingGroups.map((group) => group.mutation)
+        );
+        const appliedIds = new Set(result.applied.map((item) => item.id));
+        const sourceIdsToRemove = pendingGroups.flatMap((group) => (appliedIds.has(group.mutation.id) ? group.sourceIds : []));
+        await removePendingMutations(sourceIdsToRemove);
         dispatch({ type: "setConflicts", payload: result.conflicts.length });
         const refreshed = await bootstrap(null);
         dispatch({ type: "applyBootstrap", payload: refreshed });
@@ -156,11 +234,18 @@ export function App() {
       }
     } catch (error) {
       if (error instanceof AuthRequiredError) {
+        canRunQueuedSync = false;
         dispatch({ type: "setAuthRequired", payload: true });
         dispatch({ type: "setSession", payload: null });
       } else {
         dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Sync failed" });
         dispatch({ type: "setSyncStatus", payload: "error" });
+      }
+    } finally {
+      syncInFlight.current = false;
+      if (syncAgainAfterCurrent.current && canRunQueuedSync) {
+        syncAgainAfterCurrent.current = false;
+        window.setTimeout(() => void syncNow(), 0);
       }
     }
   }, [clientId, scheduleCloudExcelUpload, updatePendingCount]);
@@ -205,12 +290,22 @@ export function App() {
   }, [syncNow]);
 
   const scheduleSync = useCallback(() => {
+    if (!navigator.onLine) {
+      dispatch({ type: "setSyncStatus", payload: "offline" });
+      return;
+    }
+    if (syncInFlight.current) {
+      syncAgainAfterCurrent.current = true;
+      return;
+    }
     if (syncTimer.current) {
       window.clearTimeout(syncTimer.current);
     }
+    dispatch({ type: "setSyncStatus", payload: "queued" });
     syncTimer.current = window.setTimeout(() => {
+      syncTimer.current = null;
       void syncNow();
-    }, 1200);
+    }, SYNC_DEBOUNCE_MS);
   }, [syncNow]);
 
   useEffect(() => {
@@ -232,7 +327,7 @@ export function App() {
           tags: local.tags,
           taskTags: local.taskTags,
           settings: local.settings,
-          pendingCount: local.pendingMutations.length,
+          pendingCount: compactPendingMutations(local.pendingMutations).length,
           lastSync: local.lastSync
         };
         dispatch({ type: "hydrateLocal", payload });
@@ -448,7 +543,7 @@ export function App() {
       tags: local.tags,
       taskTags: local.taskTags,
       settings: local.settings,
-      pendingCount: local.pendingMutations.length,
+      pendingCount: compactPendingMutations(local.pendingMutations).length,
       lastSync: local.lastSync
     };
     dispatch({ type: "hydrateLocal", payload });

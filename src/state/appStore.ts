@@ -1,5 +1,5 @@
 import type { BootstrapResponse, Project, SessionResponse, Tag, Task, TaskTag } from "../lib/types";
-import { visibleProjects, visibleTasks } from "../lib/sync";
+import { mergeBootstrap, visibleProjects, visibleTasks } from "../lib/sync";
 import { priorityScore } from "../lib/validation";
 
 export type TabId = "today" | "projects" | "next" | "search" | "settings";
@@ -35,7 +35,8 @@ export interface AppState {
 
 export type AppAction =
   | { type: "hydrateLocal"; payload: Pick<AppState, "projects" | "tasks" | "tags" | "taskTags" | "settings" | "pendingCount" | "lastSync"> }
-  | { type: "applyBootstrap"; payload: BootstrapResponse }
+  | { type: "mergeBootstrap"; payload: BootstrapResponse }
+  | { type: "replaceBootstrap"; payload: BootstrapResponse }
   | { type: "setSession"; payload: SessionResponse | null }
   | { type: "setAuthRequired"; payload: boolean }
   | { type: "setTab"; payload: TabId }
@@ -108,7 +109,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "hydrateLocal":
       return { ...state, ...action.payload };
-    case "applyBootstrap":
+    case "mergeBootstrap": {
+      const merged = mergeBootstrap(state, action.payload);
+      return {
+        ...state,
+        projects: merged.projects,
+        tasks: merged.tasks,
+        tags: merged.tags,
+        taskTags: merged.taskTags,
+        settings: merged.settings,
+        lastSync: merged.serverTime,
+        syncStatus: "idle"
+      };
+    }
+    case "replaceBootstrap":
       return {
         ...state,
         projects: action.payload.projects,

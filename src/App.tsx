@@ -147,6 +147,48 @@ function snapshotFromState(state: AppState, serverTime: string): BootstrapRespon
   };
 }
 
+function stateWithBootstrap(state: AppState, snapshot: BootstrapResponse): AppState {
+  return {
+    ...state,
+    projects: snapshot.projects,
+    tasks: snapshot.tasks,
+    tags: snapshot.tags,
+    taskTags: snapshot.taskTags,
+    settings: snapshot.settings,
+    lastSync: snapshot.serverTime,
+    syncStatus: "idle"
+  };
+}
+
+function upsertRecord<T extends { id: string }>(records: T[], record: T): T[] {
+  const index = records.findIndex((item) => item.id === record.id);
+  if (index < 0) {
+    return [record, ...records];
+  }
+  const next = records.slice();
+  next[index] = record;
+  return next;
+}
+
+function removeRecord<T extends { id: string }>(records: T[], id: string): T[] {
+  return records.filter((item) => item.id !== id);
+}
+
+function taskTagKey(tag: TaskTag): string {
+  return `${tag.task_id}:${tag.tag_id}`;
+}
+
+function upsertTaskTagRecord(records: TaskTag[], record: TaskTag): TaskTag[] {
+  const key = taskTagKey(record);
+  const index = records.findIndex((item) => taskTagKey(item) === key);
+  if (index < 0) {
+    return [...records, record];
+  }
+  const next = records.slice();
+  next[index] = record;
+  return next;
+}
+
 async function rowsFromWorkbookBlob(blob: Blob): Promise<ImportRow[]> {
   const [{ parseWorkbook }, mappingModule] = await Promise.all([import("./lib/excelImport"), import("./lib/excelMapping")]);
   const sheets = await parseWorkbook(blob);
@@ -181,6 +223,12 @@ export function App() {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  const applyBootstrapSnapshot = useCallback(async (snapshot: BootstrapResponse) => {
+    stateRef.current = stateWithBootstrap(stateRef.current, snapshot);
+    dispatch({ type: "replaceBootstrap", payload: snapshot });
+    await saveBootstrapSnapshot(snapshot);
+  }, []);
 
   const updatePendingCount = useCallback(async () => {
     const persisted = await getPendingMutations();
@@ -305,8 +353,7 @@ export function App() {
 
       const pulled = await bootstrap(stateRef.current.lastSync);
       const merged = mergeBootstrap(snapshotFromState(stateRef.current, pulled.serverTime), pulled);
-      dispatch({ type: "applyBootstrap", payload: merged });
-      await saveBootstrapSnapshot(merged);
+      await applyBootstrapSnapshot(merged);
       shouldUploadCloudExcel = Boolean(excelDirtyAt(merged.settings));
 
       await settlePendingWrites();
@@ -324,8 +371,7 @@ export function App() {
         forgetPendingMutations(sourceIdsToRemove);
         dispatch({ type: "setConflicts", payload: result.conflicts.length });
         const refreshed = await bootstrap(null);
-        dispatch({ type: "applyBootstrap", payload: refreshed });
-        await saveBootstrapSnapshot(refreshed);
+        await applyBootstrapSnapshot(refreshed);
         shouldUploadCloudExcel = result.applied.length > 0 || Boolean(excelDirtyAt(refreshed.settings));
       }
 
@@ -351,7 +397,7 @@ export function App() {
         window.setTimeout(() => void syncNow(), 0);
       }
     }
-  }, [clientId, forgetPendingMutations, scheduleCloudExcelUpload, settlePendingWrites, updatePendingCount]);
+  }, [applyBootstrapSnapshot, clientId, forgetPendingMutations, scheduleCloudExcelUpload, settlePendingWrites, updatePendingCount]);
 
   const importCloudExcelIfNeeded = useCallback(async () => {
     if (cloudExcelImporting.current || !stateRef.current.session?.features.excelAutosync) {
@@ -518,6 +564,7 @@ export function App() {
   function updateTask(task: Task, changes: Partial<Task>) {
     const next: Task = { ...task, ...changes, updated_at: nowIso(), version: task.version + 1 };
     dispatch({ type: "upsertTask", payload: next });
+    stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, next) };
     void saveEntity("tasks", next);
     void persistMutation({
       id: newMutationId(),
@@ -554,12 +601,14 @@ export function App() {
       version: 1
     };
     dispatch({ type: "upsertTask", payload: task });
+    stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, task) };
     void saveEntity("tasks", task);
     void persistMutation({ id: newMutationId(), entity: "task", operation: "upsert", baseVersion: null, data: task });
   }
 
   function deleteTask(task: Task) {
     dispatch({ type: "deleteTask", payload: task.id });
+    stateRef.current = { ...stateRef.current, tasks: removeRecord(stateRef.current.tasks, task.id) };
     void deleteEntity("tasks", task.id);
     void persistMutation({
       id: newMutationId(),
@@ -589,6 +638,7 @@ export function App() {
       version: 1
     };
     dispatch({ type: "upsertProject", payload: project });
+    stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, project) };
     void saveEntity("projects", project);
     void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: null, data: project });
     return project.id;
@@ -597,6 +647,7 @@ export function App() {
   function archiveProject(project: Project) {
     const next = { ...project, archived: 1, updated_at: nowIso(), version: project.version + 1 };
     dispatch({ type: "upsertProject", payload: next });
+    stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
     void saveEntity("projects", next);
     void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: project.version, data: next });
   }
@@ -608,6 +659,7 @@ export function App() {
     }
     const next = { ...project, name: clean, updated_at: nowIso(), version: project.version + 1 };
     dispatch({ type: "upsertProject", payload: next });
+    stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
     void saveEntity("projects", next);
     void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: project.version, data: next });
 
@@ -641,6 +693,7 @@ export function App() {
 
     if (!existing) {
       dispatch({ type: "upsertTag", payload: tag });
+      stateRef.current = { ...stateRef.current, tags: upsertRecord(stateRef.current.tags, tag) };
       void saveEntity("tags", tag);
       void persistMutation({ id: newMutationId(), entity: "tag", operation: "upsert", baseVersion: null, data: tag });
     }
@@ -651,6 +704,7 @@ export function App() {
     }
     const link: TaskTag = { task_id: task.id, tag_id: tag.id, created_at: timestamp, deleted_at: null };
     dispatch({ type: "upsertTaskTag", payload: link });
+    stateRef.current = { ...stateRef.current, taskTags: upsertTaskTagRecord(stateRef.current.taskTags, link) };
     void saveEntity("taskTags", link);
     void persistMutation({ id: newMutationId(), entity: "task_tag", operation: "upsert", baseVersion: null, data: link });
   }

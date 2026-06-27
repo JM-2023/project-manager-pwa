@@ -2713,6 +2713,13 @@ button.project-row:active,
   position: relative;
 }
 
+/* The open menu lives inside .task-menu's own stacking context (isolation:
+   isolate), which sits at z-index:auto — below the sticky header (z-index:1).
+   Lift the whole row above the header so the menu is never clipped by it. */
+.task-table-row:has(.task-menu.is-open) {
+  z-index: 70;
+}
+
 .task-menu-trigger {
   transition: opacity 0.16s ease;
 }
@@ -2742,13 +2749,21 @@ button.project-row:active,
   box-shadow: var(--glass-highlight), var(--shadow-lg);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  animation: task-menu-morph 0.3s var(--spring) both;
+  animation: task-menu-morph 0.24s var(--ease-spring) both;
 }
 
+/* Panel grows out of the trigger's bottom-right corner with a gentle spring.
+   Starts close to full size so the text never distorts — premium, not balloony. */
 @keyframes task-menu-morph {
-  from { opacity: 0; transform: scale(0.16); border-radius: 999px; }
-  55% { opacity: 1; }
-  to { opacity: 1; transform: scale(1); border-radius: 18px; }
+  from { opacity: 0; transform: translate(3px, 5px) scale(0.92); }
+  to { opacity: 1; transform: translate(0, 0) scale(1); }
+}
+
+/* Items fade in just behind the panel, in a quick stagger. Opacity only so the
+   button's :active press transform stays functional. */
+@keyframes task-menu-item {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 /* Flat menu rows with a pill highlight on hover */
@@ -2770,7 +2785,14 @@ button.project-row:active,
   box-shadow: none;
   transform: none;
   transition: background 0.16s ease, color 0.16s ease;
+  animation: task-menu-item 0.2s var(--ease) both;
 }
+
+.task-action-menu button:nth-of-type(1) { animation-delay: 0.04s; }
+.task-action-menu button:nth-of-type(2) { animation-delay: 0.07s; }
+.task-action-menu button:nth-of-type(3) { animation-delay: 0.1s; }
+.task-action-menu button:nth-of-type(4) { animation-delay: 0.13s; }
+.task-action-menu button:nth-of-type(5) { animation-delay: 0.16s; }
 
 .task-action-menu button svg {
   flex: none;

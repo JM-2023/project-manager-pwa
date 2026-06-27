@@ -45,7 +45,6 @@ interface Conflict {
 }
 
 const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
-const FULL_SYNC_REQUIRED_SETTING_KEY = "full_sync_required_at";
 
 function excelAutosyncEnabled(context: AppContext): boolean {
   return (context.env.ENABLE_R2_BACKUPS === "true" && Boolean(context.env.BACKUPS)) || context.env.ENABLE_D1_EXCEL_STATE === "true";
@@ -64,40 +63,20 @@ async function markExcelDirty(context: AppContext, user: AuthUser, timestamp: st
     .run();
 }
 
-async function markFullSyncRequired(context: AppContext, user: AuthUser, timestamp: string): Promise<void> {
-  await context.env.DB.prepare(
-    `INSERT INTO app_settings (user_id, key, value_json, updated_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
-  )
-    .bind(user.id, FULL_SYNC_REQUIRED_SETTING_KEY, JSON.stringify(timestamp), timestamp)
-    .run();
-}
-
-function isStaleTextConflict(mutation: IncomingMutation, existing: Record<string, unknown> | null): boolean {
-  if (!existing || mutation.baseVersion === null || mutation.baseVersion === undefined) {
-    return false;
-  }
-  const existingVersion = Number(existing.version ?? 0);
-  if (existingVersion <= mutation.baseVersion) {
-    return false;
-  }
-  if (mutation.entity !== "task") {
-    return false;
-  }
-  for (const field of ["title", "description", "notes", "next_action"]) {
-    if (field in mutation.data && String(mutation.data[field] ?? "") !== String(existing[field] ?? "")) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function taskTitle(value: unknown, existing: Record<string, unknown> | null): string {
-  if (typeof value === "string") {
-    return value.trim();
-  }
-  return String(existing?.title ?? "");
+/**
+ * Conflict-free sync model:
+ *   - The server NEVER rejects a mutation, so the client queue always drains
+ *     (no stuck "pending changes", no reverted edits).
+ *   - It is last-writer-wins: whatever syncs is applied and stamped with the
+ *     server's clock. `updated_at` stays a server-monotonic value so the
+ *     incremental bootstrap cursor (`updated_at > since`) never misses a change
+ *     regardless of device clock skew.
+ *   - Nothing is ever hard-deleted — deletes/archives are tombstones
+ *     (deleted_at) that propagate through the same merge, so a delete on one
+ *     device can't be resurrected by another.
+ */
+function nextVersion(existing: Record<string, unknown> | null): number {
+  return existing ? Number(existing.version ?? 0) + 1 : 1;
 }
 
 async function findExisting(context: AppContext, user: AuthUser, mutation: IncomingMutation): Promise<Record<string, unknown> | null> {
@@ -128,7 +107,7 @@ async function findExisting(context: AppContext, user: AuthUser, mutation: Incom
 async function applyProject(context: AppContext, user: AuthUser, mutation: IncomingMutation, existing: Record<string, unknown> | null, timestamp: string): Promise<Applied> {
   const data = mutation.data;
   const id = assertUuidish(data.id);
-  const version = existing ? Number(existing.version ?? 1) + 1 : 1;
+  const version = nextVersion(existing);
   const createdAt = String(existing?.created_at ?? data.created_at ?? timestamp);
   await context.env.DB.prepare(
     `INSERT INTO projects (id, user_id, name, description, color, sort_order, archived, created_at, updated_at, deleted_at, version)
@@ -163,8 +142,9 @@ async function applyProject(context: AppContext, user: AuthUser, mutation: Incom
 async function applyTask(context: AppContext, user: AuthUser, mutation: IncomingMutation, existing: Record<string, unknown> | null, timestamp: string): Promise<Applied> {
   const data = mutation.data;
   const id = assertUuidish(data.id);
-  const version = existing ? Number(existing.version ?? 1) + 1 : 1;
+  const version = nextVersion(existing);
   const createdAt = String(existing?.created_at ?? data.created_at ?? timestamp);
+  const title = typeof data.title === "string" ? data.title.trim() : String(existing?.title ?? "");
   await context.env.DB.prepare(
     `INSERT INTO tasks (
       id, user_id, project_id, title, description, status, priority, due_date, start_date, completed_at,
@@ -197,7 +177,7 @@ async function applyTask(context: AppContext, user: AuthUser, mutation: Incoming
       id,
       user.id,
       nullableText(data.project_id),
-      taskTitle(data.title, existing),
+      title,
       nullableText(data.description),
       normalizeStatus(data.status),
       normalizePriority(data.priority),
@@ -225,7 +205,7 @@ async function applyTask(context: AppContext, user: AuthUser, mutation: Incoming
 async function applyTag(context: AppContext, user: AuthUser, mutation: IncomingMutation, existing: Record<string, unknown> | null, timestamp: string): Promise<Applied> {
   const data = mutation.data;
   const id = assertUuidish(data.id);
-  const version = existing ? Number(existing.version ?? 1) + 1 : 1;
+  const version = nextVersion(existing);
   const createdAt = String(existing?.created_at ?? data.created_at ?? timestamp);
   await context.env.DB.prepare(
     `INSERT INTO tags (id, user_id, name, color, created_at, updated_at, deleted_at, version)
@@ -273,32 +253,33 @@ async function applySetting(context: AppContext, user: AuthUser, mutation: Incom
   return { id: mutation.id, entity: "setting", recordId: key, updated_at: timestamp };
 }
 
+/** Deletes are tombstones (soft delete) so they converge like any other edit. */
 async function applyDelete(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): Promise<Applied> {
   if (mutation.entity === "task_tag") {
     const taskId = String(mutation.data.task_id ?? "");
     const tagId = String(mutation.data.tag_id ?? "");
-    await context.env.DB.prepare("DELETE FROM task_tags WHERE user_id = ? AND task_id = ? AND tag_id = ?")
-      .bind(user.id, taskId, tagId)
+    await context.env.DB.prepare("UPDATE task_tags SET deleted_at = ? WHERE user_id = ? AND task_id = ? AND tag_id = ?")
+      .bind(timestamp, user.id, taskId, tagId)
       .run();
     return { id: mutation.id, entity: mutation.entity, recordId: `${taskId}:${tagId}`, updated_at: timestamp };
   }
 
-  const table = { project: "projects", task: "tasks", tag: "tags", setting: "app_settings" }[mutation.entity];
   const id = String(mutation.data.id ?? "");
   if (mutation.entity === "setting") {
     await context.env.DB.prepare("DELETE FROM app_settings WHERE user_id = ? AND key = ?").bind(user.id, id).run();
     return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
   }
-  if (mutation.entity === "task") {
-    await context.env.DB.prepare("DELETE FROM task_tags WHERE user_id = ? AND task_id = ?").bind(user.id, id).run();
-    await context.env.DB.prepare("DELETE FROM task_events WHERE user_id = ? AND task_id = ?").bind(user.id, id).run();
-    await context.env.DB.prepare("DELETE FROM tasks WHERE user_id = ? AND id = ?").bind(user.id, id).run();
-  } else if (mutation.entity === "tag") {
-    await context.env.DB.prepare("DELETE FROM task_tags WHERE user_id = ? AND tag_id = ?").bind(user.id, id).run();
-    await context.env.DB.prepare("DELETE FROM tags WHERE user_id = ? AND id = ?").bind(user.id, id).run();
-  } else {
-    await context.env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ? AND id = ?`).bind(user.id, id).run();
+
+  const table = { project: "projects", task: "tasks", tag: "tags" }[mutation.entity];
+  if (!table) {
+    return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
   }
+  const archivedColumn = mutation.entity === "task" || mutation.entity === "project" ? ", archived = 1" : "";
+  await context.env.DB.prepare(
+    `UPDATE ${table} SET deleted_at = ?, updated_at = ?, version = version + 1${archivedColumn} WHERE user_id = ? AND id = ?`
+  )
+    .bind(timestamp, timestamp, user.id, id)
+    .run();
   return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
 }
 
@@ -307,24 +288,13 @@ async function applyMutation(context: AppContext, user: AuthUser, mutation: Inco
     return { id: mutation.id, entity: mutation.entity, reason: "Unsupported mutation" };
   }
 
-  const existing = await findExisting(context, user, mutation);
-  if (isStaleTextConflict(mutation, existing)) {
-    return {
-      id: mutation.id,
-      entity: mutation.entity,
-      recordId: String(mutation.data.id ?? ""),
-      reason: "Text fields changed on the server before this edit was synced.",
-      serverRecord: existing
-    };
-  }
-
-  if (
-    mutation.operation === "delete" ||
-    (mutation.entity === "task" && (mutation.data.deleted_at || Number(mutation.data.archived ?? 0) !== 0))
-  ) {
+  if (mutation.operation === "delete") {
     return applyDelete(context, user, mutation, timestamp);
   }
 
+  // Soft-deleted / archived rows are ordinary tombstone upserts — they must be
+  // stored (not removed) so every device converges to the deleted/archived state.
+  const existing = await findExisting(context, user, mutation);
   if (mutation.entity === "project") return applyProject(context, user, mutation, existing, timestamp);
   if (mutation.entity === "task") return applyTask(context, user, mutation, existing, timestamp);
   if (mutation.entity === "tag") return applyTag(context, user, mutation, existing, timestamp);
@@ -372,11 +342,6 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
 
   if (applied.length > 0) {
     await markExcelDirty(context, user, timestamp);
-  }
-  const appliedIds = new Set(applied.map((item) => item.id));
-  const hardDeleted = mutations.some((mutation) => appliedIds.has(mutation.id) && mutation.operation === "delete");
-  if (hardDeleted) {
-    await markFullSyncRequired(context, user, timestamp);
   }
 
   return json({ ok: true, serverTime: timestamp, applied, conflicts });

@@ -1025,7 +1025,7 @@ textarea:focus {
 
 .task-table-note-cell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px 44px;
+  grid-template-columns: minmax(0, 1fr) 44px;
   gap: 6px;
   align-items: stretch;
   min-width: 0;
@@ -1205,7 +1205,7 @@ textarea:focus {
 
   .tt-notes .task-table-note-cell {
     width: 100%;
-    grid-template-columns: minmax(0, 1fr) 38px 38px;
+    grid-template-columns: minmax(0, 1fr) 40px;
     gap: 0;
     overflow: visible;
   }
@@ -2702,4 +2702,118 @@ button.project-row:active,
 .offline-banner button:active {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.26);
+}
+
+/* =========================================================================
+   Task actions menu — the trigger morphs into a rounded-rectangle menu, and
+   items light up as pills on hover. Overrides the glass-button kit above so
+   the items render as flat menu rows, not chips.
+   ========================================================================= */
+.task-menu {
+  position: relative;
+}
+
+.task-menu-trigger {
+  transition: opacity 0.16s ease;
+}
+
+/* When open the trigger fades, so the menu reads as the button itself growing */
+.task-menu.is-open .task-menu-trigger {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.task-action-menu {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: auto;
+  top: auto;
+  z-index: 60;
+  display: grid;
+  gap: 2px;
+  min-width: 200px;
+  padding: 6px;
+  transform-origin: bottom right;
+  color: var(--ink);
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  animation: task-menu-morph 0.3s var(--spring) both;
+}
+
+@keyframes task-menu-morph {
+  from { opacity: 0; transform: scale(0.16); border-radius: 999px; }
+  55% { opacity: 1; }
+  to { opacity: 1; transform: scale(1); border-radius: 18px; }
+}
+
+/* Flat menu rows with a pill highlight on hover */
+.task-action-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 8px 12px;
+  color: var(--ink-soft);
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-pill);
+  box-shadow: none;
+  transform: none;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.task-action-menu button svg {
+  flex: none;
+  transform: none;
+  color: var(--muted);
+  transition: color 0.16s ease;
+}
+
+@media (hover: hover) {
+  .task-action-menu button:hover {
+    background: var(--primary-tint);
+    color: var(--primary-dark);
+    transform: none;
+  }
+  .task-action-menu button:hover svg {
+    color: var(--primary);
+    transform: none;
+  }
+}
+
+.task-action-menu button:active {
+  transform: scale(0.985);
+}
+
+.task-action-menu button.danger {
+  color: var(--danger);
+}
+.task-action-menu button.danger svg {
+  color: var(--danger);
+}
+@media (hover: hover) {
+  .task-action-menu button.danger:hover {
+    background: var(--danger-tint);
+    color: var(--danger);
+  }
+  .task-action-menu button.danger:hover svg {
+    color: var(--danger);
+  }
+}
+
+.task-action-menu__sep {
+  display: block;
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--line);
 }

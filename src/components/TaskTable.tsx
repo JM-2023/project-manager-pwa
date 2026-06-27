@@ -333,8 +333,8 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
         <span className="tt-label">Notes</span>
         <div className="task-table-note-cell">
           <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label="Note" />
-          <div className="task-menu" ref={menuRef}>
-            <button type="button" className="icon-button" onClick={() => setMenuOpen((open) => !open)} aria-label="Task actions" aria-haspopup="menu" aria-expanded={menuOpen}>
+          <div className={`task-menu${menuOpen ? " is-open" : ""}`} ref={menuRef}>
+            <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label="Task actions" aria-haspopup="menu" aria-expanded={menuOpen}>
               <MoreHorizontal size={17} aria-hidden="true" />
             </button>
             {menuOpen ? (
@@ -355,12 +355,14 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
                   <MoveRight size={15} aria-hidden="true" />
                   <span>Move to tomorrow</span>
                 </button>
+                <span className="task-action-menu__sep" role="separator" />
+                <button type="button" role="menuitem" className="danger" onClick={() => { onDelete(task); setMenuOpen(false); }}>
+                  <Trash2 size={15} aria-hidden="true" />
+                  <span>Delete task</span>
+                </button>
               </div>
             ) : null}
           </div>
-          <button type="button" className="icon-button danger" onClick={() => onDelete(task)} aria-label="Delete task" title="Delete">
-            <Trash2 size={16} aria-hidden="true" />
-          </button>
         </div>
       </div>
     </div>

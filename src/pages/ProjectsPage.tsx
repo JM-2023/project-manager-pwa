@@ -1,6 +1,5 @@
 import { ProjectList } from "../components/ProjectList";
 import { TaskTable } from "../components/TaskTable";
-import { TaskComposer } from "../components/TaskComposer";
 import { isWorklogTask, summarizeWorklogOverview } from "../lib/progress";
 import type { TaskPageProps } from "./pageProps";
 
@@ -10,7 +9,6 @@ export function ProjectsPage(props: TaskPageProps) {
     tasks,
     filters,
     onFiltersChange,
-    onCreateTask,
     onUpdateTask,
     onArchiveTask,
     onDeleteTask,
@@ -40,12 +38,6 @@ export function ProjectsPage(props: TaskPageProps) {
         onSelect={(projectId) => onFiltersChange({ projectId })}
         onCreate={onCreateProject}
         onArchive={onArchiveProject}
-      />
-      <TaskComposer
-        projects={projects}
-        defaultProjectId={selectedProjectId}
-        defaultStatus="todo"
-        onCreate={onCreateTask}
       />
       <TaskTable tasks={projectTasks} projects={projects} onUpdate={onUpdateTask} onArchive={onArchiveTask} onDelete={onDeleteTask} />
     </main>

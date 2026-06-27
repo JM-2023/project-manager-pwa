@@ -80,13 +80,27 @@ function CacheColumn({
 
   return (
     <section className="cache-column">
-      <header>
-        <h2>{project.name}</h2>
-        <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Next thing to remember" aria-label={`New item for ${project.name}`} />
-        <button type="button" onClick={createItem} aria-label={`Add item for ${project.name}`}>
-          <Plus size={17} aria-hidden="true" />
-        </button>
+      <header className="cache-head">
+        <h2 title={project.name}>{project.name}</h2>
+        <span className="cache-count">{items.length}</span>
       </header>
+      <div className="cache-add">
+        <input
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              createItem();
+            }
+          }}
+          placeholder="Add a note"
+          aria-label={`New item for ${project.name}`}
+        />
+        <button type="button" onClick={createItem} aria-label={`Add item for ${project.name}`}>
+          <Plus size={18} aria-hidden="true" />
+        </button>
+      </div>
       <div className="cache-items">
         {items.map((task) => (
           <CacheItem key={task.id} task={task} onUpdate={onUpdate} onDelete={onDelete} />

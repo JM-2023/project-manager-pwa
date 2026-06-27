@@ -837,7 +837,7 @@ textarea:focus {
   color: var(--primary-dark);
   font-weight: 700;
   background: var(--surface);
-  border: 1.5px dashed var(--line-strong);
+  border: 1.5px solid var(--line-strong);
   border-radius: var(--r-md);
   transition: color var(--t) var(--ease), background var(--t) var(--ease),
     border-color var(--t) var(--ease), transform var(--t-fast) var(--ease);
@@ -2505,6 +2505,8 @@ button.project-row > span {
 .metric,
 .progress-summary > div,
 .cache-section {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   background: var(--glass-fill);
   border-color: var(--glass-border);
   box-shadow: var(--glass-highlight), var(--shadow);
@@ -2512,6 +2514,8 @@ button.project-row > span {
 
 @container tasktable (min-width: 1040px) {
   .task-table {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     background: var(--glass-fill);
     border-color: var(--glass-border);
     box-shadow: var(--glass-highlight), var(--shadow);
@@ -2557,6 +2561,8 @@ button.project-row > span {
   border: 1.5px solid var(--glass-button-border);
   border-radius: var(--btn-radius);
   box-shadow: var(--glass-button-shadow);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   filter: none;
   transform: none;
   overflow: hidden;
@@ -2648,7 +2654,6 @@ button.project-row > span {
   margin-right: auto;
   margin-left: auto;
   padding: var(--btn-py) var(--btn-px);
-  border-style: dashed;
 }
 
 .icon-button,

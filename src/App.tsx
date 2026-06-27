@@ -450,8 +450,6 @@ export function App() {
       try {
         const session = await getSession();
         if (cancelled) return;
-        dispatch({ type: "setSession", payload: session });
-        stateRef.current = { ...stateRef.current, session, authRequired: false };
 
         const local = await loadLocalSnapshot();
         if (cancelled) return;
@@ -465,8 +463,9 @@ export function App() {
           pendingCount: compactPendingMutations(local.pendingMutations).length,
           lastSync: local.lastSync
         };
+        stateRef.current = { ...stateRef.current, ...payload, session, authRequired: false };
         dispatch({ type: "hydrateLocal", payload });
-        stateRef.current = { ...stateRef.current, ...payload };
+        dispatch({ type: "setSession", payload: session });
         await syncNow();
       } catch (error) {
         if (cancelled) return;
@@ -704,9 +703,6 @@ export function App() {
   async function handleLogin(password: string) {
     await login(password);
     const session = await getSession();
-    dispatch({ type: "setSession", payload: session });
-    dispatch({ type: "setAuthRequired", payload: false });
-    stateRef.current = { ...stateRef.current, session, authRequired: false };
     const local = await loadLocalSnapshot();
     pendingMutationsRef.current = local.pendingMutations;
     const payload = {
@@ -718,8 +714,9 @@ export function App() {
       pendingCount: compactPendingMutations(local.pendingMutations).length,
       lastSync: local.lastSync
     };
+    stateRef.current = { ...stateRef.current, ...payload, session, authRequired: false };
     dispatch({ type: "hydrateLocal", payload });
-    stateRef.current = { ...stateRef.current, ...payload };
+    dispatch({ type: "setSession", payload: session });
     await syncNow();
   }
 

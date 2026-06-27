@@ -369,14 +369,48 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
   );
 }
 
-// Cap rendered rows so a large imported worklog can't exhaust mobile Safari's
-// renderer (each row mounts several auto-sizing fields). Filter to narrow down.
-const ROW_CAP = 150;
+// Render rows in small batches instead of mounting the whole worklog at once.
+// Each row is expensive (3 selects, 5 auto-sizing textareas, SVG icons), so a
+// full-corpus view (Projects/Search) mounting ~150+ rows in one synchronous
+// paint can exhaust mobile Safari's renderer and crash the page. We mount an
+// initial batch and append more as the bottom sentinel scrolls into view.
+const INITIAL_BATCH = 40;
+const BATCH_STEP = 40;
 
 export function TaskTable({ tasks, projects, showDate = true, onCreate, onUpdate, onDelete }: TaskTableProps) {
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
-  const visible = tasks.length > ROW_CAP ? tasks.slice(0, ROW_CAP) : tasks;
-  const hidden = tasks.length - visible.length;
+
+  // Reset back to the first batch whenever the underlying result set changes
+  // (e.g. a new search query or project filter), so the user sees the top.
+  const signature = `${tasks.length}:${tasks[0]?.id ?? ""}:${tasks[tasks.length - 1]?.id ?? ""}`;
+  const [count, setCount] = useState(INITIAL_BATCH);
+  useEffect(() => {
+    setCount(INITIAL_BATCH);
+  }, [signature]);
+
+  const visible = count >= tasks.length ? tasks : tasks.slice(0, count);
+  const remaining = tasks.length - visible.length;
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (remaining <= 0) {
+      return;
+    }
+    const node = sentinelRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setCount((current) => Math.min(current + BATCH_STEP, tasks.length));
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [remaining, tasks.length]);
 
   return (
     <section className="task-table-wrap" aria-label="Task table">
@@ -404,8 +438,11 @@ export function TaskTable({ tasks, projects, showDate = true, onCreate, onUpdate
           />
         ))}
       </div>
-      {hidden > 0 ? (
-        <p className="table-more">Showing {visible.length} of {tasks.length}. Use search or filters to narrow down {hidden} more.</p>
+      {remaining > 0 ? (
+        <>
+          <div ref={sentinelRef} className="task-table-sentinel" aria-hidden="true" />
+          <p className="table-more">Showing {visible.length} of {tasks.length}. Scroll for more, or search to narrow down.</p>
+        </>
       ) : null}
     </section>
   );

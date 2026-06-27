@@ -2443,18 +2443,16 @@ button.project-row > span {
 
 .add-row-button {
   display: inline-flex;
-  min-height: 52px;
   align-items: center;
   justify-content: center;
   gap: 0.7rem;
   width: fit-content;
   max-width: 100%;
-  min-width: 168px;
   margin-bottom: 14px;
   margin-right: auto;
   margin-left: auto;
   padding: var(--btn-py) var(--btn-px);
-  border-color: transparent;
+  border-color: var(--glass-button-border);
   font-weight: 700;
 }
 
@@ -2555,7 +2553,6 @@ button.project-row > span {
   .tag-input button:hover,
   .add-row-button:hover {
     color: var(--primary-dark);
-    border-color: transparent;
   }
 
   .ghost-button.danger:hover,

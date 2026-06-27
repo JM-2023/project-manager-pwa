@@ -32,10 +32,15 @@ async function getOrCreateProject(context: AppContext, user: AuthUser, name: str
   if (!clean) {
     return null;
   }
-  const existing = await context.env.DB.prepare("SELECT id FROM projects WHERE user_id = ? AND name = ? AND deleted_at IS NULL")
+  const existing = await context.env.DB.prepare("SELECT id, archived FROM projects WHERE user_id = ? AND name = ? AND deleted_at IS NULL")
     .bind(user.id, clean)
-    .first<{ id: string }>();
+    .first<{ id: string; archived: number }>();
   if (existing) {
+    if (Number(existing.archived) !== 0) {
+      await context.env.DB.prepare("UPDATE projects SET archived = 0, updated_at = ?, version = version + 1 WHERE user_id = ? AND id = ?")
+        .bind(timestamp, user.id, existing.id)
+        .run();
+    }
     return existing.id;
   }
   const id = crypto.randomUUID();

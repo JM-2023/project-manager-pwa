@@ -127,6 +127,10 @@ function readMapped(row: Record<string, unknown>, mapping: ColumnMapping, field:
   return header ? row[header] : undefined;
 }
 
+function summaryStartIndex(headers: string[]): number {
+  return headers.findIndex((header) => normalizeHeader(header).replace(/\s+\(\d+\)$/, "") === "daily summary");
+}
+
 function splitTags(value: unknown): string[] {
   return String(value ?? "")
     .split(/[,;，；、]/)
@@ -186,6 +190,7 @@ export function normalizeProjectCacheRows(sheet: ParsedSheet): ImportRow[] {
 
 export function normalizeImportRows(sheet: ParsedSheet, mapping: ColumnMapping): ImportRow[] {
   const body = sheet.rows.slice(sheet.headerIndex + 1);
+  const dailySummaryStart = summaryStartIndex(sheet.headers);
   return body
     .map((cells, bodyIndex) => {
       const raw = Object.fromEntries(sheet.headers.map((header, index) => [header, cells[index] ?? ""]));
@@ -215,7 +220,12 @@ export function normalizeImportRows(sheet: ParsedSheet, mapping: ColumnMapping):
           .map(([header]) => header)
       );
       const extra_json: Record<string, unknown> = {
-        ...Object.fromEntries(Object.entries(raw).filter(([header, value]) => !knownHeaders.has(header) && value !== "")),
+        ...Object.fromEntries(
+          sheet.headers
+            .map((header, index) => [header, raw[header], index] as const)
+            .filter(([header, value, index]) => !knownHeaders.has(header) && value !== "" && (dailySummaryStart < 0 || index < dailySummaryStart))
+            .map(([header, value]) => [header, value])
+        ),
         source_sheet: sheet.name,
         source_row: sourceRow
       };

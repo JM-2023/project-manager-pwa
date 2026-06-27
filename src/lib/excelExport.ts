@@ -97,7 +97,8 @@ function nextActionText(tasks: Task[]): string {
 
 export function buildWorkbook(data: ExportDataResponse) {
   const workbook = utils.book_new();
-  const projectsForExport = data.projects.filter((project) => !project.deleted_at && project.archived === 0);
+  const projectsForNames = data.projects.filter((project) => !project.deleted_at);
+  const projectsForExport = projectsForNames.filter((project) => project.archived === 0);
   const liveTasks = data.tasks.filter((task) => !task.deleted_at && task.archived === 0);
   const tasksForExport = sortedWorklogTasks(liveTasks.filter(isWorklogTask));
   const cacheTasks = sortedProjectCacheTasks(liveTasks.filter(isProjectCacheTask));
@@ -132,7 +133,7 @@ export function buildWorkbook(data: ExportDataResponse) {
     ...tasksForExport.map((task) => [
       task.start_date ?? "",
       getTaskImportance(task),
-      projectName(projectsForExport, task.project_id),
+      projectName(projectsForNames, task.project_id),
       task.title,
       hasExplicitProgress(task) ? getTaskProgress(task) / 100 : "",
       worklogOutput(task),
@@ -161,12 +162,12 @@ export function buildWorkbook(data: ExportDataResponse) {
     const rowIndex = dailyStartRow + index;
     const existing = worklogRows[rowIndex] ?? Array.from({ length: 20 }, () => null);
     existing[10] = date;
-    existing[11] = coreTaskText(dateTasks, projectsForExport);
+    existing[11] = coreTaskText(dateTasks, projectsForNames);
     existing[12] = hasCoreTasks ? summary.corePercent / 100 : "";
     existing[13] = dateTasks.length > 0 ? summary.weightedPercent / 100 : "";
     existing[14] = summary.outputCount;
     existing[15] = summary.blockedCount;
-    existing[16] = summary.blockedCount > 0 ? "有卡点" : !hasCoreTasks || summary.corePercent >= 75 ? "核心推进好" : summary.outputCount >= 1 ? "有产出" : "低推进";
+    existing[16] = summary.judgement;
     existing[17] = nextActionText(dateTasks);
     existing[18] = "";
     existing[19] = "";

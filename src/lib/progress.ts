@@ -87,8 +87,7 @@ export function getTaskProgress(task: Task): TaskProgress {
     normalizeProgressPercent(extra.progressPercent) ??
     normalizeProgressPercent(extra.Progress) ??
     normalizeProgressPercent(extra.progress) ??
-    normalizeProgressPercent(extra["进度"]) ??
-    normalizeProgressPercent(extra["核心任务进度"]);
+    normalizeProgressPercent(extra["进度"]);
   return fromExtra ?? progressFromStatus(task.status);
 }
 
@@ -99,8 +98,7 @@ export function hasExplicitProgress(task: Task): boolean {
     normalizeProgressPercent(extra.progressPercent) !== null ||
     normalizeProgressPercent(extra.Progress) !== null ||
     normalizeProgressPercent(extra.progress) !== null ||
-    normalizeProgressPercent(extra["进度"]) !== null ||
-    normalizeProgressPercent(extra["核心任务进度"]) !== null
+    normalizeProgressPercent(extra["进度"]) !== null
   );
 }
 
@@ -181,6 +179,13 @@ export function progressLabel(progress: number): string {
   return `${Math.round(progress)}%`;
 }
 
+export function dailyJudgement(corePercent: number, outputCount: number, blockedCount: number): string {
+  if (blockedCount > 0) return "有卡点";
+  if (corePercent >= 75) return "核心推进好";
+  if (outputCount > 0) return "有产出";
+  return "低推进";
+}
+
 export function summarizeProgress(tasks: Task[]): ProgressSummary {
   const activeTasks = tasks.filter((task) => !task.deleted_at && task.archived === 0 && task.status !== "cancelled");
   const totalWeight = activeTasks.reduce((total, task) => total + taskWeight(task), 0);
@@ -201,14 +206,7 @@ export function summarizeProgress(tasks: Task[]): ProgressSummary {
     corePercent,
     outputCount,
     blockedCount,
-    judgement:
-      blockedCount > 0
-        ? "有卡点"
-        : (activeTasks.length > 0 && coreTasks.length === 0) || corePercent >= 75
-          ? "核心推进好"
-          : outputCount > 0
-            ? "有产出"
-            : "低推进"
+    judgement: dailyJudgement(corePercent, outputCount, blockedCount)
   };
 }
 

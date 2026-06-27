@@ -41,6 +41,10 @@ interface Conflict {
   entity: Entity;
   recordId?: string;
   reason: string;
+  // A permanent conflict can never succeed on retry (unsupported/malformed
+  // mutation), so the client drops it from the queue instead of re-sending it
+  // forever. Conflicts without this flag are treated as transient and retried.
+  permanent?: boolean;
   serverRecord?: unknown;
 }
 
@@ -285,7 +289,17 @@ async function applyDelete(context: AppContext, user: AuthUser, mutation: Incomi
 
 async function applyMutation(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): Promise<Applied | Conflict> {
   if (!["project", "task", "tag", "task_tag", "setting"].includes(mutation.entity) || !["upsert", "delete"].includes(mutation.operation)) {
-    return { id: mutation.id, entity: mutation.entity, reason: "Unsupported mutation" };
+    return { id: mutation.id, entity: mutation.entity, reason: "Unsupported mutation", permanent: true };
+  }
+
+  // Reject malformed mutations up front so they surface as *permanent* conflicts
+  // the client can drop, rather than throwing into the transient-error path and
+  // poisoning the queue (re-sent on every sync, never draining).
+  if (mutation.entity === "task_tag" && (!mutation.data.task_id || !mutation.data.tag_id)) {
+    return { id: mutation.id, entity: mutation.entity, reason: "Task tag requires task_id and tag_id", permanent: true };
+  }
+  if (mutation.entity === "setting" && !mutation.data.key && !mutation.data.id) {
+    return { id: mutation.id, entity: mutation.entity, reason: "Setting key is required", permanent: true };
   }
 
   if (mutation.operation === "delete") {

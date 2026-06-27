@@ -111,6 +111,7 @@ export interface MutationConflict {
   entity: MutationEntity;
   recordId?: string;
   reason: string;
+  permanent?: boolean;
   serverRecord?: unknown;
 }
 

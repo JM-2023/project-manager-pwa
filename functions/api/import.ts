@@ -125,7 +125,9 @@ async function findImportTask(context: AppContext, user: AuthUser, row: ImportRo
     .first<Record<string, unknown>>();
 }
 
-async function upsertTask(context: AppContext, user: AuthUser, row: ImportRow, projectId: string | null, timestamp: string): Promise<{ id: string; created: boolean }> {
+type ImportTaskOutcome = { id: string; created: boolean; changed: boolean };
+
+async function upsertTask(context: AppContext, user: AuthUser, row: ImportRow, projectId: string | null, timestamp: string): Promise<ImportTaskOutcome> {
   const existing = await findImportTask(context, user, row, projectId);
   const id = existing ? String(existing.id) : row.id || crypto.randomUUID();
   const version = existing ? Number(existing.version ?? 1) + 1 : 1;
@@ -133,6 +135,33 @@ async function upsertTask(context: AppContext, user: AuthUser, row: ImportRow, p
   const status = normalizeStatus(row.status ?? existing?.status ?? "todo");
   const completedAt = status === "done" ? String(existing?.completed_at ?? timestamp) : null;
   const source = nullableText(row.source ?? existing?.source) ?? "excel";
+
+  // Only the columns the upsert actually writes on conflict. If an existing task
+  // matches all of these, the import is a no-op — skip the write so we don't bump
+  // updated_at / version (which would otherwise re-mark the cloud Excel dirty and
+  // bounce the same snapshot between devices on every startup).
+  const nextValues: Record<string, unknown> = {
+    project_id: projectId,
+    title: nullableText(row.title) ?? "Imported task",
+    description: nullableText(row.description),
+    status,
+    priority: normalizePriority(row.priority ?? existing?.priority ?? "medium"),
+    due_date: normalizeDate(row.due_date),
+    start_date: normalizeDate(row.start_date),
+    completed_at: completedAt,
+    next_action: nullableText(row.next_action),
+    notes: nullableText(row.notes),
+    source,
+    external_key: nullableText(row.external_key ?? row.id),
+    extra_json: safeJsonString(row.extra_json)
+  };
+
+  if (existing) {
+    const unchanged = Object.entries(nextValues).every(([key, value]) => String(existing[key] ?? "") === String(value ?? ""));
+    if (unchanged) {
+      return { id, created: false, changed: false };
+    }
+  }
 
   await context.env.DB.prepare(
     `INSERT INTO tasks (
@@ -161,21 +190,21 @@ async function upsertTask(context: AppContext, user: AuthUser, row: ImportRow, p
     .bind(
       id,
       user.id,
-      projectId,
-      nullableText(row.title) ?? "Imported task",
-      nullableText(row.description),
-      status,
-      normalizePriority(row.priority ?? existing?.priority ?? "medium"),
-      normalizeDate(row.due_date),
-      normalizeDate(row.start_date),
-      completedAt,
-      nullableText(row.next_action),
-      nullableText(row.notes),
+      nextValues.project_id,
+      nextValues.title,
+      nextValues.description,
+      nextValues.status,
+      nextValues.priority,
+      nextValues.due_date,
+      nextValues.start_date,
+      nextValues.completed_at,
+      nextValues.next_action,
+      nextValues.notes,
       Number(existing?.sort_order ?? 0),
       null,
-      source,
-      nullableText(row.external_key ?? row.id),
-      safeJsonString(row.extra_json),
+      nextValues.source,
+      nextValues.external_key,
+      nextValues.extra_json,
       0,
       createdAt,
       timestamp,
@@ -184,7 +213,7 @@ async function upsertTask(context: AppContext, user: AuthUser, row: ImportRow, p
     )
     .run();
 
-  return { id, created: !existing };
+  return { id, created: !existing, changed: true };
 }
 
 async function attachTags(context: AppContext, user: AuthUser, taskId: string, tags: string[] | undefined, timestamp: string): Promise<void> {
@@ -235,9 +264,11 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
     const task = await upsertTask(context, user, row, projectId, timestamp);
     await attachTags(context, user, task.id, row.tags, timestamp);
     if (task.created) created += 1;
-    else updated += 1;
+    else if (task.changed) updated += 1;
   }
 
+  // Only mark the cloud Excel dirty when the import actually changed task data;
+  // a no-op re-import (the autosync round-trip) must not trigger a re-upload.
   if (created + updated > 0) {
     await markExcelDirty(context, user, timestamp);
   }

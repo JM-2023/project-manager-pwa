@@ -2676,6 +2676,20 @@ button.project-row > span {
   --btn-hover-px: 12px;
   --btn-radius: 12px;
   --btn-hover-radius: 16px;
+  width: max-content;
+  min-width: 38px;
+  min-height: 38px;
+  align-self: center;
+  justify-self: center;
+  padding: var(--btn-py) var(--btn-px);
+  background: var(--glass-button-fill);
+  border: 1.5px solid var(--glass-button-border);
+  border-radius: var(--btn-radius);
+  box-shadow: var(--glass-button-shadow);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  filter: none;
+  transform: none;
 }
 
 .bottom-nav button {
@@ -2764,6 +2778,17 @@ button.project-row > span {
     border-color: rgba(255, 255, 255, 0.36);
   }
 
+  .task-table-note-cell .icon-button:hover,
+  .cache-item .icon-button:hover {
+    padding: var(--btn-hover-py) var(--btn-hover-px);
+    background: var(--glass-button-hover-fill);
+    border-color: var(--glass-button-border);
+    border-radius: var(--btn-hover-radius);
+    box-shadow: var(--glass-button-hover-shadow);
+    filter: none;
+    transform: none;
+  }
+
   .primary-button:hover svg,
   .secondary-button:hover svg,
   .ghost-button:hover svg,
@@ -2797,6 +2822,16 @@ button.project-row > span {
 .icon-button:active,
 .bottom-nav button:active,
 .offline-banner button:active {
+  background: var(--glass-button-fill);
+  border-color: var(--glass-button-border);
+  border-radius: var(--btn-radius);
+  box-shadow: var(--glass-button-shadow);
+  filter: none;
+  transform: none;
+}
+
+.task-table-note-cell .icon-button:active,
+.cache-item .icon-button:active {
   background: var(--glass-button-fill);
   border-color: var(--glass-button-border);
   border-radius: var(--btn-radius);

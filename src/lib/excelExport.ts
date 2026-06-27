@@ -1,9 +1,9 @@
 import { utils, writeFileXLSX, writeXLSX } from "xlsx";
 import { todayDate } from "./dates";
 import {
+  getExplicitTaskProgress,
   getTaskImportance,
   getTaskProgress,
-  hasExplicitProgress,
   isProjectCacheTask,
   isWorklogTask,
   summarizeProgress,
@@ -130,28 +130,31 @@ export function buildWorkbook(data: ExportDataResponse) {
       null
     ],
     ["日期", "重要程度", "项目", "任务", "Progress", "今日产出", "卡住的地方", "明天第一步", "Notes", null, "日期", "当天核心任务", "核心任务进度", "加权推进", "有产出任务数", "Blocked 数", "今日判断", "明天第一步", "核心任务序号", "明天步骤序号"],
-    ...tasksForExport.map((task) => [
-      task.start_date ?? "",
-      getTaskImportance(task),
-      projectName(projectsForNames, task.project_id),
-      task.title,
-      hasExplicitProgress(task) ? getTaskProgress(task) / 100 : "",
-      worklogOutput(task),
-      worklogBlocker(task),
-      task.next_action ?? "",
-      task.notes ?? "",
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null
-    ])
+    ...tasksForExport.map((task) => {
+      const explicitProgress = getExplicitTaskProgress(task);
+      return [
+        task.start_date ?? "",
+        getTaskImportance(task),
+        projectName(projectsForNames, task.project_id),
+        task.title,
+        explicitProgress !== null ? explicitProgress / 100 : "",
+        worklogOutput(task),
+        worklogBlocker(task),
+        task.next_action ?? "",
+        task.notes ?? "",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ];
+    })
   ];
 
   const dailyStartRow = 3;

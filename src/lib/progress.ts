@@ -81,25 +81,22 @@ export function progressFromStatus(status: TaskStatus): TaskProgress {
 }
 
 export function getTaskProgress(task: Task): TaskProgress {
+  return getExplicitTaskProgress(task) ?? progressFromStatus(task.status);
+}
+
+export function getExplicitTaskProgress(task: Task): TaskProgress | null {
   const extra = parseTaskExtra(task);
-  const fromExtra =
+  return (
     normalizeProgressPercent(extra.progress_percent) ??
     normalizeProgressPercent(extra.progressPercent) ??
     normalizeProgressPercent(extra.Progress) ??
     normalizeProgressPercent(extra.progress) ??
-    normalizeProgressPercent(extra["进度"]);
-  return fromExtra ?? progressFromStatus(task.status);
+    normalizeProgressPercent(extra["进度"])
+  );
 }
 
 export function hasExplicitProgress(task: Task): boolean {
-  const extra = parseTaskExtra(task);
-  return (
-    normalizeProgressPercent(extra.progress_percent) !== null ||
-    normalizeProgressPercent(extra.progressPercent) !== null ||
-    normalizeProgressPercent(extra.Progress) !== null ||
-    normalizeProgressPercent(extra.progress) !== null ||
-    normalizeProgressPercent(extra["进度"]) !== null
-  );
+  return getExplicitTaskProgress(task) !== null;
 }
 
 export function getTaskImportance(task: Task): TaskImportance {
@@ -225,10 +222,12 @@ export function summarizeWorklogOverview(tasks: Task[]): WorklogOverview {
   const dates = datedTasks.map((task) => task.start_date as string).sort();
   const firstDate = dates[0] ?? null;
   const lastDate = dates[dates.length - 1] ?? null;
-  const progressedTasks = worklogTasks.filter(hasExplicitProgress);
+  const explicitProgressValues = worklogTasks
+    .map((task) => getExplicitTaskProgress(task))
+    .filter((progress): progress is TaskProgress => progress !== null);
   const averageProgress =
-    progressedTasks.length > 0
-      ? Math.round(progressedTasks.reduce((total, task) => total + getTaskProgress(task), 0) / progressedTasks.length)
+    explicitProgressValues.length > 0
+      ? Math.round(explicitProgressValues.reduce<number>((total, progress) => total + progress, 0) / explicitProgressValues.length)
       : 0;
   const outputDates = new Set(datedTasks.filter((task) => worklogOutput(task)).map((task) => task.start_date as string));
 

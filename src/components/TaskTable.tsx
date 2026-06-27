@@ -219,8 +219,14 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
   );
 }
 
+// Cap rendered rows so a large imported worklog can't exhaust mobile Safari's
+// renderer (each row mounts several auto-sizing fields). Filter to narrow down.
+const ROW_CAP = 150;
+
 export function TaskTable({ tasks, projects, showDate = true, onUpdate, onArchive, onDelete }: TaskTableProps) {
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
+  const visible = tasks.length > ROW_CAP ? tasks.slice(0, ROW_CAP) : tasks;
+  const hidden = tasks.length - visible.length;
 
   return (
     <section className="task-table-wrap" aria-label="Task table">
@@ -236,7 +242,7 @@ export function TaskTable({ tasks, projects, showDate = true, onUpdate, onArchiv
           <span>明天第一步</span>
           <span>Notes</span>
         </div>
-        {tasks.map((task) => (
+        {visible.map((task) => (
           <TaskRow
             key={task.id}
             task={task}
@@ -248,6 +254,9 @@ export function TaskTable({ tasks, projects, showDate = true, onUpdate, onArchiv
           />
         ))}
       </div>
+      {hidden > 0 ? (
+        <p className="table-more">Showing {visible.length} of {tasks.length}. Use search or filters to narrow down {hidden} more.</p>
+      ) : null}
     </section>
   );
 }

@@ -25,7 +25,7 @@ import {
   saveBootstrapSnapshot,
   saveEntity
 } from "./lib/localDb";
-import { summarizeWorklogOverview } from "./lib/progress";
+import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { mergeBootstrap, visibleProjects, visibleTasks } from "./lib/sync";
 import type { BootstrapResponse, ClientMutation, ImportRow, Project, Tag, Task, TaskTag } from "./lib/types";
 import { LoginPage } from "./pages/LoginPage";
@@ -374,6 +374,29 @@ export function App() {
     void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: project.version, data: next });
   }
 
+  function renameProject(project: Project, name: string) {
+    const clean = name.trim();
+    if (!clean || clean === project.name) {
+      return;
+    }
+    const next = { ...project, name: clean, updated_at: nowIso(), version: project.version + 1 };
+    dispatch({ type: "upsertProject", payload: next });
+    void saveEntity("projects", next);
+    void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: project.version, data: next });
+
+    // Tasks stay linked by project_id; only keep cached project-name copies in sync.
+    for (const task of stateRef.current.tasks) {
+      if (task.project_id !== project.id || task.deleted_at) {
+        continue;
+      }
+      const extra = parseTaskExtra(task);
+      if (extra.cache_project && extra.cache_project !== clean) {
+        extra.cache_project = clean;
+        updateTask(task, { extra_json: stringifyTaskExtra(extra) });
+      }
+    }
+  }
+
   function addTag(task: Task, tagName: string) {
     const existing = stateRef.current.tags.find((tag) => tag.name.toLowerCase() === tagName.toLowerCase() && !tag.deleted_at);
     const timestamp = nowIso();
@@ -454,7 +477,8 @@ export function App() {
     onDeleteTask: deleteTask,
     onAddTag: addTag,
     onCreateProject: createProject,
-    onArchiveProject: archiveProject
+    onArchiveProject: archiveProject,
+    onRenameProject: renameProject
   };
 
   if (state.authRequired) {

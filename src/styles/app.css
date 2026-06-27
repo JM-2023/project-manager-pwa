@@ -13,84 +13,88 @@
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 
-  /* Brand */
-  --primary: #1f7a72;
-  --primary-dark: #155650;
-  --primary-strong: #1a6b63;
+  /* Brand — clean-pm-ui indigo accent */
+  --primary: #4f46e5;
+  --primary-dark: #4338ca;
+  --primary-strong: #4338ca;
   --primary-ink: #ffffff;
-  --primary-tint: #e7f2ef;
-  --primary-tint-strong: #d2e7e1;
-  --accent-grad: linear-gradient(135deg, #248c81 0%, #1f6f68 100%);
+  --primary-tint: #eef2ff;
+  --primary-tint-strong: #e0e7ff;
+  --accent-grad: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
 
   /* Neutrals / surfaces */
-  --bg: #eef1f3;
-  --bg-glow-1: rgba(31, 122, 114, 0.10);
-  --bg-glow-2: rgba(63, 95, 143, 0.08);
+  --bg: #f7f8fa;
+  --bg-glow-1: rgba(79, 70, 229, 0.07);
+  --bg-glow-2: rgba(99, 102, 241, 0.05);
   --surface: #ffffff;
-  --surface-2: #f5f8f7;
-  --surface-3: #f4f6f5;
-  --surface-soft: #e9f2ef;
+  --surface-2: #fcfcfd;
+  --surface-3: #f1f3f5;
+  --surface-soft: #eef2ff;
   --field-bg: #ffffff;
-  --table-head-bg: #eef3f1;
+  --table-head-bg: #f7f8fa;
 
-  --ink: #16201e;
-  --ink-soft: #2c3a36;
-  --muted: #647570;
-  --line: #e3e9e7;
-  --line-strong: #d3dcd9;
+  --ink: #1a1d23;
+  --ink-soft: #475467;
+  --muted: #6b7280;
+  --line: #e4e7ec;
+  --line-strong: #d0d5dd;
 
   /* Accent hues */
-  --rust: #a64b2a;
-  --sage: #5b6c5d;
-  --blue: #3f5f8f;
-  --warning: #8a6a23;
-  --danger: #c0413d;
-  --danger-tint: #fbeceb;
+  --rust: #d97706;
+  --sage: #16a34a;
+  --blue: #2563eb;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --danger-tint: #fef2f2;
 
   /* Status pills (bg / fg pairs) */
-  --st-todo-bg: #eaeeea;       --st-todo-fg: #31423d;
-  --st-doing-bg: #e0eaf6;      --st-doing-fg: #1b4a6f;
-  --st-waiting-bg: #f4ebd2;    --st-waiting-fg: #6f5210;
-  --st-blocked-bg: #f6e1df;    --st-blocked-fg: #8c2f2d;
-  --st-done-bg: #ddf0e5;       --st-done-fg: #1c6340;
-  --st-cancelled-bg: #e8eaec;  --st-cancelled-fg: #565c60;
+  --st-todo-bg: #f1f3f5;       --st-todo-fg: #475467;
+  --st-doing-bg: #eff6ff;      --st-doing-fg: #2563eb;
+  --st-waiting-bg: #fffbeb;    --st-waiting-fg: #b45309;
+  --st-blocked-bg: #fef2f2;    --st-blocked-fg: #dc2626;
+  --st-done-bg: #f0fdf4;       --st-done-fg: #16a34a;
+  --st-cancelled-bg: #f1f3f5;  --st-cancelled-fg: #6b7280;
 
   /* Progress tone scale (low → done) */
-  --prog-none: #b4bdb9;
-  --prog-low: #d98a3d;
-  --prog-mid: #d9b13d;
-  --prog-high: #5fa86a;
-  --prog-done: #1f9d6b;
+  --prog-none: #cbd2da;
+  --prog-low: #f97316;
+  --prog-mid: #d97706;
+  --prog-high: #22c55e;
+  --prog-done: #16a34a;
 
   /* Importance scale — blue, darkest (1) to lightest (4) */
-  --imp-1: #1e3a6e;
-  --imp-2: #3f6bab;
-  --imp-3: #7396c9;
-  --imp-4: #aac1e0;
+  --imp-1: #1e3a8a;
+  --imp-2: #2563eb;
+  --imp-3: #60a5fa;
+  --imp-4: #bfdbfe;
 
   /* Focus ring */
-  --ring: rgba(31, 122, 114, 0.30);
+  --ring: rgba(79, 70, 229, 0.30);
 
-  /* Elevation */
-  --shadow-xs: 0 1px 2px rgba(16, 32, 28, 0.05);
-  --shadow-sm: 0 1px 2px rgba(16, 32, 28, 0.04), 0 2px 6px rgba(16, 32, 28, 0.05);
-  --shadow: 0 2px 5px rgba(16, 32, 28, 0.04), 0 10px 28px rgba(16, 32, 28, 0.07);
-  --shadow-lg: 0 6px 14px rgba(16, 32, 28, 0.08), 0 20px 48px rgba(16, 32, 28, 0.12);
-  --shadow-primary: 0 6px 18px rgba(31, 111, 104, 0.30);
+  /* Elevation — soft, clean-pm-ui */
+  --shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.06), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --shadow: 0 4px 12px rgba(16, 24, 40, 0.08), 0 2px 4px rgba(16, 24, 40, 0.04);
+  --shadow-lg: 0 8px 24px rgba(16, 24, 40, 0.12), 0 2px 6px rgba(16, 24, 40, 0.06);
+  --shadow-primary: 0 4px 12px rgba(79, 70, 229, 0.30);
 
   /* Radii */
-  --r-xs: 8px;
-  --r-sm: 10px;
-  --r-md: 14px;
-  --r-lg: 18px;
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 14px;
   --r-pill: 999px;
 
   /* Motion */
-  --t-fast: 0.14s;
-  --t: 0.24s;
-  --t-slow: 0.42s;
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --t-fast: 0.12s;
+  --t: 0.18s;
+  --t-slow: 0.28s;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
+  /* Liquid-glass surface (no backdrop sampling — nothing behind the glass) */
+  --glass-fill: linear-gradient(160deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.72) 100%);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
   background: var(--bg);
   color: var(--ink);
@@ -100,62 +104,66 @@
   :root {
     color-scheme: dark;
 
-    --primary: #36b3a6;
-    --primary-dark: #2a8e84;
-    --primary-strong: #3cc2b4;
-    --primary-ink: #06201d;
-    --primary-tint: #18302c;
-    --primary-tint-strong: #1f413c;
-    --accent-grad: linear-gradient(135deg, #36b3a6 0%, #2a8e84 100%);
+    --primary: #818cf8;
+    --primary-dark: #a5b4fc;
+    --primary-strong: #a5b4fc;
+    --primary-ink: #14152b;
+    --primary-tint: #20223a;
+    --primary-tint-strong: #2a2d4a;
+    --accent-grad: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
 
-    --bg: #0d1413;
-    --bg-glow-1: rgba(54, 179, 166, 0.14);
-    --bg-glow-2: rgba(63, 95, 143, 0.12);
-    --surface: #16201e;
-    --surface-2: #1b2725;
-    --surface-3: #1d2a27;
-    --surface-soft: #1c302c;
-    --field-bg: #121d1b;
-    --table-head-bg: #1a2724;
+    --bg: #0f1117;
+    --bg-glow-1: rgba(129, 140, 248, 0.10);
+    --bg-glow-2: rgba(99, 102, 241, 0.08);
+    --surface: #181b23;
+    --surface-2: #1d212b;
+    --surface-3: #232733;
+    --surface-soft: #20223a;
+    --field-bg: #12141b;
+    --table-head-bg: #1d212b;
 
-    --ink: #e9efed;
-    --ink-soft: #cdd7d4;
-    --muted: #8c9b96;
-    --line: #283531;
-    --line-strong: #344440;
+    --ink: #e7e9ee;
+    --ink-soft: #b4bac6;
+    --muted: #8a93a3;
+    --line: #2a2f3a;
+    --line-strong: #3a414f;
 
-    --rust: #d97a52;
-    --sage: #8aa08c;
-    --blue: #7ba0d6;
-    --warning: #d9b261;
-    --danger: #e57772;
-    --danger-tint: #361f1e;
+    --rust: #fbbf24;
+    --sage: #4ade80;
+    --blue: #60a5fa;
+    --warning: #fbbf24;
+    --danger: #f87171;
+    --danger-tint: #2a1717;
 
-    --st-todo-bg: #233029;     --st-todo-fg: #c4d6cd;
-    --st-doing-bg: #1b2f44;    --st-doing-fg: #9cc4ec;
-    --st-waiting-bg: #352c14;  --st-waiting-fg: #e3c478;
-    --st-blocked-bg: #3a201f;  --st-blocked-fg: #f0a19d;
-    --st-done-bg: #16341f;     --st-done-fg: #7fd6a3;
-    --st-cancelled-bg: #262b2d; --st-cancelled-fg: #9aa3a6;
+    --st-todo-bg: #232733;     --st-todo-fg: #b4bac6;
+    --st-doing-bg: #15203a;    --st-doing-fg: #60a5fa;
+    --st-waiting-bg: #2a2310;  --st-waiting-fg: #fbbf24;
+    --st-blocked-bg: #2a1717;  --st-blocked-fg: #f87171;
+    --st-done-bg: #13241a;     --st-done-fg: #4ade80;
+    --st-cancelled-bg: #232733; --st-cancelled-fg: #8a93a3;
 
-    --prog-none: #5a6763;
-    --prog-low: #e0975a;
-    --prog-mid: #e6c25f;
-    --prog-high: #6fc07d;
-    --prog-done: #35c08a;
+    --prog-none: #4b5563;
+    --prog-low: #fb923c;
+    --prog-mid: #fbbf24;
+    --prog-high: #4ade80;
+    --prog-done: #22c55e;
 
-    --imp-1: #5b8ad8;
-    --imp-2: #7ba0d6;
-    --imp-3: #9bbbe4;
-    --imp-4: #b9d0ee;
+    --imp-1: #3b82f6;
+    --imp-2: #60a5fa;
+    --imp-3: #93c5fd;
+    --imp-4: #c7ddfb;
 
-    --ring: rgba(54, 179, 166, 0.40);
+    --ring: rgba(129, 140, 248, 0.35);
 
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.35);
-    --shadow: 0 2px 5px rgba(0, 0, 0, 0.35), 0 12px 30px rgba(0, 0, 0, 0.45);
-    --shadow-lg: 0 8px 18px rgba(0, 0, 0, 0.45), 0 24px 54px rgba(0, 0, 0, 0.55);
-    --shadow-primary: 0 6px 18px rgba(54, 179, 166, 0.28);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 2px 4px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.45);
+    --shadow-primary: 0 4px 12px rgba(129, 140, 248, 0.30);
+
+    --glass-fill: linear-gradient(160deg, rgba(35, 39, 51, 0.82) 0%, rgba(24, 27, 35, 0.72) 100%);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 }
 
@@ -192,7 +200,7 @@ body {
   background-image:
     radial-gradient(900px 600px at 12% -8%, var(--bg-glow-1), transparent 60%),
     radial-gradient(800px 600px at 100% 0%, var(--bg-glow-2), transparent 55%);
-  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--ink);
 }
 
@@ -268,6 +276,36 @@ select {
   50% { opacity: 0.4; }
 }
 
+/* Marauder's Map reveal — on first entry the real UI inks itself into
+   existence from the centre outward, with a brief parchment/sepia wash that
+   resolves to the theme. `.first-reveal` is added to <html> once per load
+   (and removed after), so only the first screen inks in — later tab switches
+   use the lighter fade-up. It's applied to content (never an ancestor of the
+   fixed nav, which would re-base it). */
+@keyframes ink-reveal {
+  0% {
+    clip-path: circle(0% at 50% 42%);
+    opacity: 0;
+    filter: sepia(0.85) contrast(1.05);
+  }
+  35% { opacity: 1; }
+  100% {
+    clip-path: circle(150% at 50% 42%);
+    opacity: 1;
+    filter: none;
+  }
+}
+
+.first-reveal .page-content,
+.first-reveal .login-screen {
+  animation: ink-reveal 1.25s var(--ease);
+}
+
+.first-reveal .offline-banner,
+.first-reveal .bottom-nav {
+  animation: fade-in 1.4s var(--ease) both;
+}
+
 /* =========================================================================
    App shell + page scaffolding
    ========================================================================= */
@@ -324,10 +362,14 @@ select {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  border-top: 1px solid var(--line);
-  backdrop-filter: blur(18px) saturate(1.4);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  background: var(--glass-fill);
+  border-top: 1px solid var(--glass-border);
+  box-shadow: var(--glass-highlight), 0 -2px 12px rgba(16, 24, 40, 0.05);
+}
+
+.page-header h1 {
+  -webkit-text-fill-color: currentColor;
+  background: none;
 }
 
 .bottom-nav button {
@@ -777,14 +819,6 @@ textarea:focus {
   font-weight: 700;
 }
 
-.progress-summary > div:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
-}
-
-.progress-summary > div:first-child:hover {
-  box-shadow: 0 12px 30px rgba(31, 111, 104, 0.4);
-}
 
 .progress-summary > div:nth-child(1) { animation-delay: 0.02s; }
 .progress-summary > div:nth-child(2) { animation-delay: 0.06s; }
@@ -902,9 +936,6 @@ textarea:focus {
   transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
 }
 
-.task-table-row:hover {
-  box-shadow: var(--shadow);
-}
 
 /* Importance accent bar */
 .task-table-row::before {
@@ -1146,11 +1177,6 @@ textarea:focus {
     border-bottom: 0;
   }
 
-  .task-table-row:hover {
-    background: var(--surface-2);
-    box-shadow: none;
-  }
-
   .task-table-row::before {
     width: 4px;
     z-index: 1;
@@ -1298,10 +1324,6 @@ textarea:focus {
   background: var(--primary);
 }
 
-.task-card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--shadow-lg);
-}
 
 .task-list > .task-card:nth-child(1) { animation-delay: 0.02s; }
 .task-list > .task-card:nth-child(2) { animation-delay: 0.06s; }
@@ -1529,6 +1551,7 @@ textarea:focus {
 
 .project-row {
   position: relative;
+  grid-template-columns: minmax(0, 1fr) 36px 36px;
   align-items: center;
   padding: 8px;
   overflow: hidden;
@@ -1538,6 +1561,31 @@ textarea:focus {
   box-shadow: var(--shadow-xs);
   transition: border-color var(--t) var(--ease), background var(--t) var(--ease),
     transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+
+.project-row .icon-button {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.project-row.editing {
+  grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.project-rename {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 10px;
+  color: var(--ink);
+  background: var(--field-bg);
+  border: 1px solid var(--primary);
+  border-radius: var(--r-sm);
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.project-rename:focus {
+  outline: none;
 }
 
 /* Per-project completion meter pinned to the row's bottom edge */
@@ -1634,56 +1682,69 @@ button.project-row > span {
 /* =========================================================================
    Next / cache board
    ========================================================================= */
+/* Next — a vertical list of collapsible project sections (accordion). Scales
+   to many projects: each is a compact row you tap to expand and add ideas. */
 .cache-board {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 12px;
+  display: grid;
+  gap: 10px;
   width: 100%;
-  padding-bottom: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity;
 }
 
-.cache-column {
-  flex: 0 0 clamp(244px, 24vw, 320px);
-  display: grid;
-  align-content: start;
-  gap: 12px;
-  padding: 16px;
-  background: var(--surface);
+.cache-section {
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  box-shadow: var(--shadow);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
   animation: fade-up var(--t-slow) var(--ease) both;
-  scroll-snap-align: start;
-  transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease);
 }
 
-.cache-column:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
-}
-
-/* Project name on its own line, fully visible; count badge beside it */
-.cache-head {
+.cache-section__head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  transition: background var(--t) var(--ease);
 }
 
-.cache-head h2 {
+.cache-section__head::-webkit-details-marker {
+  display: none;
+}
+
+.cache-section__head:hover {
+  background: var(--surface-2);
+}
+
+.cache-chevron {
+  flex: none;
+  color: var(--muted);
+  transition: transform var(--t) var(--ease), color var(--t) var(--ease);
+}
+
+.cache-section[open] > .cache-section__head .cache-chevron {
+  transform: rotate(90deg);
+  color: var(--primary);
+}
+
+.cache-section__name {
   flex: 1;
   min-width: 0;
-  margin: 0;
-  font-size: 1.06rem;
-  font-weight: 750;
-  line-height: 1.3;
+  font-size: 1.02rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+.cache-section__body {
+  display: grid;
+  gap: 10px;
+  padding: 2px 16px 16px;
+  animation: fade-in var(--t) var(--ease) both;
 }
 
 .cache-count {
@@ -1772,11 +1833,6 @@ button.project-row > span {
   transition: border-color var(--t) var(--ease), background var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 
-.cache-item:hover {
-  border-color: var(--line-strong);
-  background: var(--surface-2);
-}
-
 .cache-item:focus-within {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--ring);
@@ -1804,13 +1860,6 @@ button.project-row > span {
   align-self: center;
   min-width: 34px;
   min-height: 34px;
-  opacity: 0.55;
-  transition: opacity var(--t) var(--ease), color var(--t) var(--ease), background var(--t) var(--ease);
-}
-
-.cache-item:hover .icon-button,
-.cache-item:focus-within .icon-button {
-  opacity: 1;
 }
 
 /* =========================================================================
@@ -1836,10 +1885,6 @@ button.project-row > span {
   transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 
-.metric:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow);
-}
 
 .metric:nth-child(1) { animation-delay: 0.02s; }
 .metric:nth-child(2) { animation-delay: 0.05s; }
@@ -2349,4 +2394,39 @@ button.project-row > span {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* =========================================================================
+   Liquid-glass surfaces — translucent fill + light-catching edge, NO
+   backdrop sampling (nothing sits behind these, so blur would just waste
+   GPU). One cheap recipe shared across the app's panels.
+   ========================================================================= */
+.task-composer,
+.search-filters,
+.settings-section,
+.mapping-panel,
+.pin-pad,
+.task-card,
+.metric,
+.progress-summary > div,
+.cache-section {
+  background: var(--glass-fill);
+  border-color: var(--glass-border);
+  box-shadow: var(--glass-highlight), var(--shadow);
+}
+
+@container tasktable (min-width: 1040px) {
+  .task-table {
+    background: var(--glass-fill);
+    border-color: var(--glass-border);
+    box-shadow: var(--glass-highlight), var(--shadow);
+  }
+}
+
+.table-more {
+  margin: 10px 2px 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
 }

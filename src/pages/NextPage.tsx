@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from "lucide-react";
+import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type TextareaHTMLAttributes } from "react";
 import { isProjectCacheTask, parseTaskExtra, stringifyTaskExtra } from "../lib/progress";
 import type { Project, Task } from "../lib/types";
@@ -36,13 +36,9 @@ function CacheItem({
   const [title, setTitle] = useState(task.title);
 
   function commit() {
-    const changes: Partial<Task> = {};
     const cleanTitle = title.trim();
     if (cleanTitle && cleanTitle !== task.title) {
-      changes.title = cleanTitle;
-    }
-    if (Object.keys(changes).length > 0) {
-      onUpdate(task, changes);
+      onUpdate(task, { title: cleanTitle });
     }
   }
 
@@ -56,7 +52,7 @@ function CacheItem({
   );
 }
 
-function CacheColumn({
+function CacheSection({
   project,
   items,
   onCreate,
@@ -79,35 +75,38 @@ function CacheColumn({
   }
 
   return (
-    <section className="cache-column">
-      <header className="cache-head">
-        <h2 title={project.name}>{project.name}</h2>
+    <details className="cache-section">
+      <summary className="cache-section__head">
+        <ChevronRight className="cache-chevron" size={18} aria-hidden="true" />
+        <span className="cache-section__name">{project.name}</span>
         <span className="cache-count">{items.length}</span>
-      </header>
-      <div className="cache-add">
-        <input
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              createItem();
-            }
-          }}
-          placeholder="Add a note"
-          aria-label={`New item for ${project.name}`}
-        />
-        <button type="button" onClick={createItem} aria-label={`Add item for ${project.name}`}>
-          <Plus size={18} aria-hidden="true" />
-        </button>
+      </summary>
+      <div className="cache-section__body">
+        <div className="cache-add">
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                createItem();
+              }
+            }}
+            placeholder="Add an idea"
+            aria-label={`New item for ${project.name}`}
+          />
+          <button type="button" onClick={createItem} aria-label={`Add item for ${project.name}`}>
+            <Plus size={18} aria-hidden="true" />
+          </button>
+        </div>
+        <div className="cache-items">
+          {items.map((task) => (
+            <CacheItem key={task.id} task={task} onUpdate={onUpdate} onDelete={onDelete} />
+          ))}
+          {items.length === 0 ? <p className="empty-state">No saved ideas yet.</p> : null}
+        </div>
       </div>
-      <div className="cache-items">
-        {items.map((task) => (
-          <CacheItem key={task.id} task={task} onUpdate={onUpdate} onDelete={onDelete} />
-        ))}
-        {items.length === 0 ? <p className="empty-state">No saved ideas yet.</p> : null}
-      </div>
-    </section>
+    </details>
   );
 }
 
@@ -158,7 +157,7 @@ export function NextPage(props: TaskPageProps) {
       </header>
       <section className="cache-board" aria-label="Project cache">
         {liveProjects.map((project) => (
-          <CacheColumn
+          <CacheSection
             key={project.id}
             project={project}
             items={projectItems(tasks, project)}
@@ -167,6 +166,7 @@ export function NextPage(props: TaskPageProps) {
             onDelete={onDeleteTask}
           />
         ))}
+        {liveProjects.length === 0 ? <p className="empty-state">No projects yet — create one on the Projects tab.</p> : null}
       </section>
     </main>
   );

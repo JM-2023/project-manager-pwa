@@ -15,4 +15,5 @@ export interface TaskPageProps {
   onAddTag: (task: Task, tagName: string) => void;
   onCreateProject: (name: string) => string;
   onArchiveProject: (project: Project) => void;
+  onRenameProject: (project: Project, name: string) => void;
 }

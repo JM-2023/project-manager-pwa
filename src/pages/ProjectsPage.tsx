@@ -13,7 +13,8 @@ export function ProjectsPage(props: TaskPageProps) {
     onArchiveTask,
     onDeleteTask,
     onCreateProject,
-    onArchiveProject
+    onArchiveProject,
+    onRenameProject
   } = props;
 
   const selectedProjectId = filters.projectId;
@@ -38,6 +39,7 @@ export function ProjectsPage(props: TaskPageProps) {
         onSelect={(projectId) => onFiltersChange({ projectId })}
         onCreate={onCreateProject}
         onArchive={onArchiveProject}
+        onRename={onRenameProject}
       />
       <TaskTable tasks={projectTasks} projects={projects} onUpdate={onUpdateTask} onArchive={onArchiveTask} onDelete={onDeleteTask} />
     </main>

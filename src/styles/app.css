@@ -1558,11 +1558,19 @@ button.project-row > span {
   min-height: 44px;
   align-items: center;
   gap: 10px;
+  padding: 8px 10px;
   color: var(--ink);
   text-align: left;
   background: transparent;
   border: 0;
+  border-radius: 10px;
+  box-shadow: none;
   font-weight: 600;
+  transition: color var(--t) var(--ease);
+}
+
+.project-row button:first-child:hover {
+  color: var(--primary-dark);
 }
 
 .project-row button:first-child > span:not(.project-color) {
@@ -2303,7 +2311,6 @@ button.project-row > span {
 .icon-button,
 .today-title-button,
 .bottom-nav button,
-.project-row > button:first-child,
 button.project-row,
 .task-action-menu button,
 .offline-banner button {
@@ -2419,7 +2426,6 @@ button.project-row,
 .tag-input button svg,
 .add-row-button svg,
 .icon-button svg,
-.project-row > button:first-child svg,
 button.project-row svg,
 .bottom-nav button svg,
 .task-action-menu button svg,
@@ -2531,7 +2537,6 @@ button.project-row svg,
   flex: none;
 }
 
-.project-row > button:first-child,
 button.project-row {
   --btn-py: 10px;
   --btn-px: 12px;
@@ -2547,17 +2552,10 @@ button.project-row {
   border-color: var(--glass-button-border);
 }
 
-.project-row > button:first-child {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-
 .bottom-nav button.active,
 .today-title-button.active,
 .quick-status button.active,
-button.project-row.active,
-.project-row.active > button:first-child {
+button.project-row.active {
   color: var(--primary-dark);
   background: var(--glass-button-fill);
   border-color: var(--glass-button-border);
@@ -2593,7 +2591,6 @@ button.project-row.active,
   .icon-button:hover,
   .today-title-button:hover,
   .bottom-nav button:hover,
-  .project-row > button:first-child:hover,
   button.project-row:hover,
   .task-action-menu button:hover,
   .offline-banner button:hover {
@@ -2617,7 +2614,6 @@ button.project-row.active,
   .add-row-button:hover,
   .today-title-button:hover,
   .bottom-nav button:hover,
-  .project-row > button:first-child:hover,
   button.project-row:hover,
   .task-action-menu button:hover {
     color: var(--primary-dark);
@@ -2659,7 +2655,6 @@ button.project-row.active,
   .quick-status button:hover svg,
   .add-row-button:hover svg,
   .icon-button:hover svg,
-  .project-row > button:first-child:hover svg,
   button.project-row:hover svg,
   .bottom-nav button:hover svg,
   .task-action-menu button:hover svg,
@@ -2682,7 +2677,6 @@ button.project-row.active,
 .keypad button:active:not(:disabled),
 .icon-button:active,
 .today-title-button:active,
-.project-row > button:first-child:active,
 button.project-row:active,
 .bottom-nav button:active,
 .task-action-menu button:active,

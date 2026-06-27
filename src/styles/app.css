@@ -465,44 +465,11 @@ select {
   min-height: 56px;
   place-items: center;
   gap: 3px;
-  padding: 6px 2px;
   color: var(--muted);
-  background: transparent;
-  border: 0;
-  border-radius: var(--r-md);
-  transition: color var(--t) var(--ease), background var(--t) var(--ease), transform var(--t-fast) var(--ease);
-}
-
-.bottom-nav button svg {
-  transition: transform var(--t) var(--ease-spring);
-}
-
-.bottom-nav button:hover {
-  color: var(--ink-soft);
-}
-
-.bottom-nav button:active {
-  transform: scale(0.92);
 }
 
 .bottom-nav button.active {
   color: var(--primary-dark);
-  background: var(--primary-tint);
-}
-
-.bottom-nav button.active svg {
-  transform: none;
-}
-
-.bottom-nav button.active::after {
-  content: "";
-  position: absolute;
-  bottom: 5px;
-  width: 16px;
-  height: 3px;
-  border-radius: var(--r-pill);
-  background: var(--primary);
-  animation: scale-in var(--t) var(--ease-spring) both;
 }
 
 .bottom-nav span {
@@ -584,22 +551,6 @@ select {
   min-height: 38px;
   place-items: center;
   color: #fff;
-  background: rgba(255, 255, 255, 0.2);
-  border: 0;
-  border-radius: var(--r-sm);
-  transition: background var(--t) var(--ease), transform var(--t-fast) var(--ease);
-}
-
-.offline-banner button:hover {
-  background: rgba(255, 255, 255, 0.32);
-}
-
-.offline-banner button:active {
-  transform: scale(0.9);
-}
-
-.offline-banner button:active svg {
-  animation: spin 0.7s var(--ease);
 }
 
 @media (max-width: 640px) {
@@ -628,27 +579,10 @@ select {
   min-height: 38px;
   place-items: center;
   color: var(--muted);
-  background: transparent;
-  border: 0;
-  border-radius: var(--r-sm);
-  transition: color var(--t) var(--ease), background var(--t) var(--ease), transform var(--t-fast) var(--ease);
-}
-
-.icon-button:hover {
-  color: var(--ink);
-  background: var(--surface-3);
-}
-
-.icon-button:active {
-  transform: scale(0.9);
 }
 
 .icon-button.danger {
   color: var(--danger);
-}
-
-.icon-button.danger:hover {
-  background: var(--danger-tint);
 }
 
 /* =========================================================================
@@ -1136,74 +1070,19 @@ textarea:focus {
   min-height: 38px;
   align-items: center;
   gap: 8px;
-  padding: 8px 10px;
   color: var(--ink-soft);
   text-align: left;
   white-space: nowrap;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  box-shadow: none;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  filter: none;
-  transform: none;
-  transition:
-    color var(--t) var(--ease),
-    background var(--t) var(--ease),
-    padding 0.4s var(--spring),
-    border-radius 0.4s var(--spring);
-}
-
-.task-action-menu button svg {
-  flex: none;
-  transition: transform 0.4s var(--spring);
-}
-
-@media (hover: hover) {
-  .task-action-menu button:hover {
-    padding: 9px 12px;
-    color: var(--primary-dark);
-    background: var(--glass-button-fill);
-    border-color: var(--glass-button-border);
-    border-radius: 16px;
-    transform: none;
-  }
-
-  .task-action-menu button:hover svg {
-    transform: scale(0.95);
-  }
-}
-
-.task-action-menu button:active {
-  padding: 8px 10px;
-  background: transparent;
-  border-color: transparent;
-  border-radius: 12px;
-  box-shadow: none;
-  filter: none;
-  transform: none;
 }
 
 .task-table-note-cell .icon-button {
   align-self: stretch;
   min-width: 44px;
   color: var(--muted);
-  background: var(--field-bg);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
-}
-
-.task-table-note-cell .icon-button:hover {
-  background: var(--surface-3);
 }
 
 .task-table-note-cell .icon-button.danger {
   color: var(--danger);
-}
-
-.task-table-note-cell .icon-button.danger:hover {
-  background: var(--danger-tint);
 }
 
 /* ---------------------------------------------------------------------------
@@ -1340,18 +1219,6 @@ textarea:focus {
     resize: vertical;
   }
 
-  .task-table-note-cell .icon-button {
-    min-width: 38px;
-    min-height: 56px;
-    background: transparent;
-    border: 0;
-    border-right: 1px solid var(--line);
-    border-radius: 0;
-  }
-
-  .task-table-note-cell .icon-button:last-child {
-    border-right: 0;
-  }
 }
 
 .composer-project-row {
@@ -2183,10 +2050,6 @@ button.project-row > span {
   font-size: 1.15rem;
 }
 
-.keypad button.keypad-action:hover:not(:disabled) {
-  box-shadow: none;
-}
-
 .keypad button:disabled {
   opacity: 0.4;
 }
@@ -2254,14 +2117,6 @@ button.project-row > span {
 
   .bottom-nav button {
     min-height: 68px;
-    padding: 8px 4px;
-  }
-
-  .bottom-nav button.active::after {
-    bottom: auto;
-    left: 4px;
-    width: 3px;
-    height: 22px;
   }
 
   .bottom-nav span {
@@ -2447,6 +2302,7 @@ button.project-row > span {
 .bottom-nav button,
 .project-row > button:first-child,
 button.project-row,
+.task-action-menu button,
 .offline-banner button {
   --btn-py: 12px;
   --btn-px: 22px;
@@ -2512,6 +2368,7 @@ button.project-row,
 .tag-input button,
 .icon-button,
 .bottom-nav button,
+.task-action-menu button,
 .offline-banner button {
   display: inline-grid;
   place-items: center;
@@ -2561,6 +2418,7 @@ button.project-row,
 .project-row > button:first-child svg,
 button.project-row svg,
 .bottom-nav button svg,
+.task-action-menu button svg,
 .offline-banner button svg {
   transition: transform 0.4s var(--spring);
 }
@@ -2640,14 +2498,23 @@ button.project-row svg,
   --btn-radius: 16px;
   --btn-hover-radius: 20px;
   padding: var(--btn-py) var(--btn-px);
-  background: transparent;
-  border-color: transparent;
+}
+
+.task-action-menu button {
+  --btn-py: 8px;
+  --btn-px: 10px;
+  --btn-hover-py: 10px;
+  --btn-hover-px: 12px;
+  --btn-radius: 12px;
+  --btn-hover-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: start;
   box-shadow: none;
-  transition:
-    box-shadow 0.18s ease,
-    background 0.18s ease,
-    padding 0.4s var(--spring),
-    border-radius 0.4s var(--spring);
+}
+
+.task-action-menu button svg {
+  flex: none;
 }
 
 .project-row > button:first-child,
@@ -2709,8 +2576,10 @@ button.project-row.active,
   .add-row-button:hover,
   .keypad button:hover:not(:disabled),
   .icon-button:hover,
+  .bottom-nav button:hover,
   .project-row > button:first-child:hover,
   button.project-row:hover,
+  .task-action-menu button:hover,
   .offline-banner button:hover {
     padding: var(--btn-hover-py) var(--btn-hover-px);
     background: var(--glass-button-hover-fill);
@@ -2730,8 +2599,10 @@ button.project-row.active,
   .project-create button:hover,
   .tag-input button:hover,
   .add-row-button:hover,
+  .bottom-nav button:hover,
   .project-row > button:first-child:hover,
-  button.project-row:hover {
+  button.project-row:hover,
+  .task-action-menu button:hover {
     color: var(--primary-dark);
   }
 
@@ -2740,15 +2611,6 @@ button.project-row.active,
     color: var(--danger);
     background: var(--glass-button-hover-fill);
     border-color: var(--glass-button-border);
-  }
-
-  .bottom-nav button:hover {
-    padding: var(--btn-hover-py) var(--btn-hover-px);
-    background: var(--glass-button-fill);
-    border-color: var(--glass-button-border);
-    border-radius: var(--btn-hover-radius);
-    box-shadow: var(--glass-button-hover-shadow);
-    transform: none;
   }
 
   .offline-banner button:hover {
@@ -2783,6 +2645,7 @@ button.project-row.active,
   .project-row > button:first-child:hover svg,
   button.project-row:hover svg,
   .bottom-nav button:hover svg,
+  .task-action-menu button:hover svg,
   .offline-banner button:hover svg {
     transform: scale(0.95);
   }
@@ -2804,6 +2667,7 @@ button.project-row.active,
 .project-row > button:first-child:active,
 button.project-row:active,
 .bottom-nav button:active,
+.task-action-menu button:active,
 .offline-banner button:active {
   background: var(--glass-button-fill);
   border-color: var(--glass-button-border);

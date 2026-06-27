@@ -10,6 +10,13 @@ export function todayDate(): string {
   return `${year}-${month}-${day}`;
 }
 
+function formatDateInput(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export function toDateInput(value?: string | null): string {
   if (!value) {
     return "";
@@ -22,6 +29,13 @@ export function toDateInput(value?: string | null): string {
     return "";
   }
   return date.toISOString().slice(0, 10);
+}
+
+export function addDays(value: string, days: number): string {
+  const input = toDateInput(value) || todayDate();
+  const date = new Date(`${input}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return formatDateInput(date);
 }
 
 export function formatShortDate(value?: string | null): string {

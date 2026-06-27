@@ -1,4 +1,4 @@
-import { Archive, Trash2 } from "lucide-react";
+import { Copy, MoreHorizontal, MoveRight, Trash2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -10,6 +10,7 @@ import {
   type TextareaHTMLAttributes
 } from "react";
 import type { Project, Task } from "../lib/types";
+import { addDays, todayDate, toDateInput } from "../lib/dates";
 import {
   getTaskImportance,
   getTaskProgress,
@@ -28,8 +29,8 @@ interface TaskTableProps {
   tasks: Task[];
   projects: Project[];
   showDate?: boolean;
+  onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
-  onArchive: (task: Task) => void;
   onDelete: (task: Task) => void;
 }
 
@@ -37,8 +38,8 @@ interface TaskRowProps {
   task: Task;
   projects: Project[];
   showDate: boolean;
+  onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
-  onArchive: (task: Task) => void;
   onDelete: (task: Task) => void;
 }
 
@@ -58,13 +59,15 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} ref={ref} />;
 }
 
-function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: TaskRowProps) {
+function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: TaskRowProps) {
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
   const [blocker, setBlocker] = useState(worklogBlocker(task));
   const [nextAction, setNextAction] = useState(task.next_action ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
   const [progress, setProgress] = useState<TaskProgress>(getTaskProgress(task));
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setTitle(task.title);
@@ -130,6 +133,31 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
     };
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
   function updateImportance(value: TaskImportance) {
     const extra = parseTaskExtra(task);
     extra.importance = value;
@@ -154,6 +182,34 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
     if (value !== getTaskProgress(task)) {
       updateProgress(value);
     }
+  }
+
+  function taskDateWithOffset(offset: number): string {
+    return addDays(toDateInput(task.start_date) || todayDate(), offset);
+  }
+
+  function copyTask(offset: number) {
+    const targetDate = taskDateWithOffset(offset);
+    onCreate({
+      title: task.title,
+      project_id: task.project_id ?? null,
+      description: task.description ?? null,
+      status: task.status,
+      priority: task.priority,
+      due_date: task.due_date ?? null,
+      start_date: targetDate,
+      next_action: task.next_action ?? null,
+      notes: task.notes ?? null,
+      source: "app",
+      external_key: null,
+      extra_json: task.extra_json ?? null
+    });
+    setMenuOpen(false);
+  }
+
+  function moveTask(offset: number) {
+    onUpdate(task, { start_date: taskDateWithOffset(offset) });
+    setMenuOpen(false);
   }
 
   const importance = getTaskImportance(task);
@@ -256,9 +312,31 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
         <span className="tt-label">Notes</span>
         <div className="task-table-note-cell">
           <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label="Note" />
-          <button type="button" className="icon-button" onClick={() => onArchive(task)} aria-label="Archive task" title="Archive">
-            <Archive size={16} aria-hidden="true" />
-          </button>
+          <div className="task-menu" ref={menuRef}>
+            <button type="button" className="icon-button" onClick={() => setMenuOpen((open) => !open)} aria-label="Task actions" aria-haspopup="menu" aria-expanded={menuOpen}>
+              <MoreHorizontal size={17} aria-hidden="true" />
+            </button>
+            {menuOpen ? (
+              <div className="task-action-menu" role="menu" aria-label="Task actions">
+                <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
+                  <Copy size={15} aria-hidden="true" />
+                  <span>Copy to yesterday</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => copyTask(1)}>
+                  <Copy size={15} aria-hidden="true" />
+                  <span>Copy to tomorrow</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
+                  <MoveRight size={15} aria-hidden="true" />
+                  <span>Move to yesterday</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => moveTask(1)}>
+                  <MoveRight size={15} aria-hidden="true" />
+                  <span>Move to tomorrow</span>
+                </button>
+              </div>
+            ) : null}
+          </div>
           <button type="button" className="icon-button danger" onClick={() => onDelete(task)} aria-label="Delete task" title="Delete">
             <Trash2 size={16} aria-hidden="true" />
           </button>
@@ -272,7 +350,7 @@ function TaskRow({ task, projects, showDate, onUpdate, onArchive, onDelete }: Ta
 // renderer (each row mounts several auto-sizing fields). Filter to narrow down.
 const ROW_CAP = 150;
 
-export function TaskTable({ tasks, projects, showDate = true, onUpdate, onArchive, onDelete }: TaskTableProps) {
+export function TaskTable({ tasks, projects, showDate = true, onCreate, onUpdate, onDelete }: TaskTableProps) {
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
   const visible = tasks.length > ROW_CAP ? tasks.slice(0, ROW_CAP) : tasks;
   const hidden = tasks.length - visible.length;
@@ -297,8 +375,8 @@ export function TaskTable({ tasks, projects, showDate = true, onUpdate, onArchiv
             task={task}
             projects={liveProjects}
             showDate={showDate}
+            onCreate={onCreate}
             onUpdate={onUpdate}
-            onArchive={onArchive}
             onDelete={onDelete}
           />
         ))}

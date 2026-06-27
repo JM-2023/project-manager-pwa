@@ -3,7 +3,7 @@ import { getTaskImportance, getTaskProgress, isProjectCacheTask, worklogBlocker,
 import type { TaskPageProps } from "./pageProps";
 
 export function SearchPage(props: TaskPageProps) {
-  const { projects, tasks, filters, onFiltersChange, onUpdateTask, onArchiveTask, onDeleteTask } = props;
+  const { projects, tasks, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask } = props;
   const projectMap = new Map(projects.map((project) => [project.id, project.name]));
   const query = filters.search.trim().toLowerCase();
 
@@ -57,7 +57,7 @@ export function SearchPage(props: TaskPageProps) {
           </select>
         </div>
       </section>
-      <TaskTable tasks={filtered} projects={projects} onUpdate={onUpdateTask} onArchive={onArchiveTask} onDelete={onDeleteTask} />
+      <TaskTable tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
     </main>
   );
 }

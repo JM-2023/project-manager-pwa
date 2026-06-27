@@ -303,6 +303,17 @@ select {
   to { opacity: 1; transform: none; }
 }
 
+@keyframes task-menu-pop {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 240px;
+  }
+}
+
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -390,6 +401,38 @@ select {
   font-size: 0.9rem;
   font-weight: 500;
   text-align: right;
+}
+
+.today-page-header {
+  align-items: center;
+}
+
+.today-date-switcher {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.today-date-switcher > div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.today-date-switcher h1 {
+  line-height: 1;
+}
+
+.today-date-switcher span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.date-nav-button {
+  flex: none;
 }
 
 /* =========================================================================
@@ -1053,6 +1096,95 @@ textarea:focus {
   overflow: visible;
 }
 
+.task-menu {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  place-items: stretch;
+  overflow: visible;
+  isolation: isolate;
+}
+
+.task-menu > .icon-button {
+  align-self: stretch;
+}
+
+.task-action-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 50;
+  display: grid;
+  gap: 3px;
+  min-width: 194px;
+  padding: 6px;
+  overflow: hidden;
+  color: var(--ink);
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: 18px;
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  filter: none;
+  animation: task-menu-pop 0.18s linear both;
+}
+
+.task-action-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  color: var(--ink-soft);
+  text-align: left;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  filter: none;
+  transform: none;
+  transition:
+    color var(--t) var(--ease),
+    background var(--t) var(--ease),
+    padding 0.4s var(--spring),
+    border-radius 0.4s var(--spring);
+}
+
+.task-action-menu button svg {
+  flex: none;
+  transition: transform 0.4s var(--spring);
+}
+
+@media (hover: hover) {
+  .task-action-menu button:hover {
+    padding: 9px 12px;
+    color: var(--primary-dark);
+    background: var(--glass-button-fill);
+    border-color: var(--glass-button-border);
+    border-radius: 16px;
+    transform: none;
+  }
+
+  .task-action-menu button:hover svg {
+    transform: scale(0.95);
+  }
+}
+
+.task-action-menu button:active {
+  padding: 8px 10px;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 12px;
+  box-shadow: none;
+  filter: none;
+  transform: none;
+}
+
 .task-table-note-cell .icon-button {
   align-self: stretch;
   min-width: 44px;
@@ -1081,7 +1213,7 @@ textarea:focus {
 @container tasktable (min-width: 1040px) {
   .task-table {
     gap: 0;
-    overflow-x: auto;
+    overflow: visible;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-md);
@@ -1194,6 +1326,7 @@ textarea:focus {
     width: 100%;
     grid-template-columns: minmax(0, 1fr) 38px 38px;
     gap: 0;
+    overflow: visible;
   }
 
   .task-table-note-cell textarea {

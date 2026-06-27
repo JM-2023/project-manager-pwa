@@ -9,8 +9,8 @@ export function ProjectsPage(props: TaskPageProps) {
     tasks,
     filters,
     onFiltersChange,
+    onCreateTask,
     onUpdateTask,
-    onArchiveTask,
     onDeleteTask,
     onCreateProject,
     onArchiveProject,
@@ -41,7 +41,7 @@ export function ProjectsPage(props: TaskPageProps) {
         onArchive={onArchiveProject}
         onRename={onRenameProject}
       />
-      <TaskTable tasks={projectTasks} projects={projects} onUpdate={onUpdateTask} onArchive={onArchiveTask} onDelete={onDeleteTask} />
+      <TaskTable tasks={projectTasks} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
     </main>
   );
 }

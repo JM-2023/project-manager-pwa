@@ -23,9 +23,9 @@
   --accent-grad: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
 
   /* Neutrals / surfaces */
-  --bg: #f7f8fa;
-  --bg-glow-1: rgba(79, 70, 229, 0.07);
-  --bg-glow-2: rgba(99, 102, 241, 0.05);
+  --bg: #ffffff;
+  --bg-glow-1: transparent;
+  --bg-glow-2: transparent;
   --surface: #ffffff;
   --surface-2: #fcfcfd;
   --surface-3: #f1f3f5;
@@ -93,13 +93,26 @@
   --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
   /* Signature liquid-glass "swell" — overshoots then settles */
   --spring: cubic-bezier(0.175, 0.885, 0.32, 2.2);
-  /* Liquid-glass surface (no backdrop sampling — nothing behind the glass):
-     a top-left specular sheen over a translucent tint, plus a light rim. */
+  /* Liquid-glass surface (no backdrop sampling): a neutral translucent tint,
+     soft highlight, and light rim over the plain white page. */
   --glass-fill:
-    radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.55), transparent 55%),
-    linear-gradient(160deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.70) 100%);
-  --glass-border: rgba(255, 255, 255, 0.75);
-  --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    radial-gradient(130% 90% at 16% 0%, rgba(255, 255, 255, 0.82), transparent 56%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.66) 0%, rgba(255, 255, 255, 0.24) 100%);
+  --glass-border: rgba(17, 24, 39, 0.12);
+  --glass-highlight:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -1px 0 rgba(17, 24, 39, 0.04);
+  --glass-button-fill:
+    radial-gradient(120% 110% at 18% 0%, rgba(255, 255, 255, 0.90), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.48), rgba(255, 255, 255, 0.16));
+  --glass-button-hover-fill:
+    radial-gradient(120% 110% at 18% 0%, rgba(255, 255, 255, 0.96), transparent 58%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.22));
+  --glass-button-border: rgba(17, 24, 39, 0.16);
+  --glass-button-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(17, 24, 39, 0.05),
+    0 6px 18px rgba(16, 24, 40, 0.07);
 
   background: var(--bg);
   color: var(--ink);
@@ -167,10 +180,21 @@
     --shadow-primary: 0 4px 12px rgba(129, 140, 248, 0.30);
 
     --glass-fill:
-      radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.07), transparent 55%),
-      linear-gradient(160deg, rgba(35, 39, 51, 0.82) 0%, rgba(24, 27, 35, 0.72) 100%);
+      radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.08), transparent 55%),
+      linear-gradient(160deg, rgba(35, 39, 51, 0.66) 0%, rgba(24, 27, 35, 0.34) 100%);
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    --glass-button-fill:
+      radial-gradient(120% 110% at 18% 0%, rgba(255, 255, 255, 0.12), transparent 58%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03));
+    --glass-button-hover-fill:
+      radial-gradient(120% 110% at 18% 0%, rgba(255, 255, 255, 0.16), transparent 58%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.05));
+    --glass-button-border: rgba(255, 255, 255, 0.14);
+    --glass-button-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.12),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+      0 6px 18px rgba(0, 0, 0, 0.20);
   }
 }
 
@@ -204,9 +228,7 @@ body,
 
 body {
   background-color: var(--bg);
-  background-image:
-    radial-gradient(900px 600px at 12% -8%, var(--bg-glow-1), transparent 60%),
-    radial-gradient(800px 600px at 100% 0%, var(--bg-glow-2), transparent 55%);
+  background-image: none;
   background-repeat: no-repeat;
   color: var(--ink);
 }
@@ -298,24 +320,31 @@ select {
   0% {
     clip-path: circle(0% at 50% 42%);
     opacity: 0;
-    filter: sepia(0.85) contrast(1.05);
   }
   35% { opacity: 1; }
   100% {
     clip-path: circle(150% at 50% 42%);
     opacity: 1;
-    filter: none;
   }
 }
 
 .first-reveal .page-content,
 .first-reveal .login-screen {
   animation: ink-reveal 1.25s var(--ease);
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 .first-reveal .offline-banner,
 .first-reveal .bottom-nav {
   animation: fade-in 1.4s var(--ease) both;
+}
+
+.reveal-complete .page-content,
+.reveal-complete .login-screen,
+.reveal-complete .offline-banner,
+.reveal-complete .bottom-nav {
+  animation: none;
 }
 
 /* =========================================================================
@@ -694,12 +723,12 @@ textarea:focus {
 }
 
 .composer-row {
-  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) minmax(122px, 0.9fr) 46px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) minmax(122px, 0.9fr) 58px;
 }
 
 /* Today's composer hides the date input — collapse the empty grid track */
 .composer-row:not(:has(input[type="date"])) {
-  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) 46px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) 58px;
 }
 
 /* =========================================================================
@@ -1311,7 +1340,7 @@ textarea:focus {
 
 .composer-project-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 46px;
+  grid-template-columns: minmax(0, 1fr) 58px;
   gap: 8px;
   margin-top: 8px;
 }
@@ -1592,22 +1621,30 @@ textarea:focus {
   display: grid;
   gap: 8px;
   margin-bottom: 14px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.project-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .project-create,
 .project-row,
 .project-row button:first-child {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-columns: minmax(0, 1fr) 58px;
   gap: 8px;
 }
 
 .project-row {
   position: relative;
-  grid-template-columns: minmax(0, 1fr) 36px 36px;
+  grid-template-columns: minmax(0, 1fr) 42px 42px;
   align-items: center;
   padding: 8px;
-  overflow: hidden;
+  overflow: visible;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
@@ -1619,6 +1656,7 @@ textarea:focus {
 .project-row .icon-button {
   min-width: 36px;
   min-height: 36px;
+  justify-self: center;
 }
 
 .project-row.editing {
@@ -1817,8 +1855,9 @@ button.project-row > span {
 /* New-note row directly under the project name */
 .cache-add {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-columns: minmax(0, 1fr) 58px;
   gap: 8px;
+  overflow: visible;
 }
 
 .cache-add input {
@@ -2118,9 +2157,7 @@ button.project-row > span {
   place-items: center;
   padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
   background-color: var(--bg);
-  background-image:
-    radial-gradient(620px 460px at 50% -8%, var(--bg-glow-1), transparent 60%),
-    radial-gradient(520px 420px at 100% 110%, var(--bg-glow-2), transparent 55%);
+  background-image: none;
 }
 
 .pin-pad {
@@ -2361,7 +2398,10 @@ button.project-row > span {
     top: 24px;
     align-self: start;
     max-height: calc(100vh - 48px);
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2px 14px 12px 2px;
+    margin: -2px -14px -12px -2px;
   }
 
   .filter-grid {
@@ -2485,117 +2525,228 @@ button.project-row > span {
 }
 
 /* =========================================================================
-   Liquid-glass buttons — every button becomes a light-catching glass chip
-   (rim + inner highlight + top sheen) and gains the signature springy
-   "swell" on hover plus a tactile press. No backdrop sampling: the glass is
-   built from gradients and borders only.
+   Liquid-glass buttons — neutral transparent chips, built without backdrop
+   sampling. The demo effect is a spring on padding and radius, with the icon
+   settling slightly smaller while the chip expands.
    ========================================================================= */
 
-/* Filled accent actions — glassy sheen layered over the indigo gradient.
-   (This also restyles the previously plain Projects "New project" + button.) */
 .primary-button,
+.secondary-button,
+.ghost-button,
+.file-picker,
 .composer-row button,
 .composer-project-row button,
 .cache-add button,
 .project-create button,
-.tag-input button {
-  color: var(--primary-ink);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0) 48%),
-    var(--accent-grad);
-  border: 1px solid rgba(255, 255, 255, 0.32);
-  box-shadow: var(--glass-highlight), var(--shadow-primary);
-}
-
-/* Light / subtle actions — frosted-glass chips */
-.secondary-button,
-.ghost-button,
-.file-picker,
-.add-row-button {
-  background: var(--glass-fill);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-highlight), var(--shadow-sm);
-}
-.secondary-button { color: var(--primary-dark); }
-.file-picker { color: var(--primary-dark); }
-.ghost-button { color: var(--ink-soft); }
-.ghost-button.danger { color: var(--danger); }
-.add-row-button { color: var(--primary-dark); border-style: dashed; }
-
-/* Shared spring motion */
-.primary-button,
-.secondary-button,
-.ghost-button,
-.file-picker,
 .tag-input button,
-.composer-row button,
-.composer-project-row button,
-.cache-add button,
-.project-create button,
+.quick-status button,
 .add-row-button,
 .keypad button,
 .icon-button,
 .offline-banner button {
+  --btn-py: 9px;
+  --btn-px: 14px;
+  --btn-hover-py: 10px;
+  --btn-hover-px: 18px;
+  color: var(--ink-soft);
+  background: var(--glass-button-fill);
+  border: 1px solid var(--glass-button-border);
+  border-radius: var(--r-sm);
+  box-shadow: var(--glass-button-shadow);
+  filter: none;
+  transform: none;
   transition:
-    transform 0.42s var(--spring),
+    padding 0.42s var(--spring),
     border-radius 0.42s var(--spring),
     background var(--t) var(--ease),
     color var(--t) var(--ease),
     border-color var(--t) var(--ease),
-    box-shadow var(--t) var(--ease),
-    filter var(--t) var(--ease);
-  will-change: transform;
+    box-shadow var(--t) var(--ease);
 }
 
-/* Hover = the glass chip swells & rounds (pointer devices only) */
+.primary-button,
+.secondary-button,
+.file-picker,
+.composer-row button,
+.composer-project-row button,
+.cache-add button,
+.project-create button,
+.tag-input button,
+.add-row-button {
+  color: var(--primary-dark);
+}
+
+.ghost-button.danger,
+.icon-button.danger {
+  color: var(--danger);
+}
+
+.primary-button,
+.secondary-button,
+.ghost-button,
+.file-picker {
+  padding: var(--btn-py) var(--btn-px);
+}
+
+.composer-row button,
+.composer-project-row button,
+.cache-add button,
+.project-create button,
+.tag-input button,
+.icon-button,
+.offline-banner button {
+  --btn-py: 9px;
+  --btn-px: 9px;
+  --btn-hover-py: 9px;
+  --btn-hover-px: 13px;
+  display: inline-grid;
+  place-items: center;
+  padding: var(--btn-py) var(--btn-px);
+}
+
+.quick-status button,
+.keypad button {
+  --btn-py: 0px;
+  --btn-px: 0px;
+  --btn-hover-py: var(--btn-py);
+  --btn-hover-px: var(--btn-px);
+}
+
+.quick-status button {
+  --btn-py: 5px;
+  --btn-px: 2px;
+}
+
+.add-row-button {
+  --btn-py: 12px;
+  --btn-px: 12px;
+  --btn-hover-py: 14px;
+  --btn-hover-px: 18px;
+  padding: var(--btn-py) var(--btn-px);
+  border-style: dashed;
+}
+
+.bottom-nav button {
+  background: transparent;
+  border: 1px solid transparent;
+  box-shadow: none;
+  transform: none;
+  transition:
+    border-radius 0.42s var(--spring),
+    background var(--t) var(--ease),
+    color var(--t) var(--ease),
+    border-color var(--t) var(--ease),
+    box-shadow var(--t) var(--ease);
+}
+
+.bottom-nav button.active,
+.quick-status button.active {
+  color: var(--primary-dark);
+  background: var(--glass-button-fill);
+  border-color: var(--glass-button-border);
+  box-shadow: var(--glass-button-shadow);
+}
+
+.offline-banner button {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.18);
+  border-color: rgba(255, 255, 255, 0.26);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
 @media (hover: hover) {
   .primary-button:hover,
   .secondary-button:hover,
   .ghost-button:hover,
   .file-picker:hover,
-  .tag-input button:hover,
   .composer-row button:hover,
   .composer-project-row button:hover,
   .cache-add button:hover,
   .project-create button:hover,
+  .tag-input button:hover,
+  .quick-status button:hover,
   .add-row-button:hover,
   .keypad button:hover:not(:disabled),
-  .icon-button:hover {
-    transform: scale(1.06);
-    filter: brightness(1.05);
+  .icon-button:hover,
+  .offline-banner button:hover {
+    padding: var(--btn-hover-py) var(--btn-hover-px);
+    color: var(--ink);
+    background: var(--glass-button-hover-fill);
+    border-color: color-mix(in srgb, var(--glass-button-border) 80%, var(--ink) 20%);
+    border-radius: var(--r-md);
+    box-shadow:
+      var(--glass-button-shadow),
+      0 10px 28px rgba(16, 24, 40, 0.08);
+    filter: none;
+    transform: none;
   }
 
-  /* Icon eases down as the chip springs out — the signature detail */
+  .primary-button:hover,
+  .secondary-button:hover,
+  .file-picker:hover,
+  .composer-row button:hover,
+  .composer-project-row button:hover,
+  .cache-add button:hover,
+  .project-create button:hover,
+  .tag-input button:hover,
+  .add-row-button:hover {
+    color: var(--primary-dark);
+  }
+
+  .ghost-button.danger:hover,
+  .icon-button.danger:hover {
+    color: var(--danger);
+    background: var(--glass-button-hover-fill);
+    border-color: color-mix(in srgb, var(--danger) 35%, var(--glass-button-border) 65%);
+  }
+
+  .bottom-nav button:hover {
+    background: var(--glass-button-fill);
+    border-color: var(--glass-button-border);
+    border-radius: var(--r-md);
+    box-shadow: var(--glass-button-shadow);
+    transform: none;
+  }
+
+  .offline-banner button:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.26);
+    border-color: rgba(255, 255, 255, 0.36);
+  }
+
   .primary-button:hover svg,
   .secondary-button:hover svg,
   .ghost-button:hover svg,
+  .file-picker:hover svg,
+  .composer-row button:hover svg,
+  .composer-project-row button:hover svg,
+  .cache-add button:hover svg,
+  .project-create button:hover svg,
   .tag-input button:hover svg,
-  .composer-project-row button:hover svg {
-    transform: scale(0.9);
+  .quick-status button:hover svg,
+  .add-row-button:hover svg,
+  .icon-button:hover svg,
+  .bottom-nav button:hover svg,
+  .offline-banner button:hover svg {
+    transform: scale(0.95);
   }
 }
 
-/* Tactile press everywhere (covers touch, which has no hover) */
 .primary-button:active,
 .secondary-button:active,
 .ghost-button:active,
 .file-picker:active,
-.tag-input button:active,
 .composer-row button:active,
 .composer-project-row button:active,
 .cache-add button:active,
 .project-create button:active,
+.tag-input button:active,
+.quick-status button:active,
 .add-row-button:active,
 .keypad button:active:not(:disabled),
-.icon-button:active {
-  transform: scale(0.94);
-}
-
-/* The Projects "New project" + was never given button base styles — fix it. */
-.project-create button {
-  display: inline-grid;
-  place-items: center;
-  min-height: 44px;
-  padding: 0;
-  border-radius: var(--r-sm);
+.icon-button:active,
+.bottom-nav button:active,
+.offline-banner button:active {
+  filter: none;
+  transform: none;
 }

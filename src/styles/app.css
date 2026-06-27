@@ -770,19 +770,25 @@ textarea:focus {
   inset: 0;
   z-index: -1;
   width: clamp(0%, var(--pct, 0%), 100%);
-  min-width: 3px;
   border-radius: inherit;
+  overflow: hidden;
   background:
     linear-gradient(
       90deg,
-      rgba(34, 197, 94, 0.20) 0%,
-      rgba(34, 197, 94, 0.42) 70%,
-      rgba(22, 163, 74, 0.55) 100%
+      rgba(16, 185, 129, 0.15) 0%,
+      rgba(16, 185, 129, 0.36) 68%,
+      rgba(5, 150, 105, 0.5) 100%
     );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -14px 24px -8px rgba(6, 95, 70, 0.45);
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    inset 0 -14px 24px -8px rgba(6, 78, 59, 0.4);
   transition: width var(--t-slow) var(--ease);
+}
+
+/* Fully drained: no liquid, no glow */
+.summary-hero[style*="--pct:0%"] .summary-hero__fill,
+.summary-hero[style*="--pct: 0%"] .summary-hero__fill {
+  box-shadow: none;
 }
 
 /* Glossy top band for the wet-glass specular sweep. */
@@ -806,13 +812,13 @@ textarea:focus {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 3px;
+  width: 2px;
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.9),
-    rgba(187, 247, 208, 0.7)
+    rgba(255, 255, 255, 0.85),
+    rgba(167, 243, 208, 0.65)
   );
-  box-shadow: 0 0 10px rgba(74, 222, 128, 0.7);
+  box-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
 }
 
 .summary-hero__label {
@@ -887,9 +893,10 @@ textarea:focus {
       rgba(255, 255, 255, 0.15) 45%,
       rgba(255, 255, 255, 0) 72%
     ),
-    linear-gradient(90deg, rgba(34, 197, 94, 0.5) 0%, rgba(22, 163, 74, 0.8) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  border-right: 1.5px solid rgba(255, 255, 255, 0.85);
+    linear-gradient(90deg, rgba(16, 185, 129, 0.5) 0%, rgba(5, 150, 105, 0.78) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset -2px 0 2px -1px rgba(255, 255, 255, 0.7);
   transition: width var(--t-slow) var(--ease);
 }
 

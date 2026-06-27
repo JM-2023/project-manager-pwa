@@ -9,16 +9,18 @@ interface ProgressSummaryProps {
 export function ProgressSummary({ summary, label }: ProgressSummaryProps) {
   return (
     <section className="progress-summary" aria-label={label}>
-      <div className="summary-hero">
-        <span>加权推进</span>
-        <div
-          className={`metric-ring tone-${progressTone(summary.weightedPercent)}`}
-          style={{ "--pct": `${summary.weightedPercent}%` } as CSSProperties}
-          role="img"
-          aria-label={`加权推进 ${summary.weightedPercent}%`}
-        >
-          <strong>{progressLabel(summary.weightedPercent)}</strong>
-        </div>
+      <div
+        className="summary-hero"
+        style={{ "--pct": `${summary.weightedPercent}%` } as CSSProperties}
+        role="img"
+        aria-label={`加权推进 ${summary.weightedPercent}%`}
+      >
+        <span className="summary-hero__fill" aria-hidden="true">
+          <span className="summary-hero__sheen" />
+          <span className="summary-hero__edge" />
+        </span>
+        <span className="summary-hero__label">加权推进</span>
+        <strong className="summary-hero__value">{progressLabel(summary.weightedPercent)}</strong>
       </div>
       <div className="summary-meter">
         <span>核心任务进度</span>

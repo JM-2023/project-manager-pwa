@@ -741,25 +741,95 @@ textarea:focus {
   transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 
-/* Hero metric — focal point of the daily summary, with a progress ring */
+/* Hero metric: a clear pane of liquid glass
+   whose weighted percent floods in from the left as glossy green liquid. */
 .progress-summary > div:first-child {
+  position: relative;
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   min-height: 96px;
-  padding: 16px 22px;
-  color: #fff;
-  background: var(--accent-grad);
-  border-color: transparent;
-  box-shadow: var(--shadow-primary);
+  padding: 18px 24px;
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--ink);
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg, 16px);
+  box-shadow:
+    var(--glass-highlight),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    var(--shadow);
 }
 
-.progress-summary > div:first-child span {
-  color: rgba(255, 255, 255, 0.92);
+/* Green liquid that fills from left to right to the weighted percent. */
+.summary-hero__fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: clamp(0%, var(--pct, 0%), 100%);
+  min-width: 3px;
+  border-radius: inherit;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(34, 197, 94, 0.20) 0%,
+      rgba(34, 197, 94, 0.42) 70%,
+      rgba(22, 163, 74, 0.55) 100%
+    );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -14px 24px -8px rgba(6, 95, 70, 0.45);
+  transition: width var(--t-slow) var(--ease);
+}
+
+/* Glossy top band for the wet-glass specular sweep. */
+.summary-hero__sheen {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 52%;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.10) 55%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  mix-blend-mode: screen;
+}
+
+/* Bright leading meniscus where the liquid meets the clear glass */
+.summary-hero__edge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.9),
+    rgba(187, 247, 208, 0.7)
+  );
+  box-shadow: 0 0 10px rgba(74, 222, 128, 0.7);
+}
+
+.summary-hero__label {
+  position: relative;
+  color: var(--ink);
   font-size: 0.92rem;
   font-weight: 700;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+
+.summary-hero__value {
+  position: relative;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  color: var(--ink);
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.55);
 }
 
 
@@ -785,41 +855,22 @@ textarea:focus {
   letter-spacing: -0.01em;
 }
 
-/* Conic progress ring (daily summary hero) */
-.metric-ring {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 68px;
-  height: 68px;
-  flex: none;
-}
-
-.metric-ring::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(var(--prog-color) var(--pct, 0%), rgba(255, 255, 255, 0.28) 0);
-  -webkit-mask: radial-gradient(farthest-side, #0000 calc(100% - 8px), #000 calc(100% - 7px));
-  mask: radial-gradient(farthest-side, #0000 calc(100% - 8px), #000 calc(100% - 7px));
-}
-
-.metric-ring strong {
-  position: relative;
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: #fff;
-}
-
-/* Mini progress bar (weighted progress card) */
+/* Mini progress bar: a slim liquid-glass tube whose
+   green liquid fills from left to right, matching the hero metric. */
 .mini-bar {
+  position: relative;
   display: block;
   width: 100%;
-  height: 6px;
+  height: 9px;
   margin-top: 2px;
   border-radius: var(--r-pill);
-  background: var(--surface-3);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.04)),
+    rgba(120, 130, 150, 0.12);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.55),
+    inset 0 -1px 2px rgba(16, 24, 40, 0.08),
+    inset 0 0 0 1px var(--glass-border);
   overflow: hidden;
 }
 
@@ -827,9 +878,18 @@ textarea:focus {
   content: "";
   display: block;
   height: 100%;
-  width: var(--pct, 0%);
-  background: var(--prog-color);
+  width: clamp(0%, var(--pct, 0%), 100%);
   border-radius: var(--r-pill);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.65) 0%,
+      rgba(255, 255, 255, 0.15) 45%,
+      rgba(255, 255, 255, 0) 72%
+    ),
+    linear-gradient(90deg, rgba(34, 197, 94, 0.5) 0%, rgba(22, 163, 74, 0.8) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  border-right: 1.5px solid rgba(255, 255, 255, 0.85);
   transition: width var(--t-slow) var(--ease);
 }
 

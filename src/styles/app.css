@@ -1287,9 +1287,20 @@ textarea:focus {
 
   .tt-notes .task-table-note-cell {
     width: 100%;
-    grid-template-columns: minmax(0, 1fr) 40px;
+    /* Give the options button its own roomy column (was 40px) so it sits fully
+       inside the track at rest and its hover grow has space to play — otherwise
+       the 45→51px button is crammed against the textarea border and the table
+       edge and the animation can't read. Matches the breathing room it has in the
+       narrow card layout. */
+    grid-template-columns: minmax(0, 1fr) 56px;
     gap: 0;
     overflow: visible;
+  }
+
+  /* Keep the trigger clear of the table's right border so the grow isn't visually
+     pinned against the edge. */
+  .tt-notes .task-table-note-cell .task-menu {
+    padding-right: 4px;
   }
 
   .task-table-note-cell textarea {

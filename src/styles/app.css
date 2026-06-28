@@ -2837,17 +2837,19 @@ button.project-row:active,
   padding: 7px;
   transform-origin: bottom right;
   color: rgba(244, 246, 251, 0.92);
-  /* Darker static glass tint: no backdrop sampling needed on the plain page. */
+  /* Same liquid-glass recipe as the rest of the app (radial specular + tint
+     gradient + light rim + inset top highlight), just on a darker tint so it
+     isn't too bright/transparent. Sampling stays off to match every other glass
+     surface here. */
   background:
-    radial-gradient(120% 80% at 18% 0%, rgba(255, 255, 255, 0.07), transparent 60%),
-    linear-gradient(160deg, rgba(30, 33, 42, 0.86) 0%, rgba(20, 22, 29, 0.82) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.09);
+    radial-gradient(130% 90% at 16% 0%, rgba(255, 255, 255, 0.10), transparent 56%),
+    linear-gradient(160deg, rgba(33, 36, 46, 0.82) 0%, rgba(22, 24, 31, 0.78) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
   border-radius: 18px;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.20),
-    0 18px 40px rgba(8, 10, 16, 0.42),
-    0 4px 12px rgba(8, 10, 16, 0.28);
+    0 18px 40px rgba(8, 10, 16, 0.40),
+    0 4px 12px rgba(8, 10, 16, 0.24);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   animation: task-menu-morph 0.24s var(--ease-spring) both;
@@ -2907,17 +2909,16 @@ button.project-row:active,
 }
 
 @media (hover: hover) {
-  /* Bright frosted pill: a soft white highlight that floats on the dark glass.
-     Pin padding/radius so the row doesn't reflow against the shared grow-on-hover
-     rule — the pill should feel stable and precise, not balloony. */
+  /* Flat frosted pill: a single translucent white wash, no bevel or shadow, so
+     the highlight reads as a flat tint rather than a raised chip. Pin
+     padding/radius so the row doesn't reflow against the shared grow-on-hover
+     rule. */
   .task-action-menu button:hover {
     padding: 8px 12px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.10));
+    background: rgba(255, 255, 255, 0.12);
     border-radius: var(--r-pill);
     color: #ffffff;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      0 1px 5px rgba(0, 0, 0, 0.20);
+    box-shadow: none;
     transform: none;
   }
   .task-action-menu button:hover svg {
@@ -2938,11 +2939,9 @@ button.project-row:active,
 }
 @media (hover: hover) {
   .task-action-menu button.danger:hover {
-    background: linear-gradient(180deg, rgba(255, 99, 99, 0.24), rgba(255, 99, 99, 0.16));
+    background: rgba(255, 99, 99, 0.18);
     color: #ffd9d9;
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      0 1px 5px rgba(0, 0, 0, 0.20);
+    box-shadow: none;
   }
   .task-action-menu button.danger:hover svg {
     color: #ffd9d9;

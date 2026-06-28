@@ -1,5 +1,5 @@
-import { Archive, Check, Pencil, Plus } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
+import { Archive, ArchiveRestore, Check, ChevronDown, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Project, Task } from "../lib/types";
 import { isWorklogTask, progressTone, summarizeWorklogOverview, type WorklogOverview } from "../lib/progress";
 
@@ -15,11 +15,14 @@ function ProgressMeter({ value }: { value: number }) {
 
 interface ProjectListProps {
   projects: Project[];
+  archivedProjects: Project[];
   tasks: Task[];
   selectedProjectId: string;
   onSelect: (projectId: string) => void;
   onCreate?: (name: string) => void;
   onArchive: (project: Project) => void;
+  onUnarchive: (project: Project) => void;
+  onDelete: (project: Project) => void;
   onRename?: (project: Project, name: string) => void;
 }
 
@@ -29,16 +32,56 @@ interface ProjectRowProps {
   active: boolean;
   onSelect: (projectId: string) => void;
   onArchive: (project: Project) => void;
+  onDelete: (project: Project) => void;
   onRename?: (project: Project, name: string) => void;
 }
 
-function ProjectRow({ project, summary, active, onSelect, onArchive, onRename }: ProjectRowProps) {
+// Two-step confirmation kept inside the popover: the first item click swaps the
+// menu over to a confirm/cancel pair so destructive actions never fire on a
+// single tap.
+type ConfirmAction = "archive" | "delete";
+
+function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, onRename }: ProjectRowProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(project.name);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setDraft(project.name);
   }, [project.name]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    function closeOnOutsideClick(event: MouseEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [menuOpen]);
+
+  // Reset the confirm step whenever the menu closes so it reopens on the root view.
+  useEffect(() => {
+    if (!menuOpen) {
+      setConfirm(null);
+    }
+  }, [menuOpen]);
 
   function commit() {
     const clean = draft.trim();
@@ -46,6 +89,21 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onRename }:
       onRename(project, clean);
     }
     setEditing(false);
+  }
+
+  function startRename() {
+    setMenuOpen(false);
+    setDraft(project.name);
+    setEditing(true);
+  }
+
+  function runConfirm() {
+    if (confirm === "archive") {
+      onArchive(project);
+    } else if (confirm === "delete") {
+      onDelete(project);
+    }
+    setMenuOpen(false);
   }
 
   if (editing) {
@@ -82,21 +140,103 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onRename }:
         <span>{project.name}</span>
         <strong>{summary.averageProgress}%</strong>
       </button>
-      {onRename ? (
-        <button type="button" className="icon-button" onClick={() => { setDraft(project.name); setEditing(true); }} aria-label={`Rename ${project.name}`} title="Rename">
-          <Pencil size={15} aria-hidden="true" />
+      <div className={`task-menu${menuOpen ? " is-open" : ""}`} ref={menuRef}>
+        <button
+          type="button"
+          className="icon-button task-menu-trigger"
+          onClick={() => setMenuOpen((open) => !open)}
+          aria-label={`Options for ${project.name}`}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          title="Options"
+        >
+          <MoreHorizontal size={17} aria-hidden="true" />
         </button>
-      ) : null}
-      <button type="button" className="icon-button" onClick={() => onArchive(project)} aria-label={`Archive ${project.name}`} title="Archive">
-        <Archive size={16} aria-hidden="true" />
-      </button>
+        {menuOpen ? (
+          <div className="task-action-menu" role="menu" aria-label={`Options for ${project.name}`}>
+            {confirm ? (
+              <>
+                <span className="task-action-menu__prompt" role="presentation">
+                  {confirm === "archive" ? "Archive this project?" : "Delete this project?"}
+                </span>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className={confirm === "delete" ? "danger" : ""}
+                  onClick={runConfirm}
+                >
+                  {confirm === "archive" ? <Archive size={15} aria-hidden="true" /> : <Trash2 size={15} aria-hidden="true" />}
+                  <span>{confirm === "archive" ? "Confirm archive" : "Confirm delete"}</span>
+                </button>
+                <button type="button" role="menuitem" onClick={() => setConfirm(null)}>
+                  <X size={15} aria-hidden="true" />
+                  <span>Cancel</span>
+                </button>
+              </>
+            ) : (
+              <>
+                {onRename ? (
+                  <button type="button" role="menuitem" onClick={startRename}>
+                    <Pencil size={15} aria-hidden="true" />
+                    <span>Rename</span>
+                  </button>
+                ) : null}
+                <button type="button" role="menuitem" onClick={() => setConfirm("archive")}>
+                  <Archive size={15} aria-hidden="true" />
+                  <span>Archive</span>
+                </button>
+                <span className="task-action-menu__sep" role="separator" />
+                <button type="button" role="menuitem" className="danger" onClick={() => setConfirm("delete")}>
+                  <Trash2 size={15} aria-hidden="true" />
+                  <span>Delete</span>
+                </button>
+              </>
+            )}
+          </div>
+        ) : null}
+      </div>
       <ProgressMeter value={summary.averageProgress} />
     </div>
   );
 }
 
-export function ProjectList({ projects, tasks, selectedProjectId, onSelect, onCreate, onArchive, onRename }: ProjectListProps) {
+interface ArchivedRowProps {
+  project: Project;
+  onUnarchive: (project: Project) => void;
+}
+
+function ArchivedRow({ project, onUnarchive }: ArchivedRowProps) {
+  return (
+    <div className="archived-row">
+      <span className="project-color" style={{ backgroundColor: project.color ?? "var(--primary)" }} />
+      <span className="archived-row__name">{project.name}</span>
+      <button
+        type="button"
+        className="icon-button"
+        onClick={() => onUnarchive(project)}
+        aria-label={`Restore ${project.name}`}
+        title="Move back to projects"
+      >
+        <ArchiveRestore size={16} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+export function ProjectList({
+  projects,
+  archivedProjects,
+  tasks,
+  selectedProjectId,
+  onSelect,
+  onCreate,
+  onArchive,
+  onUnarchive,
+  onDelete,
+  onRename
+}: ProjectListProps) {
   const [name, setName] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const allSummary = summarizeWorklogOverview(tasks);
 
   function createProject() {
@@ -145,10 +285,34 @@ export function ProjectList({ projects, tasks, selectedProjectId, onSelect, onCr
             active={selectedProjectId === project.id}
             onSelect={onSelect}
             onArchive={onArchive}
+            onDelete={onDelete}
             onRename={onRename}
           />
         );
       })}
+
+      <div className={`archived-panel${showArchived ? " is-open" : ""}`}>
+        <button
+          type="button"
+          className="archived-toggle"
+          onClick={() => setShowArchived((open) => !open)}
+          aria-expanded={showArchived}
+        >
+          <Archive size={15} aria-hidden="true" />
+          <span>Archived</span>
+          <span className="archived-toggle__count">{archivedProjects.length}</span>
+          <ChevronDown className="archived-toggle__chevron" size={16} aria-hidden="true" />
+        </button>
+        {showArchived ? (
+          <div className="archived-list">
+            {archivedProjects.length === 0 ? (
+              <p className="archived-empty">No archived projects.</p>
+            ) : (
+              archivedProjects.map((project) => <ArchivedRow key={project.id} project={project} onUnarchive={onUnarchive} />)
+            )}
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

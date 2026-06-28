@@ -6,6 +6,7 @@ import type { TaskPageProps } from "./pageProps";
 export function ProjectsPage(props: TaskPageProps) {
   const {
     projects,
+    archivedProjects,
     tasks,
     filters,
     onFiltersChange,
@@ -14,6 +15,8 @@ export function ProjectsPage(props: TaskPageProps) {
     onDeleteTask,
     onCreateProject,
     onArchiveProject,
+    onUnarchiveProject,
+    onDeleteProject,
     onRenameProject
   } = props;
 
@@ -34,11 +37,14 @@ export function ProjectsPage(props: TaskPageProps) {
       </header>
       <ProjectList
         projects={projects}
+        archivedProjects={archivedProjects}
         tasks={tasks}
         selectedProjectId={selectedProjectId}
         onSelect={(projectId) => onFiltersChange({ projectId })}
         onCreate={onCreateProject}
         onArchive={onArchiveProject}
+        onUnarchive={onUnarchiveProject}
+        onDelete={onDeleteProject}
         onRename={onRenameProject}
       />
       <TaskTable tasks={projectTasks} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />

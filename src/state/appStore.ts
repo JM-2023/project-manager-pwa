@@ -42,6 +42,7 @@ export type AppAction =
   | { type: "setTab"; payload: TabId }
   | { type: "setFilters"; payload: Partial<Filters> }
   | { type: "upsertProject"; payload: Project }
+  | { type: "purgeProject"; payload: string }
   | { type: "upsertTask"; payload: Task }
   | { type: "deleteTask"; payload: string }
   | { type: "upsertTag"; payload: Tag }
@@ -143,6 +144,18 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, filters: { ...state.filters, ...action.payload } };
     case "upsertProject":
       return { ...state, projects: byId(state.projects, action.payload) };
+    case "purgeProject": {
+      // Hard delete a project and everything hanging off it: its tasks and those
+      // tasks' tag links. Nothing is left behind as a tombstone.
+      const projectId = action.payload;
+      const purgedTaskIds = new Set(state.tasks.filter((task) => task.project_id === projectId).map((task) => task.id));
+      return {
+        ...state,
+        projects: state.projects.filter((project) => project.id !== projectId),
+        tasks: state.tasks.filter((task) => task.project_id !== projectId),
+        taskTags: state.taskTags.filter((link) => !purgedTaskIds.has(link.task_id))
+      };
+    }
     case "upsertTask":
       return { ...state, tasks: byId(state.tasks, action.payload) };
     case "deleteTask":

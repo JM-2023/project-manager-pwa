@@ -13,7 +13,7 @@ import {
 } from "./_utils/validation";
 
 type Entity = "project" | "task" | "tag" | "task_tag" | "setting";
-type Operation = "upsert" | "delete";
+type Operation = "upsert" | "delete" | "purge";
 
 interface IncomingMutation {
   id: string;
@@ -315,8 +315,44 @@ async function applyDelete(context: AppContext, user: AuthUser, mutation: Incomi
   return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
 }
 
+/**
+ * Hard delete — the one place this server removes rows instead of tombstoning.
+ * A project purge cascades to its tasks and their tag links. This trades the
+ * tombstone convergence guarantee for a real delete, so other live devices only
+ * catch up on their next full-replace bootstrap (which they run on app start).
+ */
+async function applyPurge(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): Promise<Applied | Conflict> {
+  const id = String(mutation.data.id ?? "");
+  if (!id) {
+    return { id: mutation.id, entity: mutation.entity, reason: "Record id is required", permanent: true };
+  }
+
+  if (mutation.entity === "project") {
+    await context.env.DB.prepare(
+      "DELETE FROM task_tags WHERE user_id = ? AND task_id IN (SELECT id FROM tasks WHERE user_id = ? AND project_id = ?)"
+    )
+      .bind(user.id, user.id, id)
+      .run();
+    await context.env.DB.prepare("DELETE FROM tasks WHERE user_id = ? AND project_id = ?").bind(user.id, id).run();
+    await context.env.DB.prepare("DELETE FROM projects WHERE user_id = ? AND id = ?").bind(user.id, id).run();
+    return { id: mutation.id, entity: "project", recordId: id, updated_at: timestamp };
+  }
+
+  if (mutation.entity === "task") {
+    await context.env.DB.prepare("DELETE FROM task_tags WHERE user_id = ? AND task_id = ?").bind(user.id, id).run();
+    await context.env.DB.prepare("DELETE FROM tasks WHERE user_id = ? AND id = ?").bind(user.id, id).run();
+    return { id: mutation.id, entity: "task", recordId: id, updated_at: timestamp };
+  }
+
+  const table = { tag: "tags" }[mutation.entity as "tag"];
+  if (table) {
+    await context.env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ? AND id = ?`).bind(user.id, id).run();
+  }
+  return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
+}
+
 async function applyMutation(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): Promise<Applied | Conflict> {
-  if (!["project", "task", "tag", "task_tag", "setting"].includes(mutation.entity) || !["upsert", "delete"].includes(mutation.operation)) {
+  if (!["project", "task", "tag", "task_tag", "setting"].includes(mutation.entity) || !["upsert", "delete", "purge"].includes(mutation.operation)) {
     return { id: mutation.id, entity: mutation.entity, reason: "Unsupported mutation", permanent: true };
   }
 
@@ -328,6 +364,10 @@ async function applyMutation(context: AppContext, user: AuthUser, mutation: Inco
   }
   if (mutation.entity === "setting" && !mutation.data.key && !mutation.data.id) {
     return { id: mutation.id, entity: mutation.entity, reason: "Setting key is required", permanent: true };
+  }
+
+  if (mutation.operation === "purge") {
+    return applyPurge(context, user, mutation, timestamp);
   }
 
   if (mutation.operation === "delete") {

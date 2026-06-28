@@ -87,7 +87,9 @@ export interface BootstrapResponse {
 }
 
 export type MutationEntity = "project" | "task" | "tag" | "task_tag" | "setting";
-export type MutationOperation = "upsert" | "delete";
+// "purge" is an irreversible hard delete (row removed, no tombstone). Used for
+// project deletion, which cascades to the project's tasks and their task_tags.
+export type MutationOperation = "upsert" | "delete" | "purge";
 
 export interface ClientMutation<T = unknown> {
   id: string;

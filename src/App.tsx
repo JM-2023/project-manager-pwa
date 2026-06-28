@@ -18,6 +18,7 @@ import {
   deleteEntity,
   getPendingMutations,
   loadLocalSnapshot,
+  purgeProjectData,
   queueMutation,
   removePendingMutations,
   resetLocalData,
@@ -835,8 +836,72 @@ export function App() {
     const next = { ...project, archived: 1, updated_at: nowIso(), version: project.version + 1 };
     dispatch({ type: "upsertProject", payload: next });
     stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
+    if (stateRef.current.filters.projectId === project.id) {
+      const filters = { ...stateRef.current.filters, projectId: "" };
+      stateRef.current = { ...stateRef.current, filters };
+      dispatch({ type: "setFilters", payload: { projectId: "" } });
+    }
     void saveEntity("projects", next);
     void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: project.version, data: next });
+  }
+
+  function unarchiveProject(project: Project) {
+    const next = { ...project, archived: 0, updated_at: nowIso(), version: project.version + 1 };
+    dispatch({ type: "upsertProject", payload: next });
+    stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
+    void saveEntity("projects", next);
+    void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: project.version, data: next });
+  }
+
+  function deleteProject(project: Project) {
+    // Irreversible cascade hard delete: the project, its tasks, and those tasks'
+    // tag links are removed everywhere (no tombstone). The server purge mutation
+    // does the same cascade in D1.
+    const purgedTasks = stateRef.current.tasks.filter((task) => task.project_id === project.id);
+    const purgedTaskIds = purgedTasks.map((task) => task.id);
+    const purgedTaskIdSet = new Set(purgedTaskIds);
+    const purgedTagKeys = stateRef.current.taskTags
+      .filter((link) => purgedTaskIdSet.has(link.task_id))
+      .map((link) => `${link.task_id}:${link.tag_id}`);
+
+    dispatch({ type: "purgeProject", payload: project.id });
+    stateRef.current = {
+      ...stateRef.current,
+      projects: removeRecord(stateRef.current.projects, project.id),
+      tasks: stateRef.current.tasks.filter((task) => !purgedTaskIdSet.has(task.id)),
+      taskTags: stateRef.current.taskTags.filter((link) => !purgedTaskIdSet.has(link.task_id))
+    };
+    void purgeProjectData(project.id, purgedTaskIds, purgedTagKeys);
+    if (stateRef.current.filters.projectId === project.id) {
+      const filters = { ...stateRef.current.filters, projectId: "" };
+      stateRef.current = { ...stateRef.current, filters };
+      dispatch({ type: "setFilters", payload: { projectId: "" } });
+    }
+
+    // Drop any still-queued edits for the purged tasks/links so a late upsert in
+    // a later sync can't resurrect a row the purge already removed. (The project's
+    // own pending edits are superseded by the purge during mutation compaction.)
+    const staleMutationIds = pendingMutationsRef.current
+      .filter((mutation) => {
+        if (mutation.entity === "task_tag") {
+          return purgedTaskIdSet.has(String(mutationData(mutation).task_id ?? ""));
+        }
+        const key = mutationRecordKey(mutation);
+        return key ? key === `project:${project.id}` || purgedTaskIds.some((id) => key === `task:${id}`) : false;
+      })
+      .map((mutation) => mutation.id);
+    if (staleMutationIds.length > 0) {
+      forgetPendingMutations(staleMutationIds);
+      void removePendingMutations(staleMutationIds);
+    }
+
+    void persistMutation({
+      id: newMutationId(),
+      entity: "project",
+      operation: "purge",
+      baseVersion: project.version,
+      data: { id: project.id }
+    });
   }
 
   function renameProject(project: Project, name: string) {
@@ -931,9 +996,17 @@ export function App() {
   }
 
   const projects = useMemo(() => sortedProjects(state.projects), [state.projects]);
+  const archivedProjects = useMemo(
+    () =>
+      state.projects
+        .filter((project) => !project.deleted_at && project.archived === 1)
+        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
+    [state.projects]
+  );
   const tasks = useMemo(() => sortedTasks(state.tasks), [state.tasks]);
   const pageProps: TaskPageProps = {
     projects,
+    archivedProjects,
     tasks,
     tags: state.tags.filter((tag) => !tag.deleted_at),
     taskTags: state.taskTags,
@@ -946,6 +1019,8 @@ export function App() {
     onAddTag: addTag,
     onCreateProject: createProject,
     onArchiveProject: archiveProject,
+    onUnarchiveProject: unarchiveProject,
+    onDeleteProject: deleteProject,
     onRenameProject: renameProject
   };
 

@@ -3,6 +3,7 @@ import type { Project, Tag, Task, TaskTag } from "../lib/types";
 
 export interface TaskPageProps {
   projects: Project[];
+  archivedProjects: Project[];
   tasks: Task[];
   tags: Tag[];
   taskTags: TaskTag[];
@@ -15,5 +16,7 @@ export interface TaskPageProps {
   onAddTag: (task: Task, tagName: string) => void;
   onCreateProject: (name: string) => string;
   onArchiveProject: (project: Project) => void;
+  onUnarchiveProject: (project: Project) => void;
+  onDeleteProject: (project: Project) => void;
   onRenameProject: (project: Project, name: string) => void;
 }

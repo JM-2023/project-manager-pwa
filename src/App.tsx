@@ -580,11 +580,11 @@ export function App() {
     updatePendingCount
   ]);
 
-  // Intentional, user-triggered hard reset. Use this (not an automatic etag
-  // trigger) only when the cloud dataset was wiped and re-seeded out of band, so
-  // a client's stale IndexedDB rows can't linger and double up against the fresh
-  // import. Push pending edits first so nothing local is silently dropped, then
-  // rebuild the local snapshot from D1 in one clean full replace.
+  // Intentional, user-triggered cache reset. Use this only when the cloud
+  // dataset was wiped and re-seeded out of band, so a client's stale IndexedDB
+  // rows can't linger and double up against the fresh import. Pending edits must
+  // drain before we touch local storage; then we fetch the full D1 snapshot
+  // before clearing IndexedDB so a failed bootstrap cannot leave the cache empty.
   const forceFullResync = useCallback(async () => {
     if (!navigator.onLine) {
       dispatch({ type: "setSyncStatus", payload: "offline" });
@@ -607,10 +607,17 @@ export function App() {
         syncTimer.current = null;
       }
       syncAgainAfterCurrent.current = false;
+      const pending = mergePendingMutations(await getPendingMutations(), pendingMutationsRef.current);
+      pendingMutationsRef.current = pending;
+      const pendingCount = compactPendingMutations(pending).length;
+      dispatch({ type: "setPendingCount", payload: pendingCount });
+      if (pendingCount > 0) {
+        throw new Error(`Full resync stopped because ${pendingCount} local change${pendingCount === 1 ? "" : "s"} still need to sync.`);
+      }
+      const refreshed = await bootstrap(null);
       await resetLocalData();
       pendingMutationsRef.current = [];
       dispatch({ type: "setPendingCount", payload: 0 });
-      const refreshed = await bootstrap(null);
       await applyBootstrapSnapshot(refreshed, true);
       await updatePendingCount();
       dispatch({ type: "setSyncStatus", payload: "idle" });

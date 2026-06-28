@@ -159,13 +159,6 @@ export interface BackupLog {
   created_at: string;
 }
 
-export interface CloudExcelState {
-  etag: string | null;
-  key: string | null;
-  updatedAt: string | null;
-  size: number | null;
-}
-
 export interface CloudExcelUploadResponse {
   ok: true;
   key: string;

@@ -1,7 +1,6 @@
 import type {
   BackupLog,
   BootstrapResponse,
-  CloudExcelState,
   CloudExcelUploadResponse,
   ClientMutation,
   ExportDataResponse,
@@ -97,38 +96,6 @@ export async function importRows(filename: string, rows: ImportRow[], mode = "cr
 
 export function getExportData(): Promise<ExportDataResponse> {
   return apiFetch<ExportDataResponse>("/api/export-data");
-}
-
-export async function getCloudExcelState(): Promise<CloudExcelState | null> {
-  const response = await fetch("/api/excel-state", {
-    method: "HEAD",
-    credentials: "same-origin"
-  });
-  if (response.status === 401) throw new AuthRequiredError();
-  if (response.status === 404) return null;
-  if (!response.ok) {
-    throw new Error(response.statusText || "Cloud Excel status failed");
-  }
-
-  return {
-    etag: response.headers.get("ETag"),
-    key: response.headers.get("X-R2-Key"),
-    updatedAt: response.headers.get("X-Excel-Updated-At"),
-    size: Number(response.headers.get("X-Excel-Size") ?? "") || null
-  };
-}
-
-export async function downloadCloudExcel(): Promise<Blob | null> {
-  const response = await fetch("/api/excel-state", {
-    method: "GET",
-    credentials: "same-origin"
-  });
-  if (response.status === 401) throw new AuthRequiredError();
-  if (response.status === 404) return null;
-  if (!response.ok) {
-    throw new Error(response.statusText || "Cloud Excel download failed");
-  }
-  return response.blob();
 }
 
 export async function uploadCloudExcel(file: Blob, filename: string, rowCount: number): Promise<CloudExcelUploadResponse> {

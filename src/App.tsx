@@ -22,12 +22,13 @@ import {
   loadLocalSnapshot,
   queueMutation,
   removePendingMutations,
+  resetLocalData,
   saveBootstrapSnapshot,
   saveEntity
 } from "./lib/localDb";
 import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
-import type { BootstrapResponse, ClientMutation, ImportRow, MutationResult, Project, Tag, Task, TaskTag } from "./lib/types";
+import type { BootstrapResponse, ClientMutation, CloudExcelState, ImportRow, MutationResult, Project, Tag, Task, TaskTag } from "./lib/types";
 import { LoginPage } from "./pages/LoginPage";
 import { NextPage } from "./pages/NextPage";
 import type { TaskPageProps } from "./pages/pageProps";
@@ -39,6 +40,7 @@ import { appReducer, initialState, sortedProjects, sortedTasks, type AppState } 
 
 const PROJECT_COLORS = ["#1f6f68", "#a64b2a", "#5b6c5d", "#3f5f8f", "#7a5c99", "#8a6a23"];
 const CLOUD_EXCEL_ETAG_KEY = "project-manager-cloud-excel-etag";
+const CLOUD_EXCEL_UPDATED_AT_KEY = "project-manager-cloud-excel-updated-at";
 const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
 const SYNC_DEBOUNCE_MS = 850;
 const KEEPALIVE_MAX_BYTES = 60_000;
@@ -117,6 +119,29 @@ function mergePendingMutations(...lists: ClientMutation[][]): ClientMutation[] {
 function excelDirtyAt(settings: Record<string, unknown>): string | null {
   const value = settings[EXCEL_DIRTY_SETTING_KEY];
   return typeof value === "string" && value ? value : null;
+}
+
+function rememberCloudExcelState(state: Pick<CloudExcelState, "etag" | "updatedAt">): void {
+  if (state.etag) {
+    localStorage.setItem(CLOUD_EXCEL_ETAG_KEY, state.etag);
+  } else {
+    localStorage.removeItem(CLOUD_EXCEL_ETAG_KEY);
+  }
+  if (state.updatedAt) {
+    localStorage.setItem(CLOUD_EXCEL_UPDATED_AT_KEY, state.updatedAt);
+  } else {
+    localStorage.removeItem(CLOUD_EXCEL_UPDATED_AT_KEY);
+  }
+}
+
+function cloudExcelStateMatches(state: CloudExcelState): boolean {
+  if (!state.etag) {
+    return true;
+  }
+  if (localStorage.getItem(CLOUD_EXCEL_ETAG_KEY) !== state.etag) {
+    return false;
+  }
+  return !state.updatedAt || localStorage.getItem(CLOUD_EXCEL_UPDATED_AT_KEY) === state.updatedAt;
 }
 
 function keepaliveBody(clientId: string, groups: PendingMutationGroup[]): Blob | null {
@@ -453,7 +478,7 @@ export function App() {
         const { workbookBlob } = await import("./lib/excelExport");
         const blob = workbookBlob(data);
         const result = await uploadCloudExcel(blob, CLOUD_EXCEL_FILENAME, visibleTasks(data.tasks).length);
-        localStorage.setItem(CLOUD_EXCEL_ETAG_KEY, result.etag);
+        rememberCloudExcelState(result);
         dispatch({ type: "setLastExport", payload: result.updatedAt });
       } catch (error) {
         dispatch({
@@ -488,6 +513,40 @@ export function App() {
     }).catch(() => undefined);
   }, [clientId]);
 
+  const refreshFromCloudExcelIfChanged = useCallback(async (session: NonNullable<AppState["session"]>): Promise<boolean> => {
+    if (!session.features.excelAutosync || cloudExcelImporting.current) {
+      return false;
+    }
+
+    const cloudState = await getCloudExcelState();
+    if (!cloudState?.etag || cloudExcelStateMatches(cloudState)) {
+      return false;
+    }
+
+    cloudExcelImporting.current = true;
+    try {
+      const blob = await downloadCloudExcel();
+      if (blob) {
+        const rows = await rowsFromWorkbookBlob(blob);
+        if (rows.length > 0) {
+          await importRows(CLOUD_EXCEL_FILENAME, rows);
+        }
+      }
+
+      await resetLocalData();
+      pendingMutationsRef.current = [];
+      dispatch({ type: "setPendingCount", payload: 0 });
+      rememberCloudExcelState(cloudState);
+
+      const refreshed = await bootstrap(null);
+      await applyBootstrapSnapshot(refreshed, true);
+      await updatePendingCount();
+      return true;
+    } finally {
+      cloudExcelImporting.current = false;
+    }
+  }, [applyBootstrapSnapshot, updatePendingCount]);
+
   const syncNow = useCallback(async () => {
     if (syncTimer.current) {
       window.clearTimeout(syncTimer.current);
@@ -514,6 +573,12 @@ export function App() {
       if (!session) {
         session = await getSession();
         dispatch({ type: "setSession", payload: session });
+      }
+
+      if (await refreshFromCloudExcelIfChanged(session)) {
+        dispatch({ type: "setAuthRequired", payload: false });
+        dispatch({ type: "setSyncStatus", payload: "idle" });
+        return;
       }
 
       await settlePendingWrites();
@@ -566,7 +631,16 @@ export function App() {
         window.setTimeout(() => void syncNow(), 0);
       }
     }
-  }, [applyBootstrapSnapshot, applyMutationMetadata, clientId, forgetPendingMutations, scheduleCloudExcelUpload, settlePendingWrites, updatePendingCount]);
+  }, [
+    applyBootstrapSnapshot,
+    applyMutationMetadata,
+    clientId,
+    forgetPendingMutations,
+    refreshFromCloudExcelIfChanged,
+    scheduleCloudExcelUpload,
+    settlePendingWrites,
+    updatePendingCount
+  ]);
 
   const importCloudExcelIfNeeded = useCallback(async () => {
     if (cloudExcelImporting.current || !stateRef.current.session?.features.excelAutosync) {
@@ -574,38 +648,16 @@ export function App() {
     }
 
     try {
-      const cloudState = await getCloudExcelState();
-      if (!cloudState?.etag) {
-        return;
-      }
-      if (localStorage.getItem(CLOUD_EXCEL_ETAG_KEY) === cloudState.etag) {
-        return;
-      }
-
-      const blob = await downloadCloudExcel();
-      if (!blob) {
-        return;
-      }
-
-      cloudExcelImporting.current = true;
       dispatch({ type: "setSyncStatus", payload: "syncing" });
-      const rows = await rowsFromWorkbookBlob(blob);
-      if (rows.length > 0) {
-        await importRows(CLOUD_EXCEL_FILENAME, rows);
-        localStorage.setItem(CLOUD_EXCEL_ETAG_KEY, cloudState.etag);
-        await syncNow();
-      } else {
-        localStorage.setItem(CLOUD_EXCEL_ETAG_KEY, cloudState.etag);
-      }
+      const refreshed = await refreshFromCloudExcelIfChanged(stateRef.current.session);
+      dispatch({ type: "setSyncStatus", payload: refreshed ? "idle" : stateRef.current.syncStatus });
     } catch (error) {
       dispatch({
         type: "setError",
         payload: error instanceof Error ? `Cloud Excel import failed: ${error.message}` : "Cloud Excel import failed"
       });
-    } finally {
-      cloudExcelImporting.current = false;
     }
-  }, [syncNow]);
+  }, [refreshFromCloudExcelIfChanged]);
 
   const scheduleSync = useCallback(() => {
     if (!navigator.onLine) {

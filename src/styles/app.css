@@ -448,7 +448,7 @@ select {
   left: 0;
   z-index: 10;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 4px;
   padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
   background: var(--glass-fill);
@@ -2859,20 +2859,19 @@ button.project-row:active,
   min-width: 200px;
   padding: 7px;
   transform-origin: bottom right;
-  color: rgba(244, 246, 251, 0.92);
-  /* Same liquid-glass recipe as the rest of the app (radial specular + tint
-     gradient + light rim + inset top highlight), just on a darker tint so it
-     isn't too bright/transparent. Sampling stays off to match every other glass
-     surface here. */
+  color: rgba(28, 32, 42, 0.92);
+  /* Frosted white liquid-glass without backdrop sampling: a soft specular bloom,
+     a near-white tint wash, a bright rim and inset highlight. */
   background:
-    radial-gradient(130% 90% at 16% 0%, rgba(255, 255, 255, 0.10), transparent 56%),
-    linear-gradient(160deg, rgba(33, 36, 46, 0.82) 0%, rgba(22, 24, 31, 0.78) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+    radial-gradient(130% 90% at 16% 0%, rgba(255, 255, 255, 0.75), transparent 58%),
+    linear-gradient(160deg, rgba(255, 255, 255, 0.82) 0%, rgba(247, 249, 252, 0.74) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 18px;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.10),
-    0 18px 40px rgba(8, 10, 16, 0.40),
-    0 4px 12px rgba(8, 10, 16, 0.24);
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 18px 44px rgba(15, 23, 42, 0.18),
+    0 4px 12px rgba(15, 23, 42, 0.10);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   animation: task-menu-morph 0.24s var(--ease-spring) both;
@@ -2901,7 +2900,7 @@ button.project-row:active,
   justify-content: flex-start;
   gap: 10px;
   padding: 8px 12px;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(28, 32, 42, 0.92);
   font-weight: 600;
   text-align: left;
   white-space: nowrap;
@@ -2925,27 +2924,27 @@ button.project-row:active,
   width: 16px;
   height: 16px;
   transform: none;
-  color: rgba(228, 232, 240, 0.62);
+  color: rgba(28, 32, 42, 0.5);
   /* Slightly lighter stroke reads more refined at this small size */
   stroke-width: 1.75;
   transition: color 0.16s ease;
 }
 
 @media (hover: hover) {
-  /* Flat frosted pill: a single translucent white wash, no bevel or shadow, so
-     the highlight reads as a flat tint rather than a raised chip. Pin
-     padding/radius so the row doesn't reflow against the shared grow-on-hover
-     rule. */
+  /* Flat pill highlight: a soft, slightly darker neutral wash on the white
+     glass — no bevel or shadow, so the row reads as a gentle tint rather than a
+     raised chip. Pin padding/radius so it doesn't reflow against the shared
+     grow-on-hover rule. */
   .task-action-menu button:hover {
     padding: 8px 12px;
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(15, 23, 42, 0.06);
     border-radius: var(--r-pill);
-    color: #ffffff;
+    color: #111827;
     box-shadow: none;
     transform: none;
   }
   .task-action-menu button:hover svg {
-    color: #ffffff;
+    color: #111827;
     transform: none;
   }
 }
@@ -2955,19 +2954,19 @@ button.project-row:active,
 }
 
 .task-action-menu button.danger {
-  color: #ff8b8b;
+  color: #d92d20;
 }
 .task-action-menu button.danger svg {
-  color: #ff8b8b;
+  color: #d92d20;
 }
 @media (hover: hover) {
   .task-action-menu button.danger:hover {
-    background: rgba(255, 99, 99, 0.18);
-    color: #ffd9d9;
+    background: rgba(217, 45, 32, 0.10);
+    color: #b42318;
     box-shadow: none;
   }
   .task-action-menu button.danger:hover svg {
-    color: #ffd9d9;
+    color: #b42318;
   }
 }
 
@@ -2975,14 +2974,14 @@ button.project-row:active,
   display: block;
   height: 1px;
   margin: 5px 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.10);
 }
 
 /* Confirm-step heading inside the popover (archive / delete confirmation) */
 .task-action-menu__prompt {
   display: block;
   padding: 6px 12px 4px;
-  color: rgba(228, 232, 240, 0.55);
+  color: rgba(28, 32, 42, 0.55);
   font-size: 0.82rem;
   font-weight: 700;
   white-space: nowrap;
@@ -3125,4 +3124,379 @@ button.project-row:active,
   min-width: 36px;
   min-height: 36px;
   justify-self: center;
+}
+
+/* =========================================================================
+   Calendar view (week / month / year completion tracking)
+   ========================================================================= */
+.calendar-header {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+
+.cal-nav {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.cal-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cal-seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--surface-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+}
+
+.cal-seg button {
+  padding: 5px 13px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  border-radius: var(--r-pill);
+  transition: color var(--t) var(--ease), background var(--t) var(--ease);
+}
+
+.cal-seg button.active {
+  color: var(--primary-ink);
+  background: var(--primary);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ---- Period summary ---- */
+.cal-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.cal-summary__hero {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+}
+
+.cal-summary__label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.cal-summary__value {
+  font-size: 1.9rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.cal-summary__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  align-content: center;
+}
+
+.cal-summary__stats div {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  text-align: center;
+}
+
+.cal-summary__stats span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.cal-summary__stats strong {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+/* ---- Week view ---- */
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cal-week__card {
+  display: grid;
+  gap: 5px;
+  justify-items: stretch;
+  padding: 10px;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-xs);
+  transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+
+.cal-week__card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.cal-week__card.is-today {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.cal-week__weekday {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cal-week__date {
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.cal-week__count {
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.cal-week__dots {
+  display: flex;
+  gap: 4px;
+  min-height: 8px;
+}
+
+.dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.dot-output { background: var(--prog-done); }
+.dot-blocked { background: var(--danger); }
+
+/* ---- Heat tiles (shared by month + year) ---- */
+.tone-empty { --prog-color: var(--line); }
+
+.cal-cell,
+.cal-heatmap__cell {
+  --heat-pct: calc(var(--heat, 0) * 1%);
+  background: color-mix(in srgb, var(--prog-color) max(8%, var(--heat-pct)), var(--surface-2));
+  border: 1px solid var(--line);
+  transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+
+/* ---- Month view ---- */
+.cal-month {
+  display: grid;
+  gap: 6px;
+}
+
+.cal-month__head,
+.cal-month__grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cal-month__head span {
+  padding: 2px 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cal-cell {
+  position: relative;
+  display: block;
+  aspect-ratio: 1 / 1;
+  padding: 6px;
+  text-align: left;
+  border-radius: var(--r-sm);
+}
+
+.cal-cell:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.cal-cell.is-outside { opacity: 0.4; }
+
+.cal-cell.is-today {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.cal-cell__num {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.cal-cell__count {
+  position: absolute;
+  right: 6px;
+  bottom: 5px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--ink-soft);
+}
+
+/* ---- Year view ---- */
+.cal-year {
+  display: grid;
+  gap: 18px;
+}
+
+.cal-year__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.cal-stat {
+  display: grid;
+  gap: 2px;
+  justify-items: start;
+  padding: 12px 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-xs);
+}
+
+.cal-stat span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+}
+
+.cal-stat strong {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.cal-stat svg { color: var(--warning); }
+
+.cal-heatmap {
+  display: flex;
+  gap: 3px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.cal-heatmap__col {
+  display: grid;
+  grid-auto-rows: 13px;
+  gap: 3px;
+}
+
+.cal-heatmap__cell {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+  padding: 0;
+}
+
+.cal-heatmap__cell:hover {
+  transform: scale(1.35);
+  box-shadow: var(--shadow-sm);
+}
+
+.cal-heatmap__cell.is-outside { visibility: hidden; }
+
+.cal-heatmap__cell.is-today {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.cal-year__caption {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+/* ---- Mini bar series (per-day / per-month) ---- */
+.cal-series {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  align-items: end;
+  gap: 6px;
+}
+
+.cal-series__col {
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+}
+
+.cal-series__track {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 64px;
+  border-radius: var(--r-xs);
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.cal-series__fill {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: clamp(2%, var(--pct, 0%), 100%);
+  background: var(--prog-color);
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
+}
+
+.cal-series__col.active .cal-series__track {
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.cal-series__label {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 700;
+}
+
+@media (max-width: 640px) {
+  .cal-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .cal-week {
+    grid-auto-flow: column;
+    grid-auto-columns: 38%;
+    grid-template-columns: none;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+
+  .cal-year__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }

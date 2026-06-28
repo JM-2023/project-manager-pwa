@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ProgressSummary } from "../components/ProgressSummary";
 import { TaskTable } from "../components/TaskTable";
 import { addDays, formatShortDate, todayDate, toDateInput } from "../lib/dates";
@@ -11,10 +11,17 @@ function taskRecordDate(task: Task): string {
   return toDateInput(task.start_date);
 }
 
-export function TodayPage(props: TaskPageProps) {
-  const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask } = props;
+export function TodayPage(props: TaskPageProps & { initialDate?: string | null }) {
+  const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask, initialDate } = props;
   const today = todayDate();
-  const [viewDate, setViewDate] = useState(today);
+  const [viewDate, setViewDate] = useState(initialDate || today);
+
+  // Follow day selections made from the Calendar view.
+  useEffect(() => {
+    if (initialDate) {
+      setViewDate(initialDate);
+    }
+  }, [initialDate]);
   const datedTasks = tasks.filter((task) => {
     if (task.deleted_at || task.archived || task.status === "cancelled") return false;
     if (isProjectCacheTask(task)) return false;

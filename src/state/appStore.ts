@@ -2,7 +2,7 @@ import type { BootstrapResponse, Project, SessionResponse, Tag, Task, TaskTag } 
 import { mergeBootstrap, visibleProjects, visibleTasks } from "../lib/sync";
 import { priorityScore } from "../lib/validation";
 
-export type TabId = "today" | "projects" | "next" | "search" | "settings";
+export type TabId = "today" | "calendar" | "projects" | "next" | "search" | "settings";
 export type SyncStatus = "idle" | "loading" | "queued" | "syncing" | "offline" | "error";
 
 export interface Filters {
@@ -23,6 +23,7 @@ export interface AppState {
   session: SessionResponse | null;
   authRequired: boolean;
   currentTab: TabId;
+  selectedDate: string | null;
   filters: Filters;
   pendingCount: number;
   lastSync: string | null;
@@ -40,6 +41,7 @@ export type AppAction =
   | { type: "setSession"; payload: SessionResponse | null }
   | { type: "setAuthRequired"; payload: boolean }
   | { type: "setTab"; payload: TabId }
+  | { type: "setSelectedDate"; payload: string | null }
   | { type: "setFilters"; payload: Partial<Filters> }
   | { type: "upsertProject"; payload: Project }
   | { type: "purgeProject"; payload: string }
@@ -64,6 +66,7 @@ export const initialState: AppState = {
   session: null,
   authRequired: true,
   currentTab: "today",
+  selectedDate: null,
   filters: {
     search: "",
     projectId: "",
@@ -140,6 +143,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, authRequired: action.payload };
     case "setTab":
       return { ...state, currentTab: action.payload };
+    case "setSelectedDate":
+      return { ...state, selectedDate: action.payload };
     case "setFilters":
       return { ...state, filters: { ...state.filters, ...action.payload } };
     case "upsertProject":

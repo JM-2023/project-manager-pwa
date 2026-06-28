@@ -1,4 +1,4 @@
-import { Briefcase, CalendarCheck2, Lightbulb, Search, Settings } from "lucide-react";
+import { Briefcase, CalendarCheck2, CalendarRange, Lightbulb, Search, Settings } from "lucide-react";
 import type { TabId } from "../state/appStore";
 
 interface BottomNavProps {
@@ -8,6 +8,7 @@ interface BottomNavProps {
 
 const items: Array<{ id: TabId; label: string; Icon: typeof CalendarCheck2 }> = [
   { id: "today", label: "Today", Icon: CalendarCheck2 },
+  { id: "calendar", label: "Calendar", Icon: CalendarRange },
   { id: "projects", label: "Projects", Icon: Briefcase },
   { id: "next", label: "Next", Icon: Lightbulb },
   { id: "search", label: "Search", Icon: Search },

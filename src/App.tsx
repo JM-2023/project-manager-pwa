@@ -28,6 +28,7 @@ import {
 import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
 import type { BootstrapResponse, ClientMutation, ImportRow, MutationResult, Project, Tag, Task, TaskTag } from "./lib/types";
+import { CalendarPage } from "./pages/CalendarPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NextPage } from "./pages/NextPage";
 import type { TaskPageProps } from "./pages/pageProps";
@@ -1064,7 +1065,17 @@ export function App() {
   return (
     <div className="app-shell">
       <OfflineBanner online={state.online} pendingCount={state.pendingCount} syncStatus={state.syncStatus} error={state.error} onSync={syncNow} />
-      {state.currentTab === "today" ? <TodayPage {...pageProps} /> : null}
+      {state.currentTab === "today" ? <TodayPage {...pageProps} initialDate={state.selectedDate} /> : null}
+      {state.currentTab === "calendar" ? (
+        <CalendarPage
+          {...pageProps}
+          initialDate={state.selectedDate}
+          onOpenDay={(date) => {
+            dispatch({ type: "setSelectedDate", payload: date });
+            dispatch({ type: "setTab", payload: "today" });
+          }}
+        />
+      ) : null}
       {state.currentTab === "projects" ? <ProjectsPage {...pageProps} /> : null}
       {state.currentTab === "next" ? <NextPage {...pageProps} /> : null}
       {state.currentTab === "search" ? <SearchPage {...pageProps} /> : null}
@@ -1084,7 +1095,15 @@ export function App() {
           onLogout={() => void handleLogout()}
         />
       ) : null}
-      <BottomNav current={state.currentTab} onChange={(tab) => dispatch({ type: "setTab", payload: tab })} />
+      <BottomNav
+        current={state.currentTab}
+        onChange={(tab) => {
+          if (tab === "today") {
+            dispatch({ type: "setSelectedDate", payload: null });
+          }
+          dispatch({ type: "setTab", payload: tab });
+        }}
+      />
     </div>
   );
 }

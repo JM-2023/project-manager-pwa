@@ -1,4 +1,4 @@
-import { Copy, MoreHorizontal, MoveRight, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowLeftToLine, ArrowRight, ArrowRightToLine, MoreHorizontal, Trash2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -340,19 +340,19 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
             {menuOpen ? (
               <div className="task-action-menu" role="menu" aria-label="Task actions">
                 <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
-                  <Copy size={15} aria-hidden="true" />
+                  <ArrowLeftToLine size={15} aria-hidden="true" />
                   <span>Copy to yesterday</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => copyTask(1)}>
-                  <Copy size={15} aria-hidden="true" />
+                  <ArrowRightToLine size={15} aria-hidden="true" />
                   <span>Copy to tomorrow</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
-                  <MoveRight size={15} aria-hidden="true" />
+                  <ArrowLeft size={15} aria-hidden="true" />
                   <span>Move to yesterday</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => moveTask(1)}>
-                  <MoveRight size={15} aria-hidden="true" />
+                  <ArrowRight size={15} aria-hidden="true" />
                   <span>Move to tomorrow</span>
                 </button>
                 <span className="task-action-menu__sep" role="separator" />

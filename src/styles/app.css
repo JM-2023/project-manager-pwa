@@ -62,11 +62,13 @@
   --prog-high: #22c55e;
   --prog-done: #16a34a;
 
-  /* Importance scale — blue, darkest (1) to lightest (4) */
-  --imp-1: #1e3a8a;
-  --imp-2: #2563eb;
-  --imp-3: #60a5fa;
-  --imp-4: #bfdbfe;
+  /* Importance 1–4 maps 1:1 to priority urgent/high/medium/low
+     (see importancePriority), so it shares the semantic priority palette —
+     a task reads the same whether shown as a table row or a card. */
+  --imp-1: var(--danger);
+  --imp-2: var(--rust);
+  --imp-3: var(--blue);
+  --imp-4: var(--sage);
 
   /* Focus ring */
   --ring: rgba(79, 70, 229, 0.30);
@@ -97,23 +99,22 @@
      soft highlight, and light rim over the plain white page. */
   --glass-fill:
     radial-gradient(130% 90% at 16% 0%, rgba(255, 255, 255, 0.82), transparent 56%),
-    linear-gradient(160deg, rgba(255, 255, 255, 0.66) 0%, rgba(255, 255, 255, 0.24) 100%);
+    linear-gradient(160deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.52) 100%);
+  /* Keeps hero text legible where green liquid floods behind it. */
+  --hero-text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
   --glass-border: rgba(17, 24, 39, 0.12);
   --glass-highlight:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     inset 0 -1px 0 rgba(17, 24, 39, 0.04);
-  --glass-button-fill:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
-  --glass-button-hover-fill:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
-  --glass-button-border: rgba(17, 24, 39, 0.16);
-  --glass-button-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.20),
-    0 12px 35px rgba(0, 0, 0, 0.18),
-    0 2px 8px rgba(0, 0, 0, 0.10);
-  --glass-button-hover-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.20),
-    0 12px 35px rgba(0, 0, 0, 0.16);
+  /* Utility / action buttons are soft solid chips, not floating glass — a quiet
+     surface fill, hairline border, and a whisper of shadow. Primary actions get
+     the indigo accent (.primary-button); flat controls (nav, icon, status, rows)
+     drop the fill, border and shadow entirely (.is-flat-control below). */
+  --glass-button-fill: var(--surface-2);
+  --glass-button-hover-fill: var(--surface-3);
+  --glass-button-border: var(--line-strong);
+  --glass-button-shadow: var(--shadow-xs);
+  --glass-button-hover-shadow: var(--shadow-sm);
 
   background: var(--bg);
   color: var(--ink);
@@ -167,10 +168,8 @@
     --prog-high: #4ade80;
     --prog-done: #22c55e;
 
-    --imp-1: #3b82f6;
-    --imp-2: #60a5fa;
-    --imp-3: #93c5fd;
-    --imp-4: #c7ddfb;
+    /* --imp-* inherit the semantic priority palette from :root (which already
+       resolves --danger/--rust/--blue/--sage to their dark values). */
 
     --ring: rgba(129, 140, 248, 0.35);
 
@@ -182,22 +181,12 @@
 
     --glass-fill:
       radial-gradient(130% 90% at 15% 0%, rgba(255, 255, 255, 0.08), transparent 55%),
-      linear-gradient(160deg, rgba(35, 39, 51, 0.66) 0%, rgba(24, 27, 35, 0.34) 100%);
+      linear-gradient(160deg, rgba(35, 39, 51, 0.78) 0%, rgba(24, 27, 35, 0.62) 100%);
+    --hero-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-    /* Dark buttons should read as clear glass over the dark app surface. */
-    --glass-button-fill:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.085));
-    --glass-button-hover-fill:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.115));
-    --glass-button-border: rgba(255, 255, 255, 0.14);
-    --glass-button-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.20),
-      0 12px 35px rgba(0, 0, 0, 0.25),
-      0 2px 8px rgba(0, 0, 0, 0.15);
-    --glass-button-hover-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.20),
-      0 12px 35px rgba(0, 0, 0, 0.22);
+    /* --glass-button-* inherit from :root; their themed sub-tokens
+       (--surface-2/3, --line-strong, --shadow-xs/sm) already resolve dark. */
   }
 }
 
@@ -304,17 +293,6 @@ select {
   to { opacity: 1; transform: none; }
 }
 
-@keyframes task-menu-pop {
-  from {
-    opacity: 0;
-    max-height: 0;
-  }
-  to {
-    opacity: 1;
-    max-height: 240px;
-  }
-}
-
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -344,14 +322,14 @@ select {
 
 .first-reveal .page-content,
 .first-reveal .login-screen {
-  animation: ink-reveal 1.25s var(--ease);
+  animation: ink-reveal 0.7s var(--ease);
   backface-visibility: hidden;
   transform: translateZ(0);
 }
 
 .first-reveal .offline-banner,
 .first-reveal .bottom-nav {
-  animation: fade-in 1.4s var(--ease) both;
+  animation: fade-in 0.8s var(--ease) both;
 }
 
 .reveal-complete .page-content,
@@ -827,7 +805,7 @@ textarea:focus {
   color: var(--ink);
   font-size: 0.92rem;
   font-weight: 700;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+  text-shadow: var(--hero-text-shadow);
 }
 
 .summary-hero__value {
@@ -836,7 +814,7 @@ textarea:focus {
   font-weight: 800;
   letter-spacing: 0;
   color: var(--ink);
-  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.55);
+  text-shadow: var(--hero-text-shadow);
 }
 
 
@@ -1113,37 +1091,8 @@ textarea:focus {
   align-self: stretch;
 }
 
-.task-action-menu {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 8px);
-  z-index: 50;
-  display: grid;
-  gap: 3px;
-  min-width: 194px;
-  padding: 6px;
-  overflow: hidden;
-  color: var(--ink);
-  background: var(--glass-fill);
-  border: 1px solid var(--glass-border);
-  border-radius: 18px;
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  filter: none;
-  animation: task-menu-pop 0.18s linear both;
-}
-
-.task-action-menu button {
-  display: flex;
-  width: 100%;
-  min-height: 38px;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink-soft);
-  text-align: left;
-  white-space: nowrap;
-}
+/* `.task-action-menu` (the floating popover) is defined in full near the end of
+   this file, alongside its open/hover/danger states. */
 
 .task-table-note-cell .icon-button {
   align-self: stretch;
@@ -2344,36 +2293,12 @@ button.project-row > span {
 }
 
 /* =========================================================================
-   Liquid-glass surfaces — translucent fill + light-catching edge, NO
-   backdrop sampling (nothing sits behind these, so blur would just waste
-   GPU). One cheap recipe shared across the app's panels.
+   Base surfaces are clean, solid cards (see their individual rules above):
+   surface fill, hairline border, soft shadow. Glass is deliberately NOT a
+   base material — it's reserved for floating layers (bottom nav, the task
+   action menu) as a translucent fill over the opaque page (no backdrop
+   sampling: it would cost GPU for no gain on a white background).
    ========================================================================= */
-.task-composer,
-.search-filters,
-.settings-section,
-.mapping-panel,
-.pin-pad,
-.task-card,
-.metric,
-.progress-summary > div,
-.project-row,
-.cache-section {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  background: var(--glass-fill);
-  border-color: var(--glass-border);
-  box-shadow: var(--glass-highlight), var(--shadow);
-}
-
-@container tasktable (min-width: 1040px) {
-  .task-table {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    background: var(--glass-fill);
-    border-color: var(--glass-border);
-    box-shadow: var(--glass-highlight), var(--shadow);
-  }
-}
 
 .table-more {
   margin: 10px 2px 0;
@@ -2666,9 +2591,9 @@ button.project-row {
 .quick-status button.active,
 button.project-row.active {
   color: var(--primary-dark);
-  background: var(--glass-button-fill);
-  border-color: var(--glass-button-border);
-  box-shadow: var(--glass-button-shadow);
+  background: var(--primary-tint);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .project-row.active {
@@ -2814,6 +2739,94 @@ button.project-row:active,
 }
 
 /* =========================================================================
+   Button hierarchy — three clear tiers layered over the soft-chip base above.
+   Placed last so these win over the shared hover/active rules.
+   ========================================================================= */
+
+/* Primary: the one bold call to action — indigo accent, white ink. */
+.primary-button {
+  color: var(--primary-ink);
+  background: var(--accent-grad);
+  border-color: transparent;
+  box-shadow: var(--shadow-primary);
+}
+
+@media (hover: hover) {
+  .primary-button:hover {
+    color: var(--primary-ink);
+    background: var(--accent-grad);
+    border-color: transparent;
+    box-shadow: var(--shadow-primary), 0 6px 18px rgba(79, 70, 229, 0.35);
+    filter: brightness(1.04);
+  }
+}
+
+.primary-button:active {
+  background: var(--accent-grad);
+  border-color: transparent;
+  box-shadow: var(--shadow-primary);
+  filter: brightness(0.97);
+}
+
+/* Ghost: an outline button — transparent at rest, faint fill on hover. */
+.ghost-button {
+  background: transparent;
+}
+
+@media (hover: hover) {
+  .ghost-button:hover {
+    background: var(--surface-2);
+  }
+  .ghost-button.danger:hover {
+    background: var(--danger-tint);
+  }
+}
+
+.ghost-button:active {
+  background: var(--surface-2);
+}
+
+/* Flat controls — nav tabs, icon buttons, the status grid, project rows and the
+   date title. No fill, border or shadow at rest; a soft tint on hover. They sit
+   inside cards or the glass nav, where a chip treatment would just be noise. */
+.icon-button,
+.bottom-nav button,
+.today-title-button,
+.quick-status button,
+button.project-row {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  .icon-button:hover,
+  .bottom-nav button:hover,
+  .today-title-button:hover,
+  .quick-status button:hover,
+  button.project-row:hover {
+    background: var(--primary-tint);
+    border-color: transparent;
+    box-shadow: none;
+  }
+
+  .icon-button.danger:hover {
+    background: var(--danger-tint);
+    border-color: transparent;
+  }
+}
+
+.icon-button:active,
+.bottom-nav button:active,
+.today-title-button:active,
+.quick-status button:active,
+button.project-row:active {
+  background: var(--primary-tint);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* =========================================================================
    Task actions menu — the trigger morphs into a rounded-rectangle menu, and
    items light up as pills on hover. Overrides the glass-button kit above so
    the items render as flat menu rows, not chips.
@@ -2859,21 +2872,16 @@ button.project-row:active,
   min-width: 200px;
   padding: 7px;
   transform-origin: bottom right;
-  color: rgba(28, 32, 42, 0.92);
-  /* Frosted white liquid-glass without backdrop sampling: a soft specular bloom,
-     a near-white tint wash, a bright rim and inset highlight. */
-  background:
-    radial-gradient(130% 90% at 16% 0%, rgba(255, 255, 255, 0.75), transparent 58%),
-    linear-gradient(160deg, rgba(255, 255, 255, 0.82) 0%, rgba(247, 249, 252, 0.74) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.7);
+  color: var(--ink);
+  /* A floating popover. No backdrop sampling — the page is opaque white, so a
+     translucent fill costs GPU for no gain. Tokens drive the tint (raised to
+     ~0.5–0.7 so menu text stays legible without blur) so dark mode is a swap. */
+  background: var(--glass-fill);
+  border: 1px solid var(--glass-border);
   border-radius: 18px;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.18),
-    0 18px 44px rgba(15, 23, 42, 0.18),
-    0 4px 12px rgba(15, 23, 42, 0.10);
-  backdrop-filter: none;
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
   -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   animation: task-menu-morph 0.24s var(--ease-spring) both;
 }
 
@@ -2900,7 +2908,7 @@ button.project-row:active,
   justify-content: flex-start;
   gap: 10px;
   padding: 8px 12px;
-  color: rgba(28, 32, 42, 0.92);
+  color: var(--ink-soft);
   font-weight: 600;
   text-align: left;
   white-space: nowrap;
@@ -2924,7 +2932,7 @@ button.project-row:active,
   width: 16px;
   height: 16px;
   transform: none;
-  color: rgba(28, 32, 42, 0.5);
+  color: var(--muted);
   /* Slightly lighter stroke reads more refined at this small size */
   stroke-width: 1.75;
   transition: color 0.16s ease;
@@ -2937,14 +2945,14 @@ button.project-row:active,
      grow-on-hover rule. */
   .task-action-menu button:hover {
     padding: 8px 12px;
-    background: rgba(15, 23, 42, 0.06);
+    background: color-mix(in srgb, var(--ink) 8%, transparent);
     border-radius: var(--r-pill);
-    color: #111827;
+    color: var(--ink);
     box-shadow: none;
     transform: none;
   }
   .task-action-menu button:hover svg {
-    color: #111827;
+    color: var(--ink);
     transform: none;
   }
 }
@@ -2954,19 +2962,19 @@ button.project-row:active,
 }
 
 .task-action-menu button.danger {
-  color: #d92d20;
+  color: var(--danger);
 }
 .task-action-menu button.danger svg {
-  color: #d92d20;
+  color: var(--danger);
 }
 @media (hover: hover) {
   .task-action-menu button.danger:hover {
-    background: rgba(217, 45, 32, 0.10);
-    color: #b42318;
+    background: color-mix(in srgb, var(--danger) 12%, transparent);
+    color: var(--danger);
     box-shadow: none;
   }
   .task-action-menu button.danger:hover svg {
-    color: #b42318;
+    color: var(--danger);
   }
 }
 
@@ -2974,14 +2982,14 @@ button.project-row:active,
   display: block;
   height: 1px;
   margin: 5px 8px;
-  background: rgba(15, 23, 42, 0.10);
+  background: var(--glass-border);
 }
 
 /* Confirm-step heading inside the popover (archive / delete confirmation) */
 .task-action-menu__prompt {
   display: block;
   padding: 6px 12px 4px;
-  color: rgba(28, 32, 42, 0.55);
+  color: var(--muted);
   font-size: 0.82rem;
   font-weight: 700;
   white-space: nowrap;

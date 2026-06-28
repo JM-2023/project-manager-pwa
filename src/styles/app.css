@@ -185,10 +185,11 @@
       linear-gradient(160deg, rgba(35, 39, 51, 0.66) 0%, rgba(24, 27, 35, 0.34) 100%);
     --glass-border: rgba(255, 255, 255, 0.10);
     --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    /* Dark buttons should read as clear glass over the dark app surface. */
     --glass-button-fill:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
+      linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.085));
     --glass-button-hover-fill:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
+      linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.115));
     --glass-button-border: rgba(255, 255, 255, 0.14);
     --glass-button-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.20),
@@ -1533,7 +1534,7 @@ textarea:focus {
 
 .project-create,
 .project-row,
-.project-row button:first-child {
+.project-row > button:first-child {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 76px;
   gap: 8px;
@@ -1634,7 +1635,7 @@ button.project-row > span {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.project-row button:first-child {
+.project-row > button:first-child {
   display: flex;
   min-height: 44px;
   align-items: center;
@@ -1650,11 +1651,11 @@ button.project-row > span {
   transition: color var(--t) var(--ease);
 }
 
-.project-row button:first-child:hover {
+.project-row > button:first-child:hover {
   color: var(--primary-dark);
 }
 
-.project-row button:first-child > span:not(.project-color) {
+.project-row > button:first-child > span:not(.project-color) {
   flex: 1;
   min-width: 0;
 }

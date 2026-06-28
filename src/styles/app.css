@@ -2815,7 +2815,28 @@ button.project-row:active,
 }
 
 .task-menu-trigger {
-  transition: opacity 0.16s ease;
+  transition:
+    opacity 0.16s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    transform 0.4s var(--spring);
+}
+
+/* The options button lives in a fixed-width table cell with a min-height, so the
+   usual padding-grow hover gets clamped flat — the animation feels trapped. Pop
+   it with a transform instead (its cell and .task-menu are both overflow:visible,
+   so it's never clipped), keeping the footprint stable so the table grid doesn't
+   shift. It now animates as freely as the buttons outside the table. */
+@media (hover: hover) {
+  .task-table-note-cell .task-menu-trigger:hover {
+    padding: var(--btn-py) var(--btn-px);
+    border-radius: var(--btn-radius);
+    transform: scale(1.12);
+  }
+}
+
+.task-table-note-cell .task-menu-trigger:active {
+  transform: scale(1.04);
 }
 
 /* When open the trigger fades, so the menu reads as the button itself growing */
@@ -2878,7 +2899,7 @@ button.project-row:active,
   justify-content: flex-start;
   gap: 10px;
   padding: 8px 12px;
-  color: rgba(228, 232, 240, 0.88);
+  color: rgba(255, 255, 255, 0.92);
   font-weight: 600;
   text-align: left;
   white-space: nowrap;

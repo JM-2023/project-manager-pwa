@@ -44,7 +44,7 @@ export type AppAction =
   | { type: "upsertProject"; payload: Project }
   | { type: "purgeProject"; payload: string }
   | { type: "upsertTask"; payload: Task }
-  | { type: "deleteTask"; payload: string }
+  | { type: "purgeTask"; payload: string }
   | { type: "upsertTag"; payload: Tag }
   | { type: "upsertTaskTag"; payload: TaskTag }
   | { type: "setPendingCount"; payload: number }
@@ -158,8 +158,15 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     }
     case "upsertTask":
       return { ...state, tasks: byId(state.tasks, action.payload) };
-    case "deleteTask":
-      return { ...state, tasks: state.tasks.filter((task) => task.id !== action.payload) };
+    case "purgeTask": {
+      // Hard delete a task and its tag links — no tombstone left behind.
+      const taskId = action.payload;
+      return {
+        ...state,
+        tasks: state.tasks.filter((task) => task.id !== taskId),
+        taskTags: state.taskTags.filter((link) => link.task_id !== taskId)
+      };
+    }
     case "upsertTag":
       return { ...state, tags: byId(state.tags, action.payload) };
     case "upsertTaskTag":

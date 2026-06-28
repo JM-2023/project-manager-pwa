@@ -15,10 +15,10 @@ import {
 import { nowIso } from "./lib/dates";
 import { getOrCreateClientId, newId, newMutationId } from "./lib/ids";
 import {
-  deleteEntity,
   getPendingMutations,
   loadLocalSnapshot,
   purgeProjectData,
+  purgeTaskData,
   queueMutation,
   removePendingMutations,
   resetLocalData,
@@ -795,20 +795,53 @@ export function App() {
   }
 
   function deleteTask(task: Task) {
-    dispatch({ type: "deleteTask", payload: task.id });
-    stateRef.current = { ...stateRef.current, tasks: removeRecord(stateRef.current.tasks, task.id) };
-    void deleteEntity("tasks", task.id);
+    // Irreversible hard delete: the task and its tag links are removed everywhere
+    // (no tombstone). The server purge mutation does the same cascade in D1.
+    const purgedTagKeys = stateRef.current.taskTags
+      .filter((link) => link.task_id === task.id)
+      .map((link) => `${link.task_id}:${link.tag_id}`);
+
+    dispatch({ type: "purgeTask", payload: task.id });
+    stateRef.current = {
+      ...stateRef.current,
+      tasks: removeRecord(stateRef.current.tasks, task.id),
+      taskTags: stateRef.current.taskTags.filter((link) => link.task_id !== task.id)
+    };
+    void purgeTaskData(task.id, purgedTagKeys);
+
+    // Drop any queued edits for this task / its tag links so a late upsert can't
+    // resurrect a row the purge already removed.
+    const staleMutationIds = pendingMutationsRef.current
+      .filter((mutation) => {
+        if (mutation.entity === "task_tag") {
+          return String(mutationData(mutation).task_id ?? "") === task.id;
+        }
+        const key = mutationRecordKey(mutation);
+        return key === `task:${task.id}`;
+      })
+      .map((mutation) => mutation.id);
+    if (staleMutationIds.length > 0) {
+      forgetPendingMutations(staleMutationIds);
+      void removePendingMutations(staleMutationIds);
+    }
+
     void persistMutation({
       id: newMutationId(),
       entity: "task",
-      operation: "delete",
+      operation: "purge",
       baseVersion: task.version,
       data: { id: task.id }
     });
   }
 
+  // Archive is a recoverable soft state (archived = 1), kept distinct from the
+  // irreversible hard delete above.
   function archiveTask(task: Task) {
-    deleteTask(task);
+    const next: Task = { ...task, archived: 1, updated_at: nowIso(), version: task.version + 1 };
+    dispatch({ type: "upsertTask", payload: next });
+    stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, next) };
+    void saveEntity("tasks", next);
+    void persistMutation({ id: newMutationId(), entity: "task", operation: "upsert", baseVersion: task.version, data: next });
   }
 
   function createProject(name: string): string {

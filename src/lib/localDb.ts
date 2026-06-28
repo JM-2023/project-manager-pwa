@@ -132,13 +132,6 @@ export async function saveEntity(storeName: EntityStore, record: Project | Task 
   await transactionDone(tx);
 }
 
-export async function deleteEntity(storeName: EntityStore, id: string): Promise<void> {
-  const db = await openDb();
-  const tx = db.transaction(storeName, "readwrite");
-  tx.objectStore(storeName).delete(id);
-  await transactionDone(tx);
-}
-
 // Hard-delete a project and its cascade (tasks + tag links) from local storage
 // in a single transaction so the cache can never end up half-pruned.
 export async function purgeProjectData(projectId: string, taskIds: string[], taskTagKeys: string[]): Promise<void> {
@@ -148,6 +141,18 @@ export async function purgeProjectData(projectId: string, taskIds: string[], tas
   for (const id of taskIds) {
     tx.objectStore("tasks").delete(id);
   }
+  for (const key of taskTagKeys) {
+    tx.objectStore("taskTags").delete(key);
+  }
+  await transactionDone(tx);
+}
+
+// Hard-delete a single task and its tag links from local storage in one
+// transaction (the task-level counterpart to purgeProjectData).
+export async function purgeTaskData(taskId: string, taskTagKeys: string[]): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(["tasks", "taskTags"], "readwrite");
+  tx.objectStore("tasks").delete(taskId);
   for (const key of taskTagKeys) {
     tx.objectStore("taskTags").delete(key);
   }

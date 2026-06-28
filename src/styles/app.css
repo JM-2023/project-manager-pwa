@@ -2984,13 +2984,36 @@ button.project-row:active,
 }
 
 .project-row .task-menu {
-  justify-self: stretch;
+  justify-self: center;
 }
 
 .project-row .task-menu-trigger {
-  width: 100%;
+  width: 36px;
   min-width: 36px;
   min-height: 36px;
+  padding: 0;
+  color: var(--muted);
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--r-pill);
+  box-shadow: none;
+}
+
+@media (hover: hover) {
+  .project-row .task-menu-trigger:hover {
+    padding: 0;
+    color: var(--primary-dark);
+    background: transparent;
+    border-color: transparent;
+    border-radius: var(--r-pill);
+    box-shadow: none;
+  }
+}
+
+.project-row .task-menu-trigger:active {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
 }
 
 /* =========================================================================

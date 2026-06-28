@@ -2383,6 +2383,13 @@ button.project-row > span {
    settling slightly smaller while the chip expands.
    ========================================================================= */
 
+.settings-hint {
+  margin: 8px 2px 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .primary-button,
 .secondary-button,
 .ghost-button,

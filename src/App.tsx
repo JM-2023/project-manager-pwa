@@ -4,8 +4,6 @@ import { OfflineBanner } from "./components/OfflineBanner";
 import {
   AuthRequiredError,
   bootstrap,
-  downloadCloudExcel,
-  getCloudExcelState,
   getExportData,
   getSession,
   importRows,
@@ -28,7 +26,7 @@ import {
 } from "./lib/localDb";
 import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
-import type { BootstrapResponse, ClientMutation, CloudExcelState, ImportRow, MutationResult, Project, Tag, Task, TaskTag } from "./lib/types";
+import type { BootstrapResponse, ClientMutation, ImportRow, MutationResult, Project, Tag, Task, TaskTag } from "./lib/types";
 import { LoginPage } from "./pages/LoginPage";
 import { NextPage } from "./pages/NextPage";
 import type { TaskPageProps } from "./pages/pageProps";
@@ -39,8 +37,6 @@ import { TodayPage } from "./pages/TodayPage";
 import { appReducer, initialState, sortedProjects, sortedTasks, type AppState } from "./state/appStore";
 
 const PROJECT_COLORS = ["#1f6f68", "#a64b2a", "#5b6c5d", "#3f5f8f", "#7a5c99", "#8a6a23"];
-const CLOUD_EXCEL_ETAG_KEY = "project-manager-cloud-excel-etag";
-const CLOUD_EXCEL_UPDATED_AT_KEY = "project-manager-cloud-excel-updated-at";
 const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
 const SYNC_DEBOUNCE_MS = 850;
 const KEEPALIVE_MAX_BYTES = 60_000;
@@ -119,29 +115,6 @@ function mergePendingMutations(...lists: ClientMutation[][]): ClientMutation[] {
 function excelDirtyAt(settings: Record<string, unknown>): string | null {
   const value = settings[EXCEL_DIRTY_SETTING_KEY];
   return typeof value === "string" && value ? value : null;
-}
-
-function rememberCloudExcelState(state: Pick<CloudExcelState, "etag" | "updatedAt">): void {
-  if (state.etag) {
-    localStorage.setItem(CLOUD_EXCEL_ETAG_KEY, state.etag);
-  } else {
-    localStorage.removeItem(CLOUD_EXCEL_ETAG_KEY);
-  }
-  if (state.updatedAt) {
-    localStorage.setItem(CLOUD_EXCEL_UPDATED_AT_KEY, state.updatedAt);
-  } else {
-    localStorage.removeItem(CLOUD_EXCEL_UPDATED_AT_KEY);
-  }
-}
-
-function cloudExcelStateMatches(state: CloudExcelState): boolean {
-  if (!state.etag) {
-    return true;
-  }
-  if (localStorage.getItem(CLOUD_EXCEL_ETAG_KEY) !== state.etag) {
-    return false;
-  }
-  return !state.updatedAt || localStorage.getItem(CLOUD_EXCEL_UPDATED_AT_KEY) === state.updatedAt;
 }
 
 function keepaliveBody(clientId: string, groups: PendingMutationGroup[]): Blob | null {
@@ -321,33 +294,19 @@ function upsertTaskTagRecord(records: TaskTag[], record: TaskTag): TaskTag[] {
   return next;
 }
 
-async function rowsFromWorkbookBlob(blob: Blob): Promise<ImportRow[]> {
-  const [{ parseWorkbook }, mappingModule] = await Promise.all([import("./lib/excelImport"), import("./lib/excelMapping")]);
-  const sheets = await parseWorkbook(blob);
-  const scoredSheets = sheets.map((sheet) => {
-    const mapping = mappingModule.defaultMapping(sheet.headers);
-    return { sheet, mapping, rows: mappingModule.normalizeImportRows(sheet, mapping) };
-  });
-  if (scoredSheets.length === 0) {
-    return [];
-  }
-  const best = scoredSheets.reduce((winner, candidate) => (candidate.rows.length > winner.rows.length ? candidate : winner), scoredSheets[0]);
-  const cacheRows = sheets
-    .filter((sheet) => sheet.name === "项目缓存")
-    .flatMap((sheet) => mappingModule.normalizeProjectCacheRows(sheet));
-  return [...(best?.rows ?? []), ...cacheRows];
-}
-
 export function App() {
   const [state, dispatch] = useReducer(appReducer, initialState);
   const stateRef = useRef(state);
   const syncTimer = useRef<number | null>(null);
   const syncInFlight = useRef(false);
+  const syncCompletion = useRef<Promise<void> | null>(null);
   const syncAgainAfterCurrent = useRef(false);
+  const forceFullResyncInFlight = useRef(false);
   const excelUploadTimer = useRef<number | null>(null);
   const excelUploadInFlight = useRef(false);
-  const cloudExcelChecked = useRef(false);
-  const cloudExcelImporting = useRef(false);
+  // The first sync after the app loads reconciles local IndexedDB against the
+  // server's full live set instead of using the incremental cursor (see syncNow).
+  const fullBootstrapPending = useRef(true);
   const pendingMutationsRef = useRef<ClientMutation[]>([]);
   const pendingWritePromises = useRef<Set<Promise<void>>>(new Set());
   const clientId = useMemo(() => getOrCreateClientId(), []);
@@ -478,7 +437,6 @@ export function App() {
         const { workbookBlob } = await import("./lib/excelExport");
         const blob = workbookBlob(data);
         const result = await uploadCloudExcel(blob, CLOUD_EXCEL_FILENAME, visibleTasks(data.tasks).length);
-        rememberCloudExcelState(result);
         dispatch({ type: "setLastExport", payload: result.updatedAt });
       } catch (error) {
         dispatch({
@@ -513,41 +471,10 @@ export function App() {
     }).catch(() => undefined);
   }, [clientId]);
 
-  const refreshFromCloudExcelIfChanged = useCallback(async (session: NonNullable<AppState["session"]>): Promise<boolean> => {
-    if (!session.features.excelAutosync || cloudExcelImporting.current) {
-      return false;
-    }
-
-    const cloudState = await getCloudExcelState();
-    if (!cloudState?.etag || cloudExcelStateMatches(cloudState)) {
-      return false;
-    }
-
-    cloudExcelImporting.current = true;
-    try {
-      const blob = await downloadCloudExcel();
-      if (blob) {
-        const rows = await rowsFromWorkbookBlob(blob);
-        if (rows.length > 0) {
-          await importRows(CLOUD_EXCEL_FILENAME, rows);
-        }
-      }
-
-      await resetLocalData();
-      pendingMutationsRef.current = [];
-      dispatch({ type: "setPendingCount", payload: 0 });
-      rememberCloudExcelState(cloudState);
-
-      const refreshed = await bootstrap(null);
-      await applyBootstrapSnapshot(refreshed, true);
-      await updatePendingCount();
-      return true;
-    } finally {
-      cloudExcelImporting.current = false;
-    }
-  }, [applyBootstrapSnapshot, updatePendingCount]);
-
   const syncNow = useCallback(async () => {
+    if (forceFullResyncInFlight.current) {
+      return;
+    }
     if (syncTimer.current) {
       window.clearTimeout(syncTimer.current);
       syncTimer.current = null;
@@ -559,9 +486,15 @@ export function App() {
     }
     if (syncInFlight.current) {
       syncAgainAfterCurrent.current = true;
+      await syncCompletion.current;
       return;
     }
 
+    let resolveSyncCompletion: () => void = () => undefined;
+    const currentSync = new Promise<void>((resolve) => {
+      resolveSyncCompletion = resolve;
+    });
+    syncCompletion.current = currentSync;
     syncInFlight.current = true;
     let canRunQueuedSync = true;
     dispatch({ type: "setSyncStatus", payload: "syncing" });
@@ -569,16 +502,9 @@ export function App() {
 
     try {
       let shouldUploadCloudExcel = false;
-      let session = stateRef.current.session;
-      if (!session) {
-        session = await getSession();
+      if (!stateRef.current.session) {
+        const session = await getSession();
         dispatch({ type: "setSession", payload: session });
-      }
-
-      if (await refreshFromCloudExcelIfChanged(session)) {
-        dispatch({ type: "setAuthRequired", payload: false });
-        dispatch({ type: "setSyncStatus", payload: "idle" });
-        return;
       }
 
       await settlePendingWrites();
@@ -605,9 +531,18 @@ export function App() {
         shouldUploadCloudExcel = result.applied.length > 0;
       }
 
-      const lastSync = stateRef.current.lastSync;
+      // The first sync after the app loads ignores the incremental cursor and
+      // does a full bootstrap + replace. That reconciles local IndexedDB against
+      // the server's authoritative live set, so if the cloud dataset was wiped
+      // and re-seeded out of band, stale local rows are pruned automatically on
+      // entry instead of doubling up against the fresh import. Subsequent syncs
+      // in the session stay incremental. Pending edits are flushed above and kept
+      // by the replace-mode merge, so nothing local is dropped.
+      const fullReplace = fullBootstrapPending.current;
+      const lastSync = fullReplace ? null : stateRef.current.lastSync;
       const refreshed = await bootstrap(lastSync);
-      await applyBootstrapSnapshot(refreshed, !lastSync);
+      await applyBootstrapSnapshot(refreshed, fullReplace || !lastSync);
+      fullBootstrapPending.current = false;
       shouldUploadCloudExcel = shouldUploadCloudExcel || Boolean(excelDirtyAt(refreshed.settings));
       await updatePendingCount();
       dispatch({ type: "setAuthRequired", payload: false });
@@ -626,6 +561,10 @@ export function App() {
       }
     } finally {
       syncInFlight.current = false;
+      if (syncCompletion.current === currentSync) {
+        syncCompletion.current = null;
+      }
+      resolveSyncCompletion();
       if (syncAgainAfterCurrent.current && canRunQueuedSync) {
         syncAgainAfterCurrent.current = false;
         window.setTimeout(() => void syncNow(), 0);
@@ -636,28 +575,57 @@ export function App() {
     applyMutationMetadata,
     clientId,
     forgetPendingMutations,
-    refreshFromCloudExcelIfChanged,
     scheduleCloudExcelUpload,
     settlePendingWrites,
     updatePendingCount
   ]);
 
-  const importCloudExcelIfNeeded = useCallback(async () => {
-    if (cloudExcelImporting.current || !stateRef.current.session?.features.excelAutosync) {
+  // Intentional, user-triggered hard reset. Use this (not an automatic etag
+  // trigger) only when the cloud dataset was wiped and re-seeded out of band, so
+  // a client's stale IndexedDB rows can't linger and double up against the fresh
+  // import. Push pending edits first so nothing local is silently dropped, then
+  // rebuild the local snapshot from D1 in one clean full replace.
+  const forceFullResync = useCallback(async () => {
+    if (!navigator.onLine) {
+      dispatch({ type: "setSyncStatus", payload: "offline" });
       return;
     }
-
+    dispatch({ type: "setSyncStatus", payload: "syncing" });
+    dispatch({ type: "setError", payload: null });
     try {
-      dispatch({ type: "setSyncStatus", payload: "syncing" });
-      const refreshed = await refreshFromCloudExcelIfChanged(stateRef.current.session);
-      dispatch({ type: "setSyncStatus", payload: refreshed ? "idle" : stateRef.current.syncStatus });
+      if (syncCompletion.current) {
+        await syncCompletion.current;
+      }
+      await syncNow();
+      if (syncCompletion.current) {
+        await syncCompletion.current;
+      }
+      forceFullResyncInFlight.current = true;
+      await settlePendingWrites();
+      if (syncTimer.current) {
+        window.clearTimeout(syncTimer.current);
+        syncTimer.current = null;
+      }
+      syncAgainAfterCurrent.current = false;
+      await resetLocalData();
+      pendingMutationsRef.current = [];
+      dispatch({ type: "setPendingCount", payload: 0 });
+      const refreshed = await bootstrap(null);
+      await applyBootstrapSnapshot(refreshed, true);
+      await updatePendingCount();
+      dispatch({ type: "setSyncStatus", payload: "idle" });
     } catch (error) {
-      dispatch({
-        type: "setError",
-        payload: error instanceof Error ? `Cloud Excel import failed: ${error.message}` : "Cloud Excel import failed"
-      });
+      if (error instanceof AuthRequiredError) {
+        dispatch({ type: "setAuthRequired", payload: true });
+        dispatch({ type: "setSession", payload: null });
+      } else {
+        dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Resync failed" });
+        dispatch({ type: "setSyncStatus", payload: "error" });
+      }
+    } finally {
+      forceFullResyncInFlight.current = false;
     }
-  }, [refreshFromCloudExcelIfChanged]);
+  }, [applyBootstrapSnapshot, settlePendingWrites, syncNow, updatePendingCount]);
 
   const scheduleSync = useCallback(() => {
     if (!navigator.onLine) {
@@ -720,14 +688,6 @@ export function App() {
       cancelled = true;
     };
   }, [syncNow]);
-
-  useEffect(() => {
-    if (cloudExcelChecked.current || !state.session || state.syncStatus !== "idle") {
-      return;
-    }
-    cloudExcelChecked.current = true;
-    void importCloudExcelIfNeeded();
-  }, [importCloudExcelIfNeeded, state.session, state.syncStatus]);
 
   useEffect(() => {
     function handleOnline() {
@@ -938,6 +898,7 @@ export function App() {
 
   async function handleLogin(password: string) {
     await login(password);
+    fullBootstrapPending.current = true;
     const session = await getSession();
     const local = await loadLocalSnapshot();
     pendingMutationsRef.current = local.pendingMutations;
@@ -1004,6 +965,7 @@ export function App() {
           onImport={handleImport}
           onExported={(timestamp) => dispatch({ type: "setLastExport", payload: timestamp })}
           onSync={syncNow}
+          onForceResync={() => void forceFullResync()}
           onLogout={() => void handleLogout()}
         />
       ) : null}

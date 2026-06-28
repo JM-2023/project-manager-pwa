@@ -1,4 +1,4 @@
-import { LogOut, RefreshCcw, Smartphone } from "lucide-react";
+import { LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
 import { ExportButton } from "../components/ExportButton";
 import { ImportWizard } from "../components/ImportWizard";
 import type { ImportResponse, ImportRow, SessionResponse } from "../lib/types";
@@ -15,6 +15,7 @@ interface SettingsPageProps {
   onImport: (filename: string, rows: ImportRow[]) => Promise<ImportResponse>;
   onExported: (timestamp: string) => void;
   onSync: () => void;
+  onForceResync: () => void;
   onLogout: () => void;
 }
 
@@ -29,9 +30,19 @@ export function SettingsPage({
   onImport,
   onExported,
   onSync,
+  onForceResync,
   onLogout
 }: SettingsPageProps) {
   const r2Enabled = Boolean(session?.features.r2Backups);
+
+  function handleForceResync() {
+    const confirmed = window.confirm(
+      "强制全量同步会清空本机缓存并从云端重新拉取全部数据。仅在云端数据被清空重导、本机出现重复/残留任务时使用。继续？"
+    );
+    if (confirmed) {
+      onForceResync();
+    }
+  }
 
   return (
     <main className="page-content">
@@ -87,6 +98,11 @@ export function SettingsPage({
           <RefreshCcw size={17} aria-hidden="true" />
           <span>Sync now</span>
         </button>
+        <button type="button" className="ghost-button" onClick={handleForceResync}>
+          <RotateCcw size={16} aria-hidden="true" />
+          <span>Force full resync</span>
+        </button>
+        <p className="settings-hint">清空本机缓存并从云端重新拉取全部数据。仅在云端被清空重导后用于消除重复任务。</p>
       </section>
 
       <section className="settings-section">

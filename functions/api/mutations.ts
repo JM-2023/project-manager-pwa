@@ -209,6 +209,34 @@ async function applyTask(context: AppContext, user: AuthUser, mutation: Incoming
 async function applyTag(context: AppContext, user: AuthUser, mutation: IncomingMutation, existing: Record<string, unknown> | null, timestamp: string): Promise<Applied> {
   const data = mutation.data;
   const id = assertUuidish(data.id);
+  const name = nullableText(data.name) ?? "Tag";
+
+  // tags carries UNIQUE(user_id, name). When two devices create the same-named
+  // tag offline they mint different ids; the second insert would otherwise hit
+  // the name constraint, throw, and get re-queued as a transient conflict
+  // forever (a poisoned queue that never drains). If this is a fresh tag (no row
+  // by id) but the name already exists, adopt that existing tag instead of
+  // inserting a duplicate, so the mutation resolves cleanly.
+  if (!existing) {
+    const byName = await context.env.DB.prepare("SELECT * FROM tags WHERE user_id = ? AND name = ?")
+      .bind(user.id, name)
+      .first<Record<string, unknown>>();
+    if (byName && String(byName.id) !== id) {
+      if (byName.deleted_at) {
+        await context.env.DB.prepare("UPDATE tags SET deleted_at = NULL, updated_at = ?, version = version + 1 WHERE user_id = ? AND id = ?")
+          .bind(timestamp, user.id, String(byName.id))
+          .run();
+      }
+      return {
+        id: mutation.id,
+        entity: "tag",
+        recordId: String(byName.id),
+        version: Number(byName.version ?? 1) + (byName.deleted_at ? 1 : 0),
+        updated_at: timestamp
+      };
+    }
+  }
+
   const version = nextVersion(existing);
   const createdAt = String(existing?.created_at ?? data.created_at ?? timestamp);
   await context.env.DB.prepare(
@@ -221,7 +249,7 @@ async function applyTag(context: AppContext, user: AuthUser, mutation: IncomingM
        deleted_at = excluded.deleted_at,
        version = excluded.version`
   )
-    .bind(id, user.id, nullableText(data.name) ?? "Tag", nullableText(data.color), createdAt, timestamp, nullableText(data.deleted_at), version)
+    .bind(id, user.id, name, nullableText(data.color), createdAt, timestamp, nullableText(data.deleted_at), version)
     .run();
   return { id: mutation.id, entity: "tag", recordId: id, version, updated_at: timestamp };
 }

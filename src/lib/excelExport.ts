@@ -4,14 +4,13 @@ import {
   getExplicitTaskProgress,
   getTaskImportance,
   getTaskProgress,
-  isProjectCacheTask,
   isWorklogTask,
   summarizeProgress,
   summarizeWorklogOverview,
   worklogBlocker,
   worklogOutput
 } from "./progress";
-import type { ExportDataResponse, Project, Task } from "./types";
+import type { ExportDataResponse, NextIdea, NextProject, Project, Task } from "./types";
 
 const GUIDE_ROWS = [
   ["重点标记：左侧记录任务，右侧每日总结", null, null, null, null, null, null, null],
@@ -50,11 +49,11 @@ function sortedWorklogTasks(tasks: Task[]): Task[] {
   });
 }
 
-function sortedProjectCacheTasks(tasks: Task[]): Task[] {
-  return [...tasks].sort((a, b) => {
-    const projectCompare = String(a.project_id ?? "").localeCompare(String(b.project_id ?? ""));
+function sortedNextIdeas(ideas: NextIdea[]): NextIdea[] {
+  return [...ideas].sort((a, b) => {
+    const projectCompare = a.next_project_id.localeCompare(b.next_project_id);
     if (projectCompare) return projectCompare;
-    return a.sort_order - b.sort_order || a.title.localeCompare(b.title);
+    return a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at) || a.title.localeCompare(b.title);
   });
 }
 
@@ -98,10 +97,10 @@ function nextActionText(tasks: Task[]): string {
 export function buildWorkbook(data: ExportDataResponse) {
   const workbook = utils.book_new();
   const projectsForNames = data.projects.filter((project) => !project.deleted_at);
-  const projectsForExport = projectsForNames.filter((project) => project.archived === 0);
+  const nextProjectsForExport = data.nextProjects.filter((project) => !project.deleted_at && project.archived === 0);
+  const nextIdeasForExport = sortedNextIdeas(data.nextIdeas.filter((idea) => !idea.deleted_at));
   const liveTasks = data.tasks.filter((task) => !task.deleted_at && task.archived === 0);
   const tasksForExport = sortedWorklogTasks(liveTasks.filter(isWorklogTask));
-  const cacheTasks = sortedProjectCacheTasks(liveTasks.filter(isProjectCacheTask));
   const datedTasks = tasksForExport.filter((task) => task.start_date);
   const overview = summarizeWorklogOverview(tasksForExport);
 
@@ -210,13 +209,44 @@ export function buildWorkbook(data: ExportDataResponse) {
   ];
   utils.book_append_sheet(workbook, worklogSheet, "日常记录");
 
-  const projectColumns = projectsForExport.map((project) => [
+  const projectColumns = nextProjectsForExport.map((project) => [
     project.name,
-    ...cacheTasks.filter((task) => task.project_id === project.id).map((task) => task.title)
+    ...nextIdeasForExport.filter((idea) => idea.next_project_id === project.id).map((idea) => idea.title)
   ]);
   const maxProjectRows = Math.max(1, ...projectColumns.map((column) => column.length));
   const projectCache = Array.from({ length: maxProjectRows }, (_row, rowIndex) => projectColumns.map((column) => column[rowIndex] ?? null));
   utils.book_append_sheet(workbook, utils.aoa_to_sheet(projectCache), "项目缓存");
+
+  const nextProjectRows = [
+    ["ID", "Name", "Description", "Color", "Sort Order", "Archived", "Created At", "Updated At", "Version"],
+    ...nextProjectsForExport.map((project: NextProject) => [
+      project.id,
+      project.name,
+      project.description ?? "",
+      project.color ?? "",
+      project.sort_order,
+      project.archived,
+      project.created_at,
+      project.updated_at,
+      project.version
+    ])
+  ];
+  utils.book_append_sheet(workbook, utils.aoa_to_sheet(nextProjectRows), "Next Projects");
+
+  const nextIdeaRows = [
+    ["ID", "Next Project", "Title", "Note", "Sort Order", "Created At", "Updated At", "Version"],
+    ...nextIdeasForExport.map((idea: NextIdea) => [
+      idea.id,
+      nextProjectsForExport.find((project) => project.id === idea.next_project_id)?.name ?? "",
+      idea.title,
+      idea.note ?? "",
+      idea.sort_order,
+      idea.created_at,
+      idea.updated_at,
+      idea.version
+    ])
+  ];
+  utils.book_append_sheet(workbook, utils.aoa_to_sheet(nextIdeaRows), "Next Ideas");
 
   utils.book_append_sheet(workbook, utils.aoa_to_sheet(GUIDE_ROWS), "重点标记");
 

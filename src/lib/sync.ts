@@ -34,7 +34,7 @@ function mergeTaskTags(local: TaskTag[], incoming: TaskTag[]): TaskTag[] {
 }
 
 export function mergeBootstrap(
-  current: Pick<BootstrapResponse, "projects" | "tasks" | "tags" | "taskTags" | "settings">,
+  current: Pick<BootstrapResponse, "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas" | "settings">,
   incoming: BootstrapResponse
 ): BootstrapResponse {
   return {
@@ -43,6 +43,10 @@ export function mergeBootstrap(
     tasks: mergeById<Task>(current.tasks, incoming.tasks),
     tags: mergeById<Tag>(current.tags, incoming.tags),
     taskTags: mergeTaskTags(current.taskTags, incoming.taskTags),
+    // Next data uses hard deletes and bootstrap returns the full live set.
+    // Use the server's live set so a delete made on one device disappears elsewhere.
+    nextProjects: incoming.nextProjects,
+    nextIdeas: incoming.nextIdeas,
     settings: sanitizeSettings({ ...current.settings, ...incoming.settings })
   };
 }

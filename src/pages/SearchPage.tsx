@@ -3,8 +3,9 @@ import { getTaskImportance, getTaskProgress, isProjectCacheTask, worklogBlocker,
 import type { TaskPageProps } from "./pageProps";
 
 export function SearchPage(props: TaskPageProps) {
-  const { projects, tasks, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask } = props;
+  const { projects, tasks, nextProjects, nextIdeas, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask } = props;
   const projectMap = new Map(projects.map((project) => [project.id, project.name]));
+  const nextProjectMap = new Map(nextProjects.map((project) => [project.id, project.name]));
   const query = filters.search.trim().toLowerCase();
 
   const filtered = tasks.filter((task) => {
@@ -21,12 +22,22 @@ export function SearchPage(props: TaskPageProps) {
     if (filters.priority && String(getTaskImportance(task)) !== filters.priority) return false;
     return true;
   });
+  const filteredNextIdeas = nextIdeas.filter((idea) => {
+    if (idea.deleted_at) return false;
+    if (!query) return true;
+    const haystack = [idea.title, idea.note, nextProjectMap.get(idea.next_project_id ?? "")]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(query);
+  });
 
   return (
     <main className="page-content">
       <header className="page-header">
         <h1>Search</h1>
-        <p>{filtered.length} matching tasks</p>
+        <p>
+          {filtered.length} matching tasks · {filteredNextIdeas.length} Next ideas
+        </p>
       </header>
       <section className="search-filters">
         <input value={filters.search} onChange={(event) => onFiltersChange({ search: event.target.value })} placeholder="Search projects, tasks, output, blockers" aria-label="Search tasks" />
@@ -58,6 +69,21 @@ export function SearchPage(props: TaskPageProps) {
         </div>
       </section>
       <TaskTable tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
+      <section className="search-next-results" aria-label="Next ideas results">
+        <h2>Next ideas</h2>
+        {filteredNextIdeas.length > 0 ? (
+          <div className="cache-items">
+            {filteredNextIdeas.map((idea) => (
+              <article key={idea.id} className="cache-item search-next-item">
+                <span>{nextProjectMap.get(idea.next_project_id) ?? "Next"}</span>
+                <strong>{idea.title || "Untitled idea"}</strong>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-state">No Next ideas match this search.</p>
+        )}
+      </section>
     </main>
   );
 }

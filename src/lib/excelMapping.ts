@@ -147,47 +147,6 @@ function stableHash(value: string): string {
   return (hash >>> 0).toString(36);
 }
 
-export function normalizeProjectCacheRows(sheet: ParsedSheet): ImportRow[] {
-  const projectNames = (sheet.rows[0] ?? []).map((cell) => String(cell ?? "").trim());
-  const rows: ImportRow[] = [];
-
-  projectNames.forEach((project, columnIndex) => {
-    if (!project) {
-      return;
-    }
-    sheet.rows.slice(1).forEach((cells, rowOffset) => {
-      const title = String(cells[columnIndex] ?? "").trim();
-      if (!title) {
-        return;
-      }
-      const sourceRow = rowOffset + 2;
-      rows.push({
-        external_key: `project-cache:${stableHash([sheet.name, project, sourceRow, title].join("|"))}`,
-        source: "project_cache",
-        project,
-        title,
-        status: "todo",
-        priority: "medium",
-        due_date: null,
-        start_date: null,
-        next_action: null,
-        notes: null,
-        description: null,
-        tags: [],
-        extra_json: {
-          cache_item: true,
-          source_sheet: sheet.name,
-          source_row: sourceRow,
-          cache_project: project,
-          cache_column: columnIndex + 1
-        }
-      });
-    });
-  });
-
-  return rows;
-}
-
 export function normalizeImportRows(sheet: ParsedSheet, mapping: ColumnMapping): ImportRow[] {
   const body = sheet.rows.slice(sheet.headerIndex + 1);
   const dailySummaryStart = summaryStartIndex(sheet.headers);

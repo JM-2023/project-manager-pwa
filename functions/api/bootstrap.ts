@@ -38,14 +38,23 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
     ? "SELECT * FROM task_tags WHERE user_id = ? AND (created_at > ? OR (deleted_at IS NOT NULL AND deleted_at > ?))"
     : "SELECT * FROM task_tags WHERE user_id = ?";
 
+  // Next data is small and uses hard deletes (no tombstones), so we always
+  // return the full live set — never the incremental cursor — so a delete on one
+  // device propagates as a clean absence on the next bootstrap everywhere.
+  const nextProjectsQuery =
+    "SELECT * FROM next_projects WHERE user_id = ? AND deleted_at IS NULL AND archived = 0 ORDER BY sort_order, name";
+  const nextIdeasQuery = "SELECT * FROM next_ideas WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at";
+
   const bindings = cursor ? [user.id, cursor, cursor] : [user.id];
-  const [projects, tasks, tags, taskTags, settings] = await Promise.all([
+  const [projects, tasks, tags, taskTags, nextProjects, nextIdeas, settings] = await Promise.all([
     context.env.DB.prepare(projectsQuery).bind(...bindings).all(),
     context.env.DB.prepare(tasksQuery).bind(...bindings).all(),
     context.env.DB.prepare(tagsQuery).bind(...bindings).all(),
     cursor
       ? context.env.DB.prepare(taskTagsQuery).bind(user.id, cursor, cursor).all()
       : context.env.DB.prepare(taskTagsQuery).bind(user.id).all(),
+    context.env.DB.prepare(nextProjectsQuery).bind(user.id).all(),
+    context.env.DB.prepare(nextIdeasQuery).bind(user.id).all(),
     readSettings(context.env, user.id, cursor)
   ]);
 
@@ -55,6 +64,8 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
     tasks: tasks.results,
     tags: tags.results,
     taskTags: taskTags.results,
+    nextProjects: nextProjects.results,
+    nextIdeas: nextIdeas.results,
     settings
   });
 }

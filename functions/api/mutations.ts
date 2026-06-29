@@ -12,7 +12,7 @@ import {
   safeJsonString
 } from "./_utils/validation";
 
-type Entity = "project" | "task" | "tag" | "task_tag" | "setting";
+type Entity = "project" | "task" | "tag" | "task_tag" | "setting" | "next_project" | "next_idea";
 type Operation = "upsert" | "delete" | "purge";
 
 interface IncomingMutation {
@@ -75,9 +75,9 @@ async function markExcelDirty(context: AppContext, user: AuthUser, timestamp: st
  *     server's clock. `updated_at` stays a server-monotonic value so the
  *     incremental bootstrap cursor (`updated_at > since`) never misses a change
  *     regardless of device clock skew.
- *   - Nothing is ever hard-deleted — deletes/archives are tombstones
- *     (deleted_at) that propagate through the same merge, so a delete on one
- *     device can't be resurrected by another.
+ *   - Ordinary "delete" operations are tombstones. Explicit "purge" operations
+ *     are hard deletes for records that the product treats as removable rows:
+ *     formal projects/tasks and Next projects/ideas.
  */
 function nextVersion(existing: Record<string, unknown> | null): number {
   return existing ? Number(existing.version ?? 0) + 1 : 1;
@@ -97,6 +97,8 @@ async function findExisting(context: AppContext, user: AuthUser, mutation: Incom
     project: "projects",
     task: "tasks",
     tag: "tags",
+    next_project: "next_projects",
+    next_idea: "next_ideas",
     setting: "app_settings"
   }[mutation.entity];
   if (!table) {
@@ -106,6 +108,111 @@ async function findExisting(context: AppContext, user: AuthUser, mutation: Incom
     return context.env.DB.prepare("SELECT * FROM app_settings WHERE user_id = ? AND key = ?").bind(user.id, id).first<Record<string, unknown>>();
   }
   return context.env.DB.prepare(`SELECT * FROM ${table} WHERE user_id = ? AND id = ?`).bind(user.id, id).first<Record<string, unknown>>();
+}
+
+async function applyNextProject(
+  context: AppContext,
+  user: AuthUser,
+  mutation: IncomingMutation,
+  existing: Record<string, unknown> | null,
+  timestamp: string
+): Promise<Applied> {
+  const data = mutation.data;
+  const id = assertUuidish(data.id);
+  const version = nextVersion(existing);
+  const createdAt = String(existing?.created_at ?? data.created_at ?? timestamp);
+  await context.env.DB.prepare(
+    `INSERT INTO next_projects (
+      id, user_id, name, description, color, sort_order, source_project_id,
+      archived, created_at, updated_at, deleted_at, version
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      description = excluded.description,
+      color = excluded.color,
+      sort_order = excluded.sort_order,
+      archived = excluded.archived,
+      updated_at = excluded.updated_at,
+      deleted_at = excluded.deleted_at,
+      version = excluded.version`
+  )
+    .bind(
+      id,
+      user.id,
+      nullableText(data.name) ?? "New idea group",
+      nullableText(data.description),
+      nullableText(data.color),
+      Number(data.sort_order ?? existing?.sort_order ?? 0),
+      nullableText(existing?.source_project_id),
+      asIntFlag(data.archived),
+      createdAt,
+      timestamp,
+      nullableText(data.deleted_at),
+      version
+    )
+    .run();
+  return { id: mutation.id, entity: "next_project", recordId: id, version, updated_at: timestamp };
+}
+
+async function assertNextProjectOwner(context: AppContext, user: AuthUser, nextProjectId: string): Promise<void> {
+  const parent = await context.env.DB.prepare("SELECT id FROM next_projects WHERE user_id = ? AND id = ? AND deleted_at IS NULL")
+    .bind(user.id, nextProjectId)
+    .first<{ id: string }>();
+  if (!parent) {
+    throw new Error("Next project not found");
+  }
+}
+
+async function applyNextIdea(
+  context: AppContext,
+  user: AuthUser,
+  mutation: IncomingMutation,
+  existing: Record<string, unknown> | null,
+  timestamp: string
+): Promise<Applied> {
+  const data = mutation.data;
+  const id = assertUuidish(data.id);
+  const nextProjectId = String(data.next_project_id ?? existing?.next_project_id ?? "");
+  if (!nextProjectId) {
+    throw new Error("Next idea requires next_project_id");
+  }
+  await assertNextProjectOwner(context, user, nextProjectId);
+  const version = nextVersion(existing);
+  const createdAt = String(existing?.created_at ?? data.created_at ?? timestamp);
+  const title = typeof data.title === "string" ? data.title.trim() : String(existing?.title ?? "");
+  await context.env.DB.prepare(
+    `INSERT INTO next_ideas (
+      id, user_id, next_project_id, title, note, sort_order, source_task_id,
+      extra_json, created_at, updated_at, deleted_at, version
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      next_project_id = excluded.next_project_id,
+      title = excluded.title,
+      note = excluded.note,
+      sort_order = excluded.sort_order,
+      extra_json = excluded.extra_json,
+      updated_at = excluded.updated_at,
+      deleted_at = excluded.deleted_at,
+      version = excluded.version`
+  )
+    .bind(
+      id,
+      user.id,
+      nextProjectId,
+      title,
+      nullableText(data.note),
+      Number(data.sort_order ?? existing?.sort_order ?? 0),
+      nullableText(existing?.source_task_id),
+      safeJsonString(data.extra_json),
+      createdAt,
+      timestamp,
+      nullableText(data.deleted_at),
+      version
+    )
+    .run();
+  return { id: mutation.id, entity: "next_idea", recordId: id, version, updated_at: timestamp };
 }
 
 async function applyProject(context: AppContext, user: AuthUser, mutation: IncomingMutation, existing: Record<string, unknown> | null, timestamp: string): Promise<Applied> {
@@ -302,6 +409,17 @@ async function applyDelete(context: AppContext, user: AuthUser, mutation: Incomi
     return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
   }
 
+  if (mutation.entity === "next_project") {
+    await context.env.DB.prepare("DELETE FROM next_ideas WHERE user_id = ? AND next_project_id = ?").bind(user.id, id).run();
+    await context.env.DB.prepare("DELETE FROM next_projects WHERE user_id = ? AND id = ?").bind(user.id, id).run();
+    return { id: mutation.id, entity: "next_project", recordId: id, updated_at: timestamp };
+  }
+
+  if (mutation.entity === "next_idea") {
+    await context.env.DB.prepare("DELETE FROM next_ideas WHERE user_id = ? AND id = ?").bind(user.id, id).run();
+    return { id: mutation.id, entity: "next_idea", recordId: id, updated_at: timestamp };
+  }
+
   const table = { project: "projects", task: "tasks", tag: "tags" }[mutation.entity];
   if (!table) {
     return { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp };
@@ -344,6 +462,17 @@ async function applyPurge(context: AppContext, user: AuthUser, mutation: Incomin
     return { id: mutation.id, entity: "task", recordId: id, updated_at: timestamp };
   }
 
+  if (mutation.entity === "next_project") {
+    await context.env.DB.prepare("DELETE FROM next_ideas WHERE user_id = ? AND next_project_id = ?").bind(user.id, id).run();
+    await context.env.DB.prepare("DELETE FROM next_projects WHERE user_id = ? AND id = ?").bind(user.id, id).run();
+    return { id: mutation.id, entity: "next_project", recordId: id, updated_at: timestamp };
+  }
+
+  if (mutation.entity === "next_idea") {
+    await context.env.DB.prepare("DELETE FROM next_ideas WHERE user_id = ? AND id = ?").bind(user.id, id).run();
+    return { id: mutation.id, entity: "next_idea", recordId: id, updated_at: timestamp };
+  }
+
   const table = { tag: "tags" }[mutation.entity as "tag"];
   if (table) {
     await context.env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ? AND id = ?`).bind(user.id, id).run();
@@ -352,7 +481,10 @@ async function applyPurge(context: AppContext, user: AuthUser, mutation: Incomin
 }
 
 async function applyMutation(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): Promise<Applied | Conflict> {
-  if (!["project", "task", "tag", "task_tag", "setting"].includes(mutation.entity) || !["upsert", "delete", "purge"].includes(mutation.operation)) {
+  if (
+    !["project", "task", "tag", "task_tag", "setting", "next_project", "next_idea"].includes(mutation.entity) ||
+    !["upsert", "delete", "purge"].includes(mutation.operation)
+  ) {
     return { id: mutation.id, entity: mutation.entity, reason: "Unsupported mutation", permanent: true };
   }
 
@@ -364,6 +496,9 @@ async function applyMutation(context: AppContext, user: AuthUser, mutation: Inco
   }
   if (mutation.entity === "setting" && !mutation.data.key && !mutation.data.id) {
     return { id: mutation.id, entity: mutation.entity, reason: "Setting key is required", permanent: true };
+  }
+  if (mutation.entity === "next_idea" && mutation.operation === "upsert" && !mutation.data.next_project_id) {
+    return { id: mutation.id, entity: mutation.entity, reason: "Next idea requires next_project_id", permanent: true };
   }
 
   if (mutation.operation === "purge") {
@@ -381,6 +516,8 @@ async function applyMutation(context: AppContext, user: AuthUser, mutation: Inco
   if (mutation.entity === "task") return applyTask(context, user, mutation, existing, timestamp);
   if (mutation.entity === "tag") return applyTag(context, user, mutation, existing, timestamp);
   if (mutation.entity === "task_tag") return applyTaskTag(context, user, mutation, timestamp);
+  if (mutation.entity === "next_project") return applyNextProject(context, user, mutation, existing, timestamp);
+  if (mutation.entity === "next_idea") return applyNextIdea(context, user, mutation, existing, timestamp);
   return applySetting(context, user, mutation, timestamp);
 }
 

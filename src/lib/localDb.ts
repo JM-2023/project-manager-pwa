@@ -1,11 +1,11 @@
-import type { BootstrapResponse, ClientMutation, Project, Tag, Task, TaskTag } from "./types";
+import type { BootstrapResponse, ClientMutation, NextIdea, NextProject, Project, Tag, Task, TaskTag } from "./types";
 import { sanitizeSettings } from "./sync";
 
 const DB_NAME = "project-manager-pwa";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
-type StoreName = "projects" | "tasks" | "tags" | "taskTags" | "pendingMutations" | "meta";
-type EntityStore = "projects" | "tasks" | "tags" | "taskTags";
+type StoreName = "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas" | "pendingMutations" | "meta";
+type EntityStore = "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas";
 type LocalTaskTag = TaskTag & { key: string };
 
 export interface LocalSnapshot {
@@ -13,6 +13,8 @@ export interface LocalSnapshot {
   tasks: Task[];
   tags: Tag[];
   taskTags: TaskTag[];
+  nextProjects: NextProject[];
+  nextIdeas: NextIdea[];
   settings: Record<string, unknown>;
   pendingMutations: ClientMutation[];
   lastSync: string | null;
@@ -34,6 +36,8 @@ function openDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains("tasks")) db.createObjectStore("tasks", { keyPath: "id" });
       if (!db.objectStoreNames.contains("tags")) db.createObjectStore("tags", { keyPath: "id" });
       if (!db.objectStoreNames.contains("taskTags")) db.createObjectStore("taskTags", { keyPath: "key" });
+      if (!db.objectStoreNames.contains("nextProjects")) db.createObjectStore("nextProjects", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("nextIdeas")) db.createObjectStore("nextIdeas", { keyPath: "id" });
       if (!db.objectStoreNames.contains("pendingMutations")) db.createObjectStore("pendingMutations", { keyPath: "id" });
       if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta", { keyPath: "key" });
     };
@@ -83,11 +87,13 @@ function tagKey(tag: TaskTag): string {
 }
 
 export async function loadLocalSnapshot(): Promise<LocalSnapshot> {
-  const [projects, tasks, tags, rawTaskTags, pendingMutations, settings, lastSync] = await Promise.all([
+  const [projects, tasks, tags, rawTaskTags, nextProjects, nextIdeas, pendingMutations, settings, lastSync] = await Promise.all([
     getAll<Project>("projects"),
     getAll<Task>("tasks"),
     getAll<Tag>("tags"),
     getAll<LocalTaskTag>("taskTags"),
+    getAll<NextProject>("nextProjects"),
+    getAll<NextIdea>("nextIdeas"),
     getAll<ClientMutation>("pendingMutations"),
     getMeta<Record<string, unknown>>("settings"),
     getMeta<string>("lastSync")
@@ -98,6 +104,8 @@ export async function loadLocalSnapshot(): Promise<LocalSnapshot> {
     tasks,
     tags,
     taskTags: rawTaskTags.map(({ key: _key, ...taskTag }) => taskTag),
+    nextProjects,
+    nextIdeas,
     settings: sanitizeSettings(settings ?? {}),
     pendingMutations,
     lastSync
@@ -106,22 +114,24 @@ export async function loadLocalSnapshot(): Promise<LocalSnapshot> {
 
 export async function saveBootstrapSnapshot(snapshot: BootstrapResponse): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(["projects", "tasks", "tags", "taskTags", "meta"], "readwrite");
+  const tx = db.transaction(["projects", "tasks", "tags", "taskTags", "nextProjects", "nextIdeas", "meta"], "readwrite");
 
-  for (const storeName of ["projects", "tasks", "tags", "taskTags"] as const) {
+  for (const storeName of ["projects", "tasks", "tags", "taskTags", "nextProjects", "nextIdeas"] as const) {
     tx.objectStore(storeName).clear();
   }
   for (const project of snapshot.projects) tx.objectStore("projects").put(project);
   for (const task of snapshot.tasks) tx.objectStore("tasks").put(task);
   for (const tag of snapshot.tags) tx.objectStore("tags").put(tag);
   for (const taskTag of snapshot.taskTags) tx.objectStore("taskTags").put({ ...taskTag, key: tagKey(taskTag) });
+  for (const nextProject of snapshot.nextProjects) tx.objectStore("nextProjects").put(nextProject);
+  for (const nextIdea of snapshot.nextIdeas) tx.objectStore("nextIdeas").put(nextIdea);
   tx.objectStore("meta").put({ key: "settings", value: sanitizeSettings(snapshot.settings) });
   tx.objectStore("meta").put({ key: "lastSync", value: snapshot.serverTime });
 
   await transactionDone(tx);
 }
 
-export async function saveEntity(storeName: EntityStore, record: Project | Task | Tag | TaskTag): Promise<void> {
+export async function saveEntity(storeName: EntityStore, record: Project | Task | Tag | TaskTag | NextProject | NextIdea): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(storeName, "readwrite");
   if (storeName === "taskTags") {
@@ -129,6 +139,23 @@ export async function saveEntity(storeName: EntityStore, record: Project | Task 
   } else {
     tx.objectStore(storeName).put(record);
   }
+  await transactionDone(tx);
+}
+
+export async function purgeNextProjectData(projectId: string, ideaIds: string[]): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction(["nextProjects", "nextIdeas"], "readwrite");
+  tx.objectStore("nextProjects").delete(projectId);
+  for (const id of ideaIds) {
+    tx.objectStore("nextIdeas").delete(id);
+  }
+  await transactionDone(tx);
+}
+
+export async function purgeNextIdeaData(ideaId: string): Promise<void> {
+  const db = await openDb();
+  const tx = db.transaction("nextIdeas", "readwrite");
+  tx.objectStore("nextIdeas").delete(ideaId);
   await transactionDone(tx);
 }
 
@@ -188,8 +215,8 @@ export async function setLastSync(value: string): Promise<void> {
 
 export async function resetLocalData(): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(["projects", "tasks", "tags", "taskTags", "pendingMutations", "meta"], "readwrite");
-  for (const store of ["projects", "tasks", "tags", "taskTags", "pendingMutations", "meta"] as StoreName[]) {
+  const tx = db.transaction(["projects", "tasks", "tags", "taskTags", "nextProjects", "nextIdeas", "pendingMutations", "meta"], "readwrite");
+  for (const store of ["projects", "tasks", "tags", "taskTags", "nextProjects", "nextIdeas", "pendingMutations", "meta"] as StoreName[]) {
     tx.objectStore(store).clear();
   }
   await transactionDone(tx);

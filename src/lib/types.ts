@@ -77,16 +77,53 @@ export interface TaskTag {
   deleted_at?: string | null;
 }
 
+// Next-page idea board. These rows live in their own tables (next_projects /
+// next_ideas) and are intentionally independent of the formal `projects` and
+// `tasks` data — see docs/next-page-data-separation-guideline.md.
+export interface NextProject {
+  id: string;
+  user_id?: string;
+  name: string;
+  description?: string | null;
+  color?: string | null;
+  sort_order: number;
+  // source_project_id is migration metadata only — never a live UI link.
+  source_project_id?: string | null;
+  archived: number;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  version: number;
+}
+
+export interface NextIdea {
+  id: string;
+  user_id?: string;
+  next_project_id: string;
+  title: string;
+  note?: string | null;
+  sort_order: number;
+  // source_task_id is migration metadata only — never a live UI link.
+  source_task_id?: string | null;
+  extra_json?: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  version: number;
+}
+
 export interface BootstrapResponse {
   serverTime: string;
   projects: Project[];
   tasks: Task[];
   tags: Tag[];
   taskTags: TaskTag[];
+  nextProjects: NextProject[];
+  nextIdeas: NextIdea[];
   settings: Record<string, unknown>;
 }
 
-export type MutationEntity = "project" | "task" | "tag" | "task_tag" | "setting";
+export type MutationEntity = "project" | "task" | "tag" | "task_tag" | "setting" | "next_project" | "next_idea";
 // "purge" is an irreversible hard delete (row removed, no tombstone). Used for
 // project deletion, which cascades to the project's tasks and their task_tags.
 export type MutationOperation = "upsert" | "delete" | "purge";

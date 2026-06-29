@@ -17,6 +17,8 @@ import { getOrCreateClientId, newId, newMutationId } from "./lib/ids";
 import {
   getPendingMutations,
   loadLocalSnapshot,
+  purgeNextIdeaData,
+  purgeNextProjectData,
   purgeProjectData,
   purgeTaskData,
   queueMutation,
@@ -27,7 +29,7 @@ import {
 } from "./lib/localDb";
 import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
-import type { BootstrapResponse, ClientMutation, ImportRow, MutationResult, Project, Tag, Task, TaskTag } from "./lib/types";
+import type { BootstrapResponse, ClientMutation, ImportRow, MutationResult, NextIdea, NextProject, Project, Tag, Task, TaskTag } from "./lib/types";
 import { CalendarPage } from "./pages/CalendarPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NextPage } from "./pages/NextPage";
@@ -143,6 +145,8 @@ function stateWithBootstrap(state: AppState, snapshot: BootstrapResponse): AppSt
     tasks: snapshot.tasks,
     tags: snapshot.tags,
     taskTags: snapshot.taskTags,
+    nextProjects: snapshot.nextProjects,
+    nextIdeas: snapshot.nextIdeas,
     settings: snapshot.settings,
     lastSync: snapshot.serverTime,
     syncStatus: "idle"
@@ -160,14 +164,27 @@ function pendingRecordKeys(mutations: ClientMutation[]): Set<string> {
   return keys;
 }
 
-function entityRecordKey(entity: "project" | "task" | "tag", id: string): string {
+function pendingPurgedNextProjectIds(mutations: ClientMutation[]): Set<string> {
+  const ids = new Set<string>();
+  for (const mutation of mutations) {
+    if (mutation.entity === "next_project" && mutation.operation === "purge") {
+      const id = mutationData(mutation).id;
+      if (id) {
+        ids.add(String(id));
+      }
+    }
+  }
+  return ids;
+}
+
+function entityRecordKey(entity: "project" | "task" | "tag" | "next_project" | "next_idea", id: string): string {
   return `${entity}:${id}`;
 }
 
 function mergeRecordsForSync<T extends { id: string; updated_at?: string }>(
   local: T[],
   incoming: T[],
-  entity: "project" | "task" | "tag",
+  entity: "project" | "task" | "tag" | "next_project" | "next_idea",
   protectedKeys: Set<string>,
   replaceMode: boolean
 ): T[] {
@@ -228,6 +245,26 @@ function mergeTaskTagsForSync(local: TaskTag[], incoming: TaskTag[], protectedKe
   return [...records.values()];
 }
 
+function mergeFullLiveRecordsForSync<T extends { id: string }>(
+  local: T[],
+  incoming: T[],
+  entity: "next_project" | "next_idea",
+  protectedKeys: Set<string>
+): T[] {
+  const records = new Map<string, T>();
+  for (const record of incoming) {
+    if (!protectedKeys.has(entityRecordKey(entity, record.id))) {
+      records.set(record.id, record);
+    }
+  }
+  for (const record of local) {
+    if (protectedKeys.has(entityRecordKey(entity, record.id))) {
+      records.set(record.id, record);
+    }
+  }
+  return [...records.values()];
+}
+
 function mergeSettingsForSync(
   local: Record<string, unknown>,
   incoming: Record<string, unknown>,
@@ -251,18 +288,24 @@ function mergeSettingsForSync(
 }
 
 function mergeBootstrapForLocal(
-  current: Pick<AppState, "projects" | "tasks" | "tags" | "taskTags" | "settings">,
+  current: Pick<AppState, "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas" | "settings">,
   snapshot: BootstrapResponse,
   pendingMutations: ClientMutation[],
   replaceMode: boolean
 ): BootstrapResponse {
   const protectedKeys = pendingRecordKeys(pendingMutations);
+  const purgedNextProjects = pendingPurgedNextProjectIds(pendingMutations);
+  const nextIdeas = mergeFullLiveRecordsForSync(current.nextIdeas, snapshot.nextIdeas, "next_idea", protectedKeys).filter(
+    (idea) => !purgedNextProjects.has(idea.next_project_id)
+  );
   return {
     serverTime: snapshot.serverTime,
     projects: mergeRecordsForSync(current.projects, snapshot.projects, "project", protectedKeys, replaceMode),
     tasks: mergeRecordsForSync(current.tasks, snapshot.tasks, "task", protectedKeys, replaceMode),
     tags: mergeRecordsForSync(current.tags, snapshot.tags, "tag", protectedKeys, replaceMode),
     taskTags: mergeTaskTagsForSync(current.taskTags, snapshot.taskTags, protectedKeys, replaceMode),
+    nextProjects: mergeFullLiveRecordsForSync(current.nextProjects, snapshot.nextProjects, "next_project", protectedKeys),
+    nextIdeas,
     settings: mergeSettingsForSync(current.settings, snapshot.settings, protectedKeys, replaceMode)
   };
 }
@@ -409,6 +452,28 @@ export function App() {
         stateRef.current = { ...stateRef.current, tags: upsertRecord(stateRef.current.tags, next) };
         dispatch({ type: "upsertTag", payload: next });
         saves.push(saveEntity("tags", next));
+      } else if (result.entity === "next_project") {
+        const existing = stateRef.current.nextProjects.find((project) => project.id === result.recordId);
+        if (!existing) continue;
+        const next = {
+          ...existing,
+          version: result.version ?? existing.version,
+          updated_at: result.updated_at ?? existing.updated_at
+        };
+        stateRef.current = { ...stateRef.current, nextProjects: upsertRecord(stateRef.current.nextProjects, next) };
+        dispatch({ type: "upsertNextProject", payload: next });
+        saves.push(saveEntity("nextProjects", next));
+      } else if (result.entity === "next_idea") {
+        const existing = stateRef.current.nextIdeas.find((idea) => idea.id === result.recordId);
+        if (!existing) continue;
+        const next = {
+          ...existing,
+          version: result.version ?? existing.version,
+          updated_at: result.updated_at ?? existing.updated_at
+        };
+        stateRef.current = { ...stateRef.current, nextIdeas: upsertRecord(stateRef.current.nextIdeas, next) };
+        dispatch({ type: "upsertNextIdea", payload: next });
+        saves.push(saveEntity("nextIdeas", next));
       }
     }
 
@@ -672,6 +737,8 @@ export function App() {
           tasks: local.tasks,
           tags: local.tags,
           taskTags: local.taskTags,
+          nextProjects: local.nextProjects,
+          nextIdeas: local.nextIdeas,
           settings: local.settings,
           pendingCount: compactPendingMutations(local.pendingMutations).length,
           lastSync: local.lastSync
@@ -962,6 +1029,138 @@ export function App() {
     }
   }
 
+  function createNextProject(name: string): string {
+    const timestamp = nowIso();
+    const clean = name.trim();
+    const project: NextProject = {
+      id: newId(),
+      name: clean || "New idea group",
+      description: null,
+      color: PROJECT_COLORS[stateRef.current.nextProjects.length % PROJECT_COLORS.length],
+      sort_order: stateRef.current.nextProjects.length,
+      source_project_id: null,
+      archived: 0,
+      created_at: timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+      version: 1
+    };
+    dispatch({ type: "upsertNextProject", payload: project });
+    stateRef.current = { ...stateRef.current, nextProjects: upsertRecord(stateRef.current.nextProjects, project) };
+    void saveEntity("nextProjects", project);
+    void persistMutation({ id: newMutationId(), entity: "next_project", operation: "upsert", baseVersion: null, data: project });
+    return project.id;
+  }
+
+  function updateNextProject(project: NextProject, changes: Partial<NextProject>) {
+    const cleanName = changes.name === undefined ? project.name : changes.name.trim();
+    if (!cleanName) {
+      return;
+    }
+    const next: NextProject = {
+      ...project,
+      ...changes,
+      name: cleanName,
+      source_project_id: project.source_project_id ?? null,
+      updated_at: nowIso(),
+      version: project.version + 1
+    };
+    dispatch({ type: "upsertNextProject", payload: next });
+    stateRef.current = { ...stateRef.current, nextProjects: upsertRecord(stateRef.current.nextProjects, next) };
+    void saveEntity("nextProjects", next);
+    void persistMutation({ id: newMutationId(), entity: "next_project", operation: "upsert", baseVersion: project.version, data: next });
+  }
+
+  function deleteNextProject(project: NextProject) {
+    const purgedIdeas = stateRef.current.nextIdeas.filter((idea) => idea.next_project_id === project.id);
+    const purgedIdeaIds = purgedIdeas.map((idea) => idea.id);
+    const purgedIdeaSet = new Set(purgedIdeaIds);
+
+    dispatch({ type: "purgeNextProject", payload: project.id });
+    stateRef.current = {
+      ...stateRef.current,
+      nextProjects: removeRecord(stateRef.current.nextProjects, project.id),
+      nextIdeas: stateRef.current.nextIdeas.filter((idea) => !purgedIdeaSet.has(idea.id))
+    };
+    void purgeNextProjectData(project.id, purgedIdeaIds);
+
+    const staleMutationIds = pendingMutationsRef.current
+      .filter((mutation) => {
+        const key = mutationRecordKey(mutation);
+        return key ? key === `next_project:${project.id}` || purgedIdeaIds.some((id) => key === `next_idea:${id}`) : false;
+      })
+      .map((mutation) => mutation.id);
+    if (staleMutationIds.length > 0) {
+      forgetPendingMutations(staleMutationIds);
+      void removePendingMutations(staleMutationIds);
+    }
+
+    void persistMutation({
+      id: newMutationId(),
+      entity: "next_project",
+      operation: "purge",
+      baseVersion: project.version,
+      data: { id: project.id }
+    });
+  }
+
+  function createNextIdea(input: Partial<NextIdea> & { next_project_id: string; title: string }) {
+    const timestamp = nowIso();
+    const idea: NextIdea = {
+      id: newId(),
+      next_project_id: input.next_project_id,
+      title: input.title,
+      note: input.note ?? null,
+      sort_order: input.sort_order ?? Date.now(),
+      source_task_id: null,
+      extra_json: input.extra_json ?? null,
+      created_at: timestamp,
+      updated_at: timestamp,
+      deleted_at: null,
+      version: 1
+    };
+    dispatch({ type: "upsertNextIdea", payload: idea });
+    stateRef.current = { ...stateRef.current, nextIdeas: upsertRecord(stateRef.current.nextIdeas, idea) };
+    void saveEntity("nextIdeas", idea);
+    void persistMutation({ id: newMutationId(), entity: "next_idea", operation: "upsert", baseVersion: null, data: idea });
+  }
+
+  function updateNextIdea(idea: NextIdea, changes: Partial<NextIdea>) {
+    const next: NextIdea = {
+      ...idea,
+      ...changes,
+      source_task_id: idea.source_task_id ?? null,
+      updated_at: nowIso(),
+      version: idea.version + 1
+    };
+    dispatch({ type: "upsertNextIdea", payload: next });
+    stateRef.current = { ...stateRef.current, nextIdeas: upsertRecord(stateRef.current.nextIdeas, next) };
+    void saveEntity("nextIdeas", next);
+    void persistMutation({ id: newMutationId(), entity: "next_idea", operation: "upsert", baseVersion: idea.version, data: next });
+  }
+
+  function deleteNextIdea(idea: NextIdea) {
+    dispatch({ type: "purgeNextIdea", payload: idea.id });
+    stateRef.current = { ...stateRef.current, nextIdeas: removeRecord(stateRef.current.nextIdeas, idea.id) };
+    void purgeNextIdeaData(idea.id);
+
+    const staleMutationIds = pendingMutationsRef.current
+      .filter((mutation) => mutationRecordKey(mutation) === `next_idea:${idea.id}`)
+      .map((mutation) => mutation.id);
+    if (staleMutationIds.length > 0) {
+      forgetPendingMutations(staleMutationIds);
+      void removePendingMutations(staleMutationIds);
+    }
+
+    void persistMutation({
+      id: newMutationId(),
+      entity: "next_idea",
+      operation: "purge",
+      baseVersion: idea.version,
+      data: { id: idea.id }
+    });
+  }
+
   function addTag(task: Task, tagName: string) {
     const existing = stateRef.current.tags.find((tag) => tag.name.toLowerCase() === tagName.toLowerCase() && !tag.deleted_at);
     const timestamp = nowIso();
@@ -1013,6 +1212,8 @@ export function App() {
       tasks: local.tasks,
       tags: local.tags,
       taskTags: local.taskTags,
+      nextProjects: local.nextProjects,
+      nextIdeas: local.nextIdeas,
       settings: local.settings,
       pendingCount: compactPendingMutations(local.pendingMutations).length,
       lastSync: local.lastSync
@@ -1038,12 +1239,28 @@ export function App() {
     [state.projects]
   );
   const tasks = useMemo(() => sortedTasks(state.tasks), [state.tasks]);
+  const nextProjects = useMemo(
+    () =>
+      state.nextProjects
+        .filter((project) => !project.deleted_at && project.archived === 0)
+        .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
+    [state.nextProjects]
+  );
+  const nextIdeas = useMemo(
+    () =>
+      state.nextIdeas
+        .filter((idea) => !idea.deleted_at)
+        .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at) || a.title.localeCompare(b.title)),
+    [state.nextIdeas]
+  );
   const pageProps: TaskPageProps = {
     projects,
     archivedProjects,
     tasks,
     tags: state.tags.filter((tag) => !tag.deleted_at),
     taskTags: state.taskTags,
+    nextProjects,
+    nextIdeas,
     filters: state.filters,
     onFiltersChange: (filters) => dispatch({ type: "setFilters", payload: filters }),
     onCreateTask: createTask,
@@ -1055,7 +1272,13 @@ export function App() {
     onArchiveProject: archiveProject,
     onUnarchiveProject: unarchiveProject,
     onDeleteProject: deleteProject,
-    onRenameProject: renameProject
+    onRenameProject: renameProject,
+    onCreateNextProject: createNextProject,
+    onUpdateNextProject: updateNextProject,
+    onDeleteNextProject: deleteNextProject,
+    onCreateNextIdea: createNextIdea,
+    onUpdateNextIdea: updateNextIdea,
+    onDeleteNextIdea: deleteNextIdea
   };
 
   if (state.authRequired) {

@@ -1,13 +1,12 @@
 import { Check, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type TextareaHTMLAttributes } from "react";
-import { isProjectCacheTask, parseTaskExtra, stringifyTaskExtra } from "../lib/progress";
-import type { Project, Task } from "../lib/types";
+import type { NextIdea, NextProject } from "../lib/types";
 import type { TaskPageProps } from "./pageProps";
 
-function projectItems(tasks: Task[], project: Project): Task[] {
-  return tasks
-    .filter((task) => !task.deleted_at && task.archived === 0 && task.project_id === project.id && isProjectCacheTask(task))
-    .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title));
+function projectIdeas(ideas: NextIdea[], project: NextProject): NextIdea[] {
+  return ideas
+    .filter((idea) => !idea.deleted_at && idea.next_project_id === project.id)
+    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at) || a.title.localeCompare(b.title));
 }
 
 function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
@@ -24,60 +23,71 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} ref={ref} />;
 }
 
-function CacheItem({
-  task,
+function NextIdeaItem({
+  idea,
   onUpdate,
   onDelete
 }: {
-  task: Task;
-  onUpdate: (task: Task, changes: Partial<Task>) => void;
-  onDelete: (task: Task) => void;
+  idea: NextIdea;
+  onUpdate: (idea: NextIdea, changes: Partial<NextIdea>) => void;
+  onDelete: (idea: NextIdea) => void;
 }) {
-  const [title, setTitle] = useState(task.title);
+  const [title, setTitle] = useState(idea.title);
 
   function commit() {
     const cleanTitle = title.trim();
-    if (cleanTitle && cleanTitle !== task.title) {
-      onUpdate(task, { title: cleanTitle });
+    if (cleanTitle !== idea.title) {
+      onUpdate(idea, { title: cleanTitle });
     }
   }
 
   return (
     <article className="cache-item">
-      <AutoTextarea value={title} onChange={(event) => setTitle(event.target.value)} onBlur={commit} rows={1} aria-label="Next item" />
-      <button type="button" className="icon-button danger" onClick={() => onDelete(task)} aria-label="Delete next item" title="Delete">
+      <AutoTextarea value={title} onChange={(event) => setTitle(event.target.value)} onBlur={commit} rows={1} aria-label="Next idea" />
+      <button type="button" className="icon-button danger" onClick={() => onDelete(idea)} aria-label="Delete next idea" title="Delete">
         <Trash2 size={16} aria-hidden="true" />
       </button>
     </article>
   );
 }
 
-function CacheSection({
+function NextProjectSection({
   project,
-  items,
-  onCreate,
-  onUpdate,
-  onDelete,
+  ideas,
+  onCreateIdea,
+  onUpdateIdea,
+  onDeleteIdea,
+  onUpdateProject,
   onDeleteProject
 }: {
-  project: Project;
-  items: Task[];
-  onCreate: (project: Project, title: string) => void;
-  onUpdate: (task: Task, changes: Partial<Task>) => void;
-  onDelete: (task: Task) => void;
-  onDeleteProject: (project: Project) => void;
+  project: NextProject;
+  ideas: NextIdea[];
+  onCreateIdea: (project: NextProject, title: string) => void;
+  onUpdateIdea: (idea: NextIdea, changes: Partial<NextIdea>) => void;
+  onDeleteIdea: (idea: NextIdea) => void;
+  onUpdateProject: (project: NextProject, changes: Partial<NextProject>) => void;
+  onDeleteProject: (project: NextProject) => void;
 }) {
   const [title, setTitle] = useState("");
+  const [name, setName] = useState(project.name);
   const [confirming, setConfirming] = useState(false);
 
-  function createItem() {
+  function createIdea() {
     const clean = title.trim();
     if (!clean) return;
-    onCreate(project, clean);
+    onCreateIdea(project, clean);
     setTitle("");
   }
 
-  // Clicks inside <summary> must not toggle the details element.
+  function renameProject() {
+    const clean = name.trim();
+    if (clean && clean !== project.name) {
+      onUpdateProject(project, { name: clean });
+    } else {
+      setName(project.name);
+    }
+  }
+
   function stop(event: { preventDefault: () => void; stopPropagation: () => void }) {
     event.preventDefault();
     event.stopPropagation();
@@ -88,9 +98,9 @@ function CacheSection({
       <summary className="cache-section__head">
         <ChevronRight className="cache-chevron" size={18} aria-hidden="true" />
         <span className="cache-section__name">{project.name}</span>
-        <span className="cache-count">{items.length}</span>
+        <span className="cache-count">{ideas.length}</span>
         {confirming ? (
-          <span className="cache-confirm" role="group" aria-label="Confirm remove from Next">
+          <span className="cache-confirm" role="group" aria-label="Confirm delete Next project">
             <button
               type="button"
               className="icon-button danger"
@@ -98,7 +108,7 @@ function CacheSection({
                 stop(event);
                 onDeleteProject(project);
               }}
-              aria-label={`Confirm remove ${project.name} from Next`}
+              aria-label={`Confirm delete ${project.name}`}
               title="Confirm"
             >
               <Check size={16} aria-hidden="true" />
@@ -124,14 +134,18 @@ function CacheSection({
               stop(event);
               setConfirming(true);
             }}
-            aria-label={`Remove ${project.name} from Next`}
-            title="Remove from Next"
+            aria-label={`Delete ${project.name}`}
+            title="Delete Next project"
           >
             <Trash2 size={16} aria-hidden="true" />
           </button>
         )}
       </summary>
       <div className="cache-section__body">
+        <label className="cache-rename">
+          <span>Project</span>
+          <input value={name} onChange={(event) => setName(event.target.value)} onBlur={renameProject} aria-label={`Rename ${project.name}`} />
+        </label>
         <div className="cache-add">
           <input
             value={title}
@@ -139,97 +153,44 @@ function CacheSection({
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
-                createItem();
+                createIdea();
               }
             }}
             placeholder="Add an idea"
-            aria-label={`New item for ${project.name}`}
+            aria-label={`New idea for ${project.name}`}
           />
-          <button type="button" onClick={createItem} aria-label={`Add item for ${project.name}`}>
+          <button type="button" onClick={createIdea} aria-label={`Add idea for ${project.name}`}>
             <Plus size={18} aria-hidden="true" />
           </button>
         </div>
         <div className="cache-items">
-          {items.map((task) => (
-            <CacheItem key={task.id} task={task} onUpdate={onUpdate} onDelete={onDelete} />
+          {ideas.map((idea) => (
+            <NextIdeaItem key={idea.id} idea={idea} onUpdate={onUpdateIdea} onDelete={onDeleteIdea} />
           ))}
-          {items.length === 0 ? <p className="empty-state">No saved ideas yet.</p> : null}
+          {ideas.length === 0 ? <p className="empty-state">No saved ideas yet.</p> : null}
         </div>
       </div>
     </details>
   );
 }
 
-const NEXT_HIDDEN_KEY = "project-manager-next-hidden";
-
-function loadHidden(): Set<string> {
-  try {
-    const raw = localStorage.getItem(NEXT_HIDDEN_KEY);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
-    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
-  } catch {
-    return new Set();
-  }
-}
-
 export function NextPage(props: TaskPageProps) {
-  const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask } = props;
-  // Projects the user removed from Next. This is a Next-only view preference —
-  // the project itself stays live on the Projects tab; only its section here
-  // (and its saved ideas) are dropped.
-  const [hidden, setHidden] = useState<Set<string>>(loadHidden);
-  const liveProjects = useMemo(
-    () => projects.filter((project) => !project.deleted_at && project.archived === 0 && !hidden.has(project.id)),
-    [projects, hidden]
-  );
-  const cacheTasks = useMemo(() => tasks.filter((task) => !task.deleted_at && task.archived === 0 && isProjectCacheTask(task)), [tasks]);
+  const { nextProjects, nextIdeas, onCreateNextProject, onUpdateNextProject, onDeleteNextProject, onCreateNextIdea, onUpdateNextIdea, onDeleteNextIdea } = props;
+  const [projectName, setProjectName] = useState("");
+  const ideaCount = useMemo(() => nextIdeas.filter((idea) => !idea.deleted_at).length, [nextIdeas]);
 
-  function removeProjectFromNext(project: Project) {
-    // Drop this project's saved ideas, then hide its section from Next.
-    projectItems(tasks, project).forEach((item) => onDeleteTask(item));
-    setHidden((prev) => {
-      const next = new Set(prev);
-      next.add(project.id);
-      try {
-        localStorage.setItem(NEXT_HIDDEN_KEY, JSON.stringify([...next]));
-      } catch {
-        /* ignore persistence failures — view preference only */
-      }
-      return next;
-    });
+  function createProject() {
+    onCreateNextProject(projectName);
+    setProjectName("");
   }
 
-  function createCacheItem(project: Project, title: string) {
-    const extra = {
-      cache_item: true,
-      source_sheet: "项目缓存",
-      cache_project: project.name
-    };
-    onCreateTask({
+  function createIdea(project: NextProject, title: string) {
+    onCreateNextIdea({
+      next_project_id: project.id,
       title,
-      project_id: project.id,
-      status: "todo",
-      priority: "medium",
-      start_date: null,
-      due_date: null,
-      next_action: null,
-      notes: null,
-      source: "project_cache",
-      external_key: `project-cache:${project.id}:${Date.now()}`,
-      extra_json: stringifyTaskExtra(extra)
-    });
-  }
-
-  function updateCacheItem(task: Task, changes: Partial<Task>) {
-    const extra = parseTaskExtra(task);
-    extra.cache_item = true;
-    extra.source_sheet = "项目缓存";
-    onUpdateTask(task, {
-      ...changes,
-      source: "project_cache",
-      start_date: null,
-      due_date: null,
-      extra_json: stringifyTaskExtra(extra)
+      note: null,
+      sort_order: Date.now(),
+      extra_json: null
     });
   }
 
@@ -237,21 +198,39 @@ export function NextPage(props: TaskPageProps) {
     <main className="page-content cache-page">
       <header className="page-header">
         <h1>Next</h1>
-        <p>{cacheTasks.length} saved ideas and future tasks</p>
+        <p>{ideaCount} saved ideas and future tasks</p>
       </header>
-      <section className="cache-board" aria-label="Project cache">
-        {liveProjects.map((project) => (
-          <CacheSection
+      <section className="cache-add cache-project-add" aria-label="Create Next project">
+        <input
+          value={projectName}
+          onChange={(event) => setProjectName(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              createProject();
+            }
+          }}
+          placeholder="New Next project"
+          aria-label="New Next project"
+        />
+        <button type="button" onClick={createProject} aria-label="Create Next project">
+          <Plus size={18} aria-hidden="true" />
+        </button>
+      </section>
+      <section className="cache-board" aria-label="Next idea board">
+        {nextProjects.map((project) => (
+          <NextProjectSection
             key={project.id}
             project={project}
-            items={projectItems(tasks, project)}
-            onCreate={createCacheItem}
-            onUpdate={updateCacheItem}
-            onDelete={onDeleteTask}
-            onDeleteProject={removeProjectFromNext}
+            ideas={projectIdeas(nextIdeas, project)}
+            onCreateIdea={createIdea}
+            onUpdateIdea={onUpdateNextIdea}
+            onDeleteIdea={onDeleteNextIdea}
+            onUpdateProject={onUpdateNextProject}
+            onDeleteProject={onDeleteNextProject}
           />
         ))}
-        {liveProjects.length === 0 ? <p className="empty-state">No projects yet — create one on the Projects tab.</p> : null}
+        {nextProjects.length === 0 ? <p className="empty-state">No Next projects yet. Create one above to save future ideas.</p> : null}
       </section>
     </main>
   );

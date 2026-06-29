@@ -1,4 +1,4 @@
-import type { BootstrapResponse, Project, SessionResponse, Tag, Task, TaskTag } from "../lib/types";
+import type { BootstrapResponse, NextIdea, NextProject, Project, SessionResponse, Tag, Task, TaskTag } from "../lib/types";
 import { mergeBootstrap, visibleProjects, visibleTasks } from "../lib/sync";
 import { priorityScore } from "../lib/validation";
 
@@ -19,6 +19,8 @@ export interface AppState {
   tasks: Task[];
   tags: Tag[];
   taskTags: TaskTag[];
+  nextProjects: NextProject[];
+  nextIdeas: NextIdea[];
   settings: Record<string, unknown>;
   session: SessionResponse | null;
   authRequired: boolean;
@@ -35,7 +37,13 @@ export interface AppState {
 }
 
 export type AppAction =
-  | { type: "hydrateLocal"; payload: Pick<AppState, "projects" | "tasks" | "tags" | "taskTags" | "settings" | "pendingCount" | "lastSync"> }
+  | {
+      type: "hydrateLocal";
+      payload: Pick<
+        AppState,
+        "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas" | "settings" | "pendingCount" | "lastSync"
+      >;
+    }
   | { type: "mergeBootstrap"; payload: BootstrapResponse }
   | { type: "replaceBootstrap"; payload: BootstrapResponse }
   | { type: "setSession"; payload: SessionResponse | null }
@@ -47,6 +55,10 @@ export type AppAction =
   | { type: "purgeProject"; payload: string }
   | { type: "upsertTask"; payload: Task }
   | { type: "purgeTask"; payload: string }
+  | { type: "upsertNextProject"; payload: NextProject }
+  | { type: "purgeNextProject"; payload: string }
+  | { type: "upsertNextIdea"; payload: NextIdea }
+  | { type: "purgeNextIdea"; payload: string }
   | { type: "upsertTag"; payload: Tag }
   | { type: "upsertTaskTag"; payload: TaskTag }
   | { type: "setPendingCount"; payload: number }
@@ -62,6 +74,8 @@ export const initialState: AppState = {
   tasks: [],
   tags: [],
   taskTags: [],
+  nextProjects: [],
+  nextIdeas: [],
   settings: {},
   session: null,
   authRequired: true,
@@ -121,6 +135,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         tasks: merged.tasks,
         tags: merged.tags,
         taskTags: merged.taskTags,
+        nextProjects: merged.nextProjects,
+        nextIdeas: merged.nextIdeas,
         settings: merged.settings,
         lastSync: merged.serverTime,
         syncStatus: "idle"
@@ -133,6 +149,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         tasks: action.payload.tasks,
         tags: action.payload.tags,
         taskTags: action.payload.taskTags,
+        nextProjects: action.payload.nextProjects,
+        nextIdeas: action.payload.nextIdeas,
         settings: action.payload.settings,
         lastSync: action.payload.serverTime,
         syncStatus: "idle"
@@ -172,6 +190,20 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         taskTags: state.taskTags.filter((link) => link.task_id !== taskId)
       };
     }
+    case "upsertNextProject":
+      return { ...state, nextProjects: byId(state.nextProjects, action.payload) };
+    case "purgeNextProject": {
+      const projectId = action.payload;
+      return {
+        ...state,
+        nextProjects: state.nextProjects.filter((project) => project.id !== projectId),
+        nextIdeas: state.nextIdeas.filter((idea) => idea.next_project_id !== projectId)
+      };
+    }
+    case "upsertNextIdea":
+      return { ...state, nextIdeas: byId(state.nextIdeas, action.payload) };
+    case "purgeNextIdea":
+      return { ...state, nextIdeas: state.nextIdeas.filter((idea) => idea.id !== action.payload) };
     case "upsertTag":
       return { ...state, tags: byId(state.tags, action.payload) };
     case "upsertTaskTag":

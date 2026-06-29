@@ -1569,6 +1569,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
    Next / cache board
    ========================================================================= */
 .cache-board { display: grid; gap: 10px; width: 100%; }
+.cache-project-add { margin: -2px 0 10px; }
 .cache-section {
   border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface);
   box-shadow: var(--shadow-sm); overflow: hidden; animation: fade-up var(--t-slow) var(--ease) both;
@@ -1593,6 +1594,13 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cache-confirm { flex: none; display: inline-flex; gap: 4px; }
 .cache-confirm .icon-button { width: 32px; min-width: 32px; height: 32px; }
 .cache-confirm .icon-button.danger { color: var(--danger); }
+.cache-rename { display: grid; gap: 5px; }
+.cache-rename span { color: var(--muted); font-size: 0.78rem; font-weight: 750; }
+.cache-rename input {
+  width: 100%; min-height: 42px; padding: 9px 12px;
+  color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+}
+.cache-rename input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
 .cache-add { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 8px; overflow: visible; }
 .cache-add input {
   width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px;
@@ -1611,6 +1619,11 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cache-item textarea { width: 100%; min-width: 0; padding: 2px 0; overflow: hidden; color: var(--ink); font-weight: 600; line-height: 1.4; background: transparent; border: 0; resize: none; }
 .cache-item textarea:focus { outline: none; box-shadow: none; }
 .cache-item .icon-button { align-self: center; min-width: 34px; min-height: 34px; }
+.search-next-results { display: grid; gap: 10px; margin-top: 14px; }
+.search-next-results h2 { margin: 0; font-size: 0.95rem; }
+.search-next-item { align-items: start; grid-template-columns: minmax(88px, 0.32fr) minmax(0, 1fr); }
+.search-next-item span { color: var(--muted); font-size: 0.82rem; font-weight: 700; overflow-wrap: anywhere; }
+.search-next-item strong { color: var(--ink); font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
 
 /* =========================================================================
    Settings metrics

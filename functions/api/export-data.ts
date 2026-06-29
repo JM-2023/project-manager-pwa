@@ -8,11 +8,13 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
   const user = await authenticate(context);
   if (isResponse(user)) return user;
 
-  const [projects, tasks, tags, taskTags, settings] = await Promise.all([
+  const [projects, tasks, tags, taskTags, nextProjects, nextIdeas, settings] = await Promise.all([
     context.env.DB.prepare("SELECT * FROM projects WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order, name").bind(user.id).all(),
     context.env.DB.prepare("SELECT * FROM tasks WHERE user_id = ? AND deleted_at IS NULL ORDER BY due_date, sort_order").bind(user.id).all(),
     context.env.DB.prepare("SELECT * FROM tags WHERE user_id = ? AND deleted_at IS NULL ORDER BY name").bind(user.id).all(),
     context.env.DB.prepare("SELECT * FROM task_tags WHERE user_id = ? AND deleted_at IS NULL").bind(user.id).all(),
+    context.env.DB.prepare("SELECT * FROM next_projects WHERE user_id = ? AND deleted_at IS NULL AND archived = 0 ORDER BY sort_order, name").bind(user.id).all(),
+    context.env.DB.prepare("SELECT * FROM next_ideas WHERE user_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at").bind(user.id).all(),
     readSettings(context.env, user.id, null)
   ]);
 
@@ -23,6 +25,8 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
     tasks: tasks.results,
     tags: tags.results,
     taskTags: taskTags.results,
+    nextProjects: nextProjects.results,
+    nextIdeas: nextIdeas.results,
     settings
   });
 }

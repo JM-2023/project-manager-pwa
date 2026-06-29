@@ -249,6 +249,12 @@
     --shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
     --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.5), 0 20px 46px -14px rgba(0, 0, 0, 0.72);
 
+    /* Dark mode: the specular is a soft diffuse glow, not a hot hotspot. Far
+       lower peak white + broader falloff so the "lit glass" reads as a gentle
+       sheen. Its --lx/--ly slowly drift (see glass-sheen-drift) for a living,
+       premium feel. */
+    --lg-specular: radial-gradient(220px 240px at var(--lx) var(--ly),
+        rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 46%, rgba(255, 255, 255, 0) 72%);
     --glass-fill:
       var(--lg-specular),
       linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
@@ -370,6 +376,9 @@
   --shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.5), 0 20px 46px -14px rgba(0, 0, 0, 0.72);
 
+  /* Dark mode: soft diffuse specular glow (mirrors the auto-dark block). */
+  --lg-specular: radial-gradient(220px 240px at var(--lx) var(--ly),
+      rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 46%, rgba(255, 255, 255, 0) 72%);
   --glass-fill:
     var(--lg-specular),
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
@@ -429,6 +438,19 @@
   /* Kill the top white sheen on Tier A glass buttons in dark mode */
   --btn-sheen: 0;
   --btn-sheen-primary: 0;
+}
+
+/* Slow, premium drift of the specular glow — dark mode only. Driven on :root so
+   the inherited --lx/--ly animate; only --glass-fill surfaces read the specular
+   in dark mode, so this is the only place the moving light shows. Reduced-motion
+   users get the static (soft) glow via the global reduce rule below. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    animation: glass-sheen-drift 22s ease-in-out infinite;
+  }
+}
+:root[data-theme="dark"] {
+  animation: glass-sheen-drift 22s ease-in-out infinite;
 }
 
 * { box-sizing: border-box; }
@@ -543,6 +565,18 @@ button.project-row,
    shimmer on the primary CTA). Falls back to a static band where unsupported. */
 @property --spin { syntax: "<angle>"; inherits: false; initial-value: 130deg; }
 @keyframes iris-spin { to { --spin: 490deg; } }
+
+/* Registering --lx/--ly as typed, inheritable percentages lets the specular
+   hotspot drift smoothly. The drift is applied to :root in dark mode only, so
+   it animates exactly the glass surfaces that carry a specular there
+   (nav, hero panels, pin-pad) and nothing else. */
+@property --lx { syntax: "<percentage>"; inherits: true; initial-value: 26%; }
+@property --ly { syntax: "<percentage>"; inherits: true; initial-value: -8%; }
+@keyframes glass-sheen-drift {
+  0%   { --lx: 18%; --ly: -12%; }
+  50%  { --lx: 76%; --ly: 6%; }
+  100% { --lx: 18%; --ly: -12%; }
+}
 
 /* =========================================================================
    Keyframes

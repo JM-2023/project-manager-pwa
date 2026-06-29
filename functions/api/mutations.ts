@@ -155,13 +155,11 @@ async function applyNextProject(
   return { id: mutation.id, entity: "next_project", recordId: id, version, updated_at: timestamp };
 }
 
-async function assertNextProjectOwner(context: AppContext, user: AuthUser, nextProjectId: string): Promise<void> {
+async function nextProjectExists(context: AppContext, user: AuthUser, nextProjectId: string): Promise<boolean> {
   const parent = await context.env.DB.prepare("SELECT id FROM next_projects WHERE user_id = ? AND id = ? AND deleted_at IS NULL")
     .bind(user.id, nextProjectId)
     .first<{ id: string }>();
-  if (!parent) {
-    throw new Error("Next project not found");
-  }
+  return Boolean(parent);
 }
 
 async function applyNextIdea(
@@ -170,14 +168,19 @@ async function applyNextIdea(
   mutation: IncomingMutation,
   existing: Record<string, unknown> | null,
   timestamp: string
-): Promise<Applied> {
+): Promise<Applied | Conflict> {
   const data = mutation.data;
   const id = assertUuidish(data.id);
   const nextProjectId = String(data.next_project_id ?? existing?.next_project_id ?? "");
+  // A missing parent is a *permanent* conflict. The parent was purged through
+  // a hard delete, so retrying this idea upsert can never succeed. Returning
+  // permanent lets the client drop it and keeps the queue clean.
   if (!nextProjectId) {
-    throw new Error("Next idea requires next_project_id");
+    return { id: mutation.id, entity: "next_idea", recordId: id, reason: "Next idea requires next_project_id", permanent: true };
   }
-  await assertNextProjectOwner(context, user, nextProjectId);
+  if (!(await nextProjectExists(context, user, nextProjectId))) {
+    return { id: mutation.id, entity: "next_idea", recordId: id, reason: "Next project not found", permanent: true };
+  }
   const version = nextVersion(existing);
   const createdAt = String(existing?.created_at ?? data.created_at ?? timestamp);
   const title = typeof data.title === "string" ? data.title.trim() : String(existing?.title ?? "");
@@ -488,9 +491,9 @@ async function applyMutation(context: AppContext, user: AuthUser, mutation: Inco
     return { id: mutation.id, entity: mutation.entity, reason: "Unsupported mutation", permanent: true };
   }
 
-  // Reject malformed mutations up front so they surface as *permanent* conflicts
-  // the client can drop, rather than throwing into the transient-error path and
-  // poisoning the queue (re-sent on every sync, never draining).
+  // Reject malformed mutations up front as *permanent* conflicts the client can
+  // drop. That keeps them out of the transient-error path where they would be
+  // re-sent on every sync.
   if (mutation.entity === "task_tag" && (!mutation.data.task_id || !mutation.data.tag_id)) {
     return { id: mutation.id, entity: mutation.entity, reason: "Task tag requires task_id and tag_id", permanent: true };
   }

@@ -10,11 +10,11 @@
      · Tier C — Flat / transparent: icon buttons, nav at rest, list rows,
        table cells, inputs. Hairline + soft shadow, hover wash, no spring.
 
-   No backdrop sampling anywhere (backdrop-filter is never used) — the glass
-   material is built purely from layered gradients + inner highlights + a
-   hairline rim, so it stays cheap on the GPU. All colour flows through tokens,
-   so the dark theme is a token swap. Manual override via [data-theme] is
-   layered on top of prefers-color-scheme.
+   Very low backdrop sampling on glass layers — enough to make the material read
+   as glass over the static page background without turning ordinary controls
+   into expensive frosted slabs. All colour flows through tokens, so the dark
+   theme is a token swap. Manual override via [data-theme] is layered on top of
+   prefers-color-scheme.
    ========================================================================= */
 
 :root {
@@ -105,13 +105,13 @@
   /* Signature liquid swell — overshoots then settles. Tier A only. */
   --spring: cubic-bezier(0.175, 0.885, 0.32, 2.2);
 
-  /* ----- Liquid glass material (NO backdrop sampling) -----
+  /* ----- Liquid glass material (very low backdrop sampling) -----
      Real liquid glass = a translucent body + a faint IRIS (a chromatic conic
-     shimmer) + a SPECULAR highlight + a bright rim. Built purely from layered
-     gradients so it stays cheap on the GPU. --lx/--ly place the specular;
-     --spin rotates the iris band (animated only on the primary CTA). */
+     shimmer) + a SPECULAR highlight + a bright rim. --lx/--ly place the
+     specular; --spin rotates the iris band (animated only on the primary CTA). */
   --lx: 26%;
   --ly: -8%;
+  --glass-sampling: blur(2px) saturate(1.03);
   --lg-iris: conic-gradient(from var(--spin, 130deg) at 50% 50%,
       rgba(124, 122, 255, 0.10), rgba(155, 138, 232, 0.085) 22%,
       rgba(232, 155, 155, 0.07) 44%, rgba(253, 183, 119, 0.07) 66%,
@@ -134,8 +134,9 @@
      mode but drops the specular hotspot + top rim-light in dark mode. */
   --glass-fill-flat: var(--glass-fill);
   --glass-highlight-flat: var(--glass-highlight);
-  /* Action-menu popover: opaque (no see-through content), shares the rim-light. */
-  --menu-fill: linear-gradient(180deg, var(--surface), var(--surface-2));
+  /* Action-menu popover: a floating glass layer with translucent fill, low
+     sampling, and rim-light. */
+  --menu-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(248, 249, 251, 0.8));
   --menu-highlight: var(--glass-highlight);
 
   /* Glass chip — buttons, active states, keypad, segmented active segment */
@@ -259,7 +260,7 @@
       linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
       var(--lg-iris);
     --glass-highlight-flat: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
-    --menu-fill: linear-gradient(180deg, var(--surface-2), var(--surface));
+    --menu-fill: linear-gradient(180deg, rgba(27, 30, 38, 0.82), rgba(22, 25, 31, 0.78));
     --menu-highlight: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
 
     /* Buttons in dark mode: NO white specular hotspot, NO top inset highlight —
@@ -380,7 +381,7 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
     var(--lg-iris);
   --glass-highlight-flat: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
-  --menu-fill: linear-gradient(180deg, var(--surface-2), var(--surface));
+  --menu-fill: linear-gradient(180deg, rgba(27, 30, 38, 0.82), rgba(22, 25, 31, 0.78));
   --menu-highlight: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
 
   /* Buttons in dark mode: NO white specular hotspot, NO top inset highlight. */
@@ -502,6 +503,36 @@ select {
   background-repeat: no-repeat;
   background-position: right 11px center;
   padding-right: 32px !important;
+}
+
+/* One shared low-cost sampling pass for actual glass layers. */
+.bottom-nav,
+.bottom-nav button.active,
+.offline-banner,
+.offline-banner button,
+.add-row-button,
+.primary-button,
+.secondary-button,
+.file-picker,
+.ghost-button,
+.composer-row button,
+.composer-project-row button,
+.cache-add button,
+.project-create button,
+.today-title-button.active,
+.quick-status button.active,
+.project-row,
+button.project-row,
+.progress-summary > div:first-child,
+.pin-pad,
+.pin-logo,
+.keypad button:not(.keypad-action),
+.task-action-menu,
+.cal-seg,
+.cal-seg button.active,
+.cal-summary {
+  -webkit-backdrop-filter: var(--glass-sampling);
+  backdrop-filter: var(--glass-sampling);
 }
 
 /* @property lets the iris band's start-angle animate smoothly (the living
@@ -1208,13 +1239,16 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 /* Card layout (narrow) */
 .task-table-row {
+  --importance-color: var(--line-strong);
   position: relative;
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
   padding: 15px 15px 15px 19px;
   overflow: visible;
-  background: var(--surface);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--importance-color) 9%, transparent), transparent 44px),
+    var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-sm);
@@ -1226,15 +1260,19 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table-row::before {
   content: "";
   position: absolute;
-  top: 10px; bottom: 10px; left: 0;
-  width: 4px;
+  top: 9px; bottom: 9px; left: 7px;
+  width: 5px;
   border-radius: var(--r-pill);
-  background: var(--line-strong);
+  background: color-mix(in srgb, var(--importance-color) 78%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 42%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--importance-color) 20%, transparent);
+  opacity: 0.86;
 }
-.task-table-row.importance-1::before { background: var(--imp-1); }
-.task-table-row.importance-2::before { background: var(--imp-2); }
-.task-table-row.importance-3::before { background: var(--imp-3); }
-.task-table-row.importance-4::before { background: var(--imp-4); }
+.task-table-row.importance-1 { --importance-color: var(--imp-1); }
+.task-table-row.importance-2 { --importance-color: var(--imp-2); }
+.task-table-row.importance-3 { --importance-color: var(--imp-3); }
+.task-table-row.importance-4 { --importance-color: var(--imp-4); }
 
 .tt-cell { display: grid; gap: 5px; align-content: start; min-width: 0; }
 .tt-label {
@@ -1353,14 +1391,21 @@ input:focus, select:focus, textarea:focus { outline: none; }
     grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
     gap: 0; min-height: 56px; padding: 0;
     overflow: visible;
-    background: transparent;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--importance-color) 8%, transparent), transparent 46px);
     border: 0; border-bottom: 1px solid var(--line);
     border-radius: 0; box-shadow: none; animation: none;
   }
-  @media (hover: hover) { .task-table-row:hover { background: color-mix(in srgb, var(--primary) 3%, transparent); box-shadow: none; } }
+  @media (hover: hover) {
+    .task-table-row:hover {
+      background:
+        linear-gradient(90deg, color-mix(in srgb, var(--importance-color) 10%, transparent), transparent 46px),
+        color-mix(in srgb, var(--primary) 3%, transparent);
+      box-shadow: none;
+    }
+  }
   .task-table-row.with-date { grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
   .task-table-row:last-child { border-bottom: 0; }
-  .task-table-row::before { width: 4px; top: 0; bottom: 0; border-radius: 0; z-index: 1; }
+  .task-table-row::before { width: 5px; top: 9px; bottom: 9px; left: 7px; border-radius: var(--r-pill); z-index: 1; }
   .tt-label { display: none; }
   .tt-cell { display: flex; gap: 0; border-right: 1px solid var(--line); }
   .tt-notes { border-right: 0; }
@@ -1487,30 +1532,37 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 .project-rename:focus { outline: none; }
 
-/* Completion meter fused into the card's base — a full-width strip that fills
-   the card's rounded bottom edge, so it reads as part of the row, not a
-   detached underline. */
+/* Completion meter lives inside the clickable project surface. It tints the
+   lower inside edge instead of sitting outside the button as a detached rule. */
 .row-progress {
   position: absolute;
-  right: 0; bottom: 0; left: 0;
-  height: 5px;
-  background: color-mix(in srgb, var(--ink) 7%, transparent);
-  border-radius: 0 0 calc(var(--r-md) - 1px) calc(var(--r-md) - 1px);
+  right: 7px; bottom: 6px; left: 7px;
+  height: 7px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--ink) 4%, transparent), color-mix(in srgb, var(--ink) 8%, transparent));
+  border-radius: var(--r-pill);
   overflow: hidden;
   pointer-events: none;
-  transition: border-radius 0.42s var(--spring);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+  transition: right 0.42s var(--spring), left 0.42s var(--spring), bottom 0.42s var(--spring);
 }
 .project-row:hover .row-progress,
 button.project-row:hover .row-progress {
-  border-radius: 0 0 calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px);
+  right: 9px; left: 9px; bottom: 7px;
 }
 .row-progress::after {
   content: "";
   position: absolute;
   top: 0; bottom: 0; left: 0;
   width: var(--pct, 0%);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--prog-color) 55%, transparent), var(--prog-color));
-  box-shadow: 0 0 8px -1px var(--prog-color);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--prog-color) 44%, transparent), color-mix(in srgb, var(--prog-color) 88%, transparent));
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 36%, transparent),
+    0 0 10px -3px var(--prog-color);
   transition: width var(--t-slow) var(--ease);
 }
 
@@ -1519,11 +1571,12 @@ button.project-row:hover .row-progress {
    click target; the div carries the glass + animation. "All projects"
    (button.project-row) is itself the glass button. */
 .project-row > button:first-child {
+  position: relative;
   display: flex;
   min-height: 46px;
   align-items: center;
   gap: 11px;
-  padding: 9px 11px;
+  padding: 9px 11px 15px;
   color: var(--ink);
   text-align: left;
   background: transparent;
@@ -1531,17 +1584,18 @@ button.project-row:hover .row-progress {
   border-radius: var(--r-sm);
   box-shadow: none;
   font-weight: 600;
+  overflow: hidden;
   transition: color var(--t) var(--ease);
 }
 button.project-row {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   display: flex;
   width: 100%;
   min-height: 46px;
   align-items: center;
   gap: 11px;
-  padding: 11px 14px;
+  padding: 11px 14px 17px;
   color: var(--ink);
   text-align: left;
   font-weight: 600;
@@ -1551,6 +1605,8 @@ button.project-row {
   box-shadow: var(--chip-shadow);
   transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.16s var(--ease);
 }
+button.project-row .row-progress { right: 13px; left: 13px; bottom: 7px; }
+button.project-row:hover .row-progress { right: 15px; left: 15px; bottom: 8px; }
 @media (hover: hover) {
   button.project-row:hover { color: var(--primary-dark); background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
 }

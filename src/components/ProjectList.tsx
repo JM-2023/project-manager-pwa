@@ -139,6 +139,7 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
         <span className="project-color" style={{ backgroundColor: project.color ?? "var(--primary)" }} />
         <span>{project.name}</span>
         <strong>{summary.averageProgress}%</strong>
+        <ProgressMeter value={summary.averageProgress} />
       </button>
       <div className={`task-menu${menuOpen ? " is-open" : ""}`} ref={menuRef}>
         <button
@@ -195,7 +196,6 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
           </div>
         ) : null}
       </div>
-      <ProgressMeter value={summary.averageProgress} />
     </div>
   );
 }

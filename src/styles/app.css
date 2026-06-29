@@ -130,6 +130,14 @@
     inset 0 1px 0 rgba(255, 255, 255, 0.85),
     inset 0 -1px 1px rgba(20, 27, 45, 0.04);
 
+  /* Flattened glass (calendar segmented track): keeps the lit glass in light
+     mode but drops the specular hotspot + top rim-light in dark mode. */
+  --glass-fill-flat: var(--glass-fill);
+  --glass-highlight-flat: var(--glass-highlight);
+  /* Action-menu popover: opaque (no see-through content), shares the rim-light. */
+  --menu-fill: linear-gradient(180deg, var(--surface), var(--surface-2));
+  --menu-highlight: var(--glass-highlight);
+
   /* Glass chip — buttons, active states, keypad, segmented active segment */
   --chip-fill:
     var(--lg-specular),
@@ -246,6 +254,14 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.1),
       inset 0 -1px 1px rgba(0, 0, 0, 0.3);
 
+    /* Flat glass: no specular hotspot, no top white rim-light. */
+    --glass-fill-flat:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
+      var(--lg-iris);
+    --glass-highlight-flat: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+    --menu-fill: linear-gradient(180deg, var(--surface-2), var(--surface));
+    --menu-highlight: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+
     /* Buttons in dark mode: NO white specular hotspot, NO top inset highlight —
        a uniform faint translucent glass body + iris only. (Non-button --glass-*
        chrome keeps its highlight.) */
@@ -358,6 +374,14 @@
   --glass-highlight:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
     inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+
+  /* Flat glass: no specular hotspot, no top white rim-light. */
+  --glass-fill-flat:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
+    var(--lg-iris);
+  --glass-highlight-flat: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+  --menu-fill: linear-gradient(180deg, var(--surface-2), var(--surface));
+  --menu-highlight: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
 
   /* Buttons in dark mode: NO white specular hotspot, NO top inset highlight. */
   --chip-fill:
@@ -1469,11 +1493,16 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .row-progress {
   position: absolute;
   right: 0; bottom: 0; left: 0;
-  height: 4px;
-  background: color-mix(in srgb, var(--ink) 6%, transparent);
+  height: 5px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
   border-radius: 0 0 calc(var(--r-md) - 1px) calc(var(--r-md) - 1px);
   overflow: hidden;
   pointer-events: none;
+  transition: border-radius 0.42s var(--spring);
+}
+.project-row:hover .row-progress,
+button.project-row:hover .row-progress {
+  border-radius: 0 0 calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px);
 }
 .row-progress::after {
   content: "";
@@ -1505,6 +1534,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   transition: color var(--t) var(--ease);
 }
 button.project-row {
+  position: relative;
+  overflow: hidden;
   display: flex;
   width: 100%;
   min-height: 46px;
@@ -1557,6 +1588,11 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
   flex: none; display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px;
   color: var(--primary-dark); background: var(--primary-tint); border-radius: var(--r-pill); font-size: 0.76rem; font-weight: 750;
 }
+.cache-section__remove { flex: none; width: 32px; min-width: 32px; height: 32px; color: var(--muted); background: transparent; border-color: transparent; box-shadow: none; opacity: 0.65; transition: opacity var(--t) var(--ease), color var(--t) var(--ease), background var(--t) var(--ease); }
+@media (hover: hover) { .cache-section__head:hover .cache-section__remove { opacity: 1; } .cache-section__remove:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); } }
+.cache-confirm { flex: none; display: inline-flex; gap: 4px; }
+.cache-confirm .icon-button { width: 32px; min-width: 32px; height: 32px; }
+.cache-confirm .icon-button.danger { color: var(--danger); }
 .cache-add { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 8px; overflow: visible; }
 .cache-add input {
   width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px;
@@ -1646,7 +1682,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .pin-brand { display: grid; justify-items: center; gap: 5px; text-align: center; }
 .pin-logo {
   display: grid; width: 58px; height: 58px; place-items: center; margin-bottom: 8px;
-  color: #fff;
+  color: var(--ink);
   background: var(--primary-fill);
   border: 1px solid var(--primary-rim);
   border-radius: var(--r-lg);
@@ -1697,10 +1733,10 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
   min-width: 208px; padding: 8px;
   transform-origin: bottom right;
   color: var(--ink);
-  background: var(--glass-fill);
-  border: 1px solid var(--glass-rim);
+  background: var(--menu-fill);
+  border: 1px solid var(--glass-rim-strong);
   border-radius: var(--r-lg);
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  box-shadow: var(--menu-highlight), var(--shadow-lg);
   animation: task-menu-morph 0.24s var(--ease-spring) both;
 }
 @keyframes task-menu-morph { from { opacity: 0; transform: translate(3px, 5px) scale(0.92); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
@@ -1776,11 +1812,11 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
   display: inline-flex;
   gap: 3px;
   padding: 4px;
-  background: var(--glass-fill);
+  background: var(--glass-fill-flat);
   border: 1px solid var(--glass-rim);
   border-radius: var(--r-pill);
   box-shadow:
-    var(--glass-highlight),
+    var(--glass-highlight-flat),
     inset 0 2px 6px -2px rgba(20, 27, 45, 0.12),
     0 1px 2px rgba(20, 27, 45, 0.05);
 }

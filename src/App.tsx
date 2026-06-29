@@ -45,6 +45,7 @@ const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
 const SYNC_DEBOUNCE_MS = 850;
 const KEEPALIVE_MAX_BYTES = 60_000;
 const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
+const PROJECT_ARCHIVE_MARKER_KEY = "archived_with_project_id";
 
 interface PendingMutationGroup {
   mutation: ClientMutation;
@@ -933,11 +934,44 @@ export function App() {
     return project.id;
   }
 
-  function archiveProject(project: Project) {
-    const next = { ...project, archived: 1, updated_at: nowIso(), version: project.version + 1 };
+  // Archiving a project cascades only to currently active tasks. Those tasks get
+  // a marker so restoring the project can restore them without reviving tasks
+  // the user had archived on purpose before the project was archived.
+  function setProjectArchived(project: Project, archived: 0 | 1) {
+    const timestamp = nowIso();
+    const next = { ...project, archived, updated_at: timestamp, version: project.version + 1 };
     dispatch({ type: "upsertProject", payload: next });
     stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
-    if (stateRef.current.filters.projectId === project.id) {
+
+    const tasksToToggle = stateRef.current.tasks.filter(
+      (task) =>
+        task.project_id === project.id &&
+        !task.deleted_at &&
+        (archived === 1
+          ? task.archived === 0
+          : task.archived === 1 && parseTaskExtra(task)[PROJECT_ARCHIVE_MARKER_KEY] === project.id)
+    );
+    for (const task of tasksToToggle) {
+      const extra = parseTaskExtra(task);
+      if (archived === 1) {
+        extra[PROJECT_ARCHIVE_MARKER_KEY] = project.id;
+      } else {
+        extra[PROJECT_ARCHIVE_MARKER_KEY] = undefined;
+      }
+      const nextTask: Task = {
+        ...task,
+        archived,
+        extra_json: stringifyTaskExtra(extra),
+        updated_at: timestamp,
+        version: task.version + 1
+      };
+      dispatch({ type: "upsertTask", payload: nextTask });
+      stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, nextTask) };
+      void saveEntity("tasks", nextTask);
+      void persistMutation({ id: newMutationId(), entity: "task", operation: "upsert", baseVersion: task.version, data: nextTask });
+    }
+
+    if (archived === 1 && stateRef.current.filters.projectId === project.id) {
       const filters = { ...stateRef.current.filters, projectId: "" };
       stateRef.current = { ...stateRef.current, filters };
       dispatch({ type: "setFilters", payload: { projectId: "" } });
@@ -946,12 +980,12 @@ export function App() {
     void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: project.version, data: next });
   }
 
+  function archiveProject(project: Project) {
+    setProjectArchived(project, 1);
+  }
+
   function unarchiveProject(project: Project) {
-    const next = { ...project, archived: 0, updated_at: nowIso(), version: project.version + 1 };
-    dispatch({ type: "upsertProject", payload: next });
-    stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
-    void saveEntity("projects", next);
-    void persistMutation({ id: newMutationId(), entity: "project", operation: "upsert", baseVersion: project.version, data: next });
+    setProjectArchived(project, 0);
   }
 
   function deleteProject(project: Project) {

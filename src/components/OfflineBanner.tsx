@@ -1,4 +1,4 @@
-import { CloudOff, RefreshCcw } from "lucide-react";
+import { CircleAlert, CloudOff, RefreshCcw, UploadCloud } from "lucide-react";
 import type { SyncStatus } from "../state/appStore";
 
 interface OfflineBannerProps {
@@ -15,6 +15,7 @@ export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync 
     return null;
   }
 
+  const state = online ? syncStatus : "offline";
   const countText = `${pendingCount} change${pendingCount === 1 ? "" : "s"}`;
   const message = !online
     ? pendingCount > 0
@@ -32,12 +33,20 @@ export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync 
           ? `${countText} queued`
           : `${countText} pending`;
 
+  const Icon = !online
+    ? CloudOff
+    : syncStatus === "error"
+      ? CircleAlert
+      : syncStatus === "syncing"
+        ? RefreshCcw
+        : UploadCloud;
+
   return (
-    <div className={`offline-banner ${online ? syncStatus : "offline"}`} role="status" aria-live="polite">
-      <div>
-        <CloudOff size={17} aria-hidden="true" />
-        <span>{message}</span>
-      </div>
+    <div className={`offline-banner ${state}`} role="status" aria-live="polite">
+      <span className="offline-banner__icon">
+        <Icon size={16} aria-hidden="true" />
+      </span>
+      <span className="offline-banner__text">{message}</span>
       {online ? (
         <button type="button" onClick={onSync} disabled={syncStatus === "syncing"} aria-label="Sync now">
           <RefreshCcw size={16} aria-hidden="true" />

@@ -72,11 +72,12 @@
   --prog-high: #22c55e;
   --prog-done: #16a34a;
 
-  /* Importance scale — indigo→blue, darkest (1) to lightest (4) */
-  --imp-1: #1e3a8a;
-  --imp-2: #2563eb;
+  /* Importance scale — a single blue hue, deep (1) to airy (4). One hue keeps
+     the rail reading as "depth" rather than four unrelated colours. */
+  --imp-1: #1d4ed8;
+  --imp-2: #3b82f6;
   --imp-3: #60a5fa;
-  --imp-4: #aecbfb;
+  --imp-4: #93c5fd;
 
   /* Focus ring */
   --ring: rgba(79, 70, 229, 0.32);
@@ -111,6 +112,9 @@
      specular; --spin rotates the iris band (animated only on the primary CTA). */
   --lx: 26%;
   --ly: -8%;
+  /* Very low sampling for every glass surface. The static white page only needs
+     a slight frost pass, while the layered fills and rim lights carry the glass
+     read. */
   --glass-sampling: blur(2px) saturate(1.03);
   --lg-iris: conic-gradient(from var(--spin, 130deg) at 50% 50%,
       rgba(124, 122, 255, 0.10), rgba(155, 138, 232, 0.085) 22%,
@@ -233,10 +237,10 @@
     --prog-high: #4ade80;
     --prog-done: #22c55e;
 
-    --imp-1: #5b6bf0;
+    --imp-1: #4f8bf5;
     --imp-2: #6fb0ff;
     --imp-3: #93c5fd;
-    --imp-4: #c7ddfb;
+    --imp-4: #bcd8fb;
 
     --ring: rgba(129, 140, 248, 0.4);
 
@@ -505,7 +509,7 @@ select {
   padding-right: 32px !important;
 }
 
-/* One shared low-cost sampling pass for actual glass layers. */
+/* One shared low-cost sampling pass for every actual glass surface. */
 .bottom-nav,
 .bottom-nav button.active,
 .offline-banner,
@@ -687,61 +691,78 @@ button.project-row,
 }
 
 /* =========================================================================
-   Offline / sync banner (floating glass-edged toast)
+   Sync pill — a floating frosted-glass status chip (Tier A chrome).
+   Light glass body + dark ink, matching the nav and popovers; state is carried
+   by a single tinted icon chip, not a loud full-bleed fill. --accent drives it.
    ========================================================================= */
 .offline-banner {
   position: fixed;
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
   z-index: 40;
+  --accent: var(--warning);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 10px;
-  width: min(360px, calc(100vw - 24px));
-  min-height: 48px;
-  padding: 9px 10px 9px 14px;
-  color: #fff;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--warning) 94%, #000 6%), var(--warning));
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: var(--r-md);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), var(--shadow-lg);
+  max-width: min(340px, calc(100vw - 24px));
+  padding: 6px 7px 6px 8px;
+  color: var(--ink);
+  background: var(--menu-fill);
+  border: 1px solid var(--glass-rim);
+  border-radius: var(--r-pill);
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
   animation: toast-in var(--t) var(--ease) both;
   transform-origin: top right;
 }
-.offline-banner.offline,
-.offline-banner.error { background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 94%, #000 6%), var(--danger)); }
-.offline-banner.syncing { background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 94%, #000 6%), var(--primary)); }
-.offline-banner.queued { background: linear-gradient(180deg, color-mix(in srgb, var(--warning) 94%, #000 6%), var(--warning)); }
+.offline-banner.offline { --accent: var(--muted); }
+.offline-banner.error   { --accent: var(--danger); }
+.offline-banner.syncing { --accent: var(--primary); }
+.offline-banner.queued,
+.offline-banner.loading { --accent: var(--warning); }
 
-.offline-banner div { display: flex; min-width: 0; align-items: center; gap: 8px; }
-.offline-banner div svg { flex: none; animation: pulse-dot 2.2s var(--ease) infinite; }
-.offline-banner.syncing div svg { animation: spin 1s linear infinite; }
-.offline-banner span {
+.offline-banner__icon {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 30px; height: 30px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-radius: var(--r-pill);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.offline-banner__icon svg { flex: none; }
+.offline-banner.syncing .offline-banner__icon svg { animation: spin 1s linear infinite; }
+.offline-banner.offline .offline-banner__icon svg { animation: pulse-dot 2.2s var(--ease) infinite; }
+
+.offline-banner__text {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .offline-banner button {
   display: inline-grid;
-  min-width: 38px; min-height: 38px;
   place-items: center;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: var(--r-sm);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
-  transition: background var(--t) var(--ease), transform var(--t-fast) var(--ease);
+  flex: none;
+  width: 34px; height: 34px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-pill);
+  transition: background var(--t) var(--ease), color var(--t) var(--ease), transform var(--t-fast) var(--ease);
 }
-@media (hover: hover) { .offline-banner button:hover { background: rgba(255, 255, 255, 0.28); } }
-.offline-banner button:active { transform: scale(0.94); }
+@media (hover: hover) { .offline-banner button:hover { background: var(--wash); color: var(--ink); } }
+.offline-banner button:active { transform: scale(0.92); }
+.offline-banner button:disabled { opacity: 0.45; }
 
 @media (max-width: 640px) {
-  .offline-banner { top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); width: min(320px, calc(100vw - 20px)); min-height: 44px; padding: 8px 9px 8px 12px; }
-  .offline-banner span { font-size: 0.82rem; }
-  .offline-banner button { min-width: 34px; min-height: 34px; }
+  .offline-banner { top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); max-width: min(300px, calc(100vw - 20px)); }
+  .offline-banner__text { font-size: 0.82rem; }
 }
 
 /* =========================================================================
@@ -1247,7 +1268,10 @@ input:focus, select:focus, textarea:focus { outline: none; }
   padding: 15px 15px 15px 19px;
   overflow: visible;
   background:
-    linear-gradient(90deg, color-mix(in srgb, var(--importance-color) 9%, transparent), transparent 44px),
+    linear-gradient(100deg,
+      color-mix(in srgb, var(--importance-color) 14%, transparent),
+      color-mix(in srgb, var(--importance-color) 4%, transparent) 90px,
+      transparent 220px),
     var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
@@ -1257,17 +1281,18 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 @media (hover: hover) { .task-table-row:hover { box-shadow: var(--shadow); border-color: var(--line-strong); } }
 
+/* Flush colour spine — reads as part of the card's left edge, not a floating
+   sticker. Vertical gradient + matched corner radius lets it melt into the
+   surface wash above. */
 .task-table-row::before {
   content: "";
   position: absolute;
-  top: 9px; bottom: 9px; left: 7px;
-  width: 5px;
-  border-radius: var(--r-pill);
-  background: color-mix(in srgb, var(--importance-color) 78%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 42%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--importance-color) 20%, transparent);
-  opacity: 0.86;
+  top: 0; bottom: 0; left: 0;
+  width: 3px;
+  border-radius: var(--r-md) 0 0 var(--r-md);
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--importance-color) 92%, transparent),
+    color-mix(in srgb, var(--importance-color) 58%, transparent));
 }
 .task-table-row.importance-1 { --importance-color: var(--imp-1); }
 .task-table-row.importance-2 { --importance-color: var(--imp-2); }
@@ -1391,21 +1416,21 @@ input:focus, select:focus, textarea:focus { outline: none; }
     grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
     gap: 0; min-height: 56px; padding: 0;
     overflow: visible;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--importance-color) 8%, transparent), transparent 46px);
+    background: linear-gradient(100deg, color-mix(in srgb, var(--importance-color) 11%, transparent), color-mix(in srgb, var(--importance-color) 3%, transparent) 80px, transparent 200px);
     border: 0; border-bottom: 1px solid var(--line);
     border-radius: 0; box-shadow: none; animation: none;
   }
   @media (hover: hover) {
     .task-table-row:hover {
       background:
-        linear-gradient(90deg, color-mix(in srgb, var(--importance-color) 10%, transparent), transparent 46px),
+        linear-gradient(100deg, color-mix(in srgb, var(--importance-color) 14%, transparent), color-mix(in srgb, var(--importance-color) 4%, transparent) 80px, transparent 200px),
         color-mix(in srgb, var(--primary) 3%, transparent);
       box-shadow: none;
     }
   }
   .task-table-row.with-date { grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
   .task-table-row:last-child { border-bottom: 0; }
-  .task-table-row::before { width: 5px; top: 9px; bottom: 9px; left: 7px; border-radius: var(--r-pill); z-index: 1; }
+  .task-table-row::before { width: 3px; top: 0; bottom: 0; left: 0; border-radius: 0; z-index: 1; }
   .tt-label { display: none; }
   .tt-cell { display: flex; gap: 0; border-right: 1px solid var(--line); }
   .tt-notes { border-right: 0; }

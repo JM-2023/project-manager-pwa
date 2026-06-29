@@ -8,8 +8,8 @@ interface BottomNavProps {
 
 const items: Array<{ id: TabId; label: string; Icon: typeof CalendarCheck2 }> = [
   { id: "today", label: "Today", Icon: CalendarCheck2 },
-  { id: "calendar", label: "Calendar", Icon: CalendarRange },
   { id: "projects", label: "Projects", Icon: Briefcase },
+  { id: "calendar", label: "Calendar", Icon: CalendarRange },
   { id: "next", label: "Next", Icon: Lightbulb },
   { id: "search", label: "Search", Icon: Search },
   { id: "settings", label: "Settings", Icon: Settings }

@@ -1,6 +1,6 @@
 {
   "name": "project-manager-pwa",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "private": true,
   "type": "module",
   "engines": {
@@ -14,7 +14,8 @@
     "db:migrate:local": "wrangler d1 migrations apply project_manager --local",
     "db:migrate:remote": "wrangler d1 migrations apply project_manager --remote",
     "hash-password": "node scripts/hash-password.mjs",
-    "cf:types": "wrangler types"
+    "cf:types": "wrangler types",
+    "test": "vitest run"
   },
   "dependencies": {
     "jose": "^5.9.6",
@@ -30,6 +31,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "typescript": "^5.5.4",
     "vite": "^5.4.2",
+    "vitest": "^2.1.9",
     "wrangler": "4.20.0"
   }
 }

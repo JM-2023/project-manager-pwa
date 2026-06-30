@@ -12,6 +12,18 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>Project Manager</title>
+    <script>
+      // Apply a pinned theme before first paint to avoid a flash of the wrong
+      // theme. "system" (or unset) falls through to prefers-color-scheme.
+      (function () {
+        try {
+          var t = localStorage.getItem("pm:theme");
+          if (t === "light" || t === "dark") {
+            document.documentElement.setAttribute("data-theme", t);
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

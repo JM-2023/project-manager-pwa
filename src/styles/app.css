@@ -644,6 +644,12 @@ button.project-row,
   text-align: right;
 }
 
+/* Settings header carries a theme segmented control on the right; let the
+   title stack and allow the row to wrap onto two lines on narrow phones. */
+.page-header:has(.page-header__title) { flex-wrap: wrap; align-items: center; }
+.page-header__title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.page-header__title p { text-align: left; }
+
 .today-page-header { align-items: center; }
 
 .today-date-switcher {

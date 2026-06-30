@@ -34,8 +34,11 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
   const projectsQuery = `SELECT * FROM projects WHERE user_id = ? ${changedClause(cursor)} ORDER BY sort_order, name`;
   const tasksQuery = `SELECT * FROM tasks WHERE user_id = ? ${changedClause(cursor)} ORDER BY due_date, sort_order`;
   const tagsQuery = `SELECT * FROM tags WHERE user_id = ? ${changedClause(cursor)} ORDER BY name`;
+  // task_tags now carries updated_at (migration 0003), stamped on every add /
+  // remove / re-add. A single `updated_at > cursor` therefore catches re-links
+  // that the old created_at/deleted_at cursor silently dropped.
   const taskTagsQuery = cursor
-    ? "SELECT * FROM task_tags WHERE user_id = ? AND (created_at > ? OR (deleted_at IS NOT NULL AND deleted_at > ?))"
+    ? "SELECT * FROM task_tags WHERE user_id = ? AND updated_at > ?"
     : "SELECT * FROM task_tags WHERE user_id = ?";
 
   // Next data is small and uses hard deletes (no tombstones), so we always
@@ -51,7 +54,7 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
     context.env.DB.prepare(tasksQuery).bind(...bindings).all(),
     context.env.DB.prepare(tagsQuery).bind(...bindings).all(),
     cursor
-      ? context.env.DB.prepare(taskTagsQuery).bind(user.id, cursor, cursor).all()
+      ? context.env.DB.prepare(taskTagsQuery).bind(user.id, cursor).all()
       : context.env.DB.prepare(taskTagsQuery).bind(user.id).all(),
     context.env.DB.prepare(nextProjectsQuery).bind(user.id).all(),
     context.env.DB.prepare(nextIdeasQuery).bind(user.id).all(),

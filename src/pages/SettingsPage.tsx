@@ -1,6 +1,7 @@
 import { LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
 import { ExportButton } from "../components/ExportButton";
 import { ImportWizard } from "../components/ImportWizard";
+import { ThemeToggle } from "../components/ThemeToggle";
 import type { ImportResponse, ImportRow, SessionResponse } from "../lib/types";
 import type { WorklogOverview } from "../lib/progress";
 
@@ -47,8 +48,11 @@ export function SettingsPage({
   return (
     <main className="page-content">
       <header className="page-header">
-        <h1>Settings</h1>
-        <p>{session?.user.email ?? "Signed in"}</p>
+        <div className="page-header__title">
+          <h1>Settings</h1>
+          <p>{session?.user.email ?? "Signed in"}</p>
+        </div>
+        <ThemeToggle />
       </header>
 
       <section className="settings-grid">

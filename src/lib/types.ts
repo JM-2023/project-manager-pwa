@@ -74,6 +74,10 @@ export interface TaskTag {
   tag_id: string;
   user_id?: string;
   created_at: string;
+  // Stamped server-side on every add / remove / re-add so the incremental
+  // bootstrap cursor can surface re-links (migration 0003). Optimistic local
+  // links may omit it until the next bootstrap fills it in.
+  updated_at?: string | null;
   deleted_at?: string | null;
 }
 

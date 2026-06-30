@@ -221,11 +221,11 @@ async function attachTags(context: AppContext, user: AuthUser, taskId: string, t
     const tagId = await getOrCreateTag(context, user, tagName, timestamp);
     if (!tagId) continue;
     await context.env.DB.prepare(
-      `INSERT INTO task_tags (task_id, tag_id, user_id, created_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(task_id, tag_id) DO UPDATE SET deleted_at = NULL`
+      `INSERT INTO task_tags (task_id, tag_id, user_id, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(task_id, tag_id) DO UPDATE SET deleted_at = NULL, updated_at = excluded.updated_at`
     )
-      .bind(taskId, tagId, user.id, timestamp, null)
+      .bind(taskId, tagId, user.id, timestamp, timestamp, null)
       .run();
   }
 }

@@ -5,7 +5,8 @@ const DB_NAME = "project-manager-pwa";
 const DB_VERSION = 2;
 
 type StoreName = "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas" | "pendingMutations" | "meta";
-type EntityStore = "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas";
+export type EntityStoreName = "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas";
+export type SavableEntity = Project | Task | Tag | TaskTag | NextProject | NextIdea;
 type LocalTaskTag = TaskTag & { key: string };
 
 export interface LocalSnapshot {
@@ -131,7 +132,7 @@ export async function saveBootstrapSnapshot(snapshot: BootstrapResponse): Promis
   await transactionDone(tx);
 }
 
-export async function saveEntity(storeName: EntityStore, record: Project | Task | Tag | TaskTag | NextProject | NextIdea): Promise<void> {
+export async function saveEntity(storeName: EntityStoreName, record: SavableEntity): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(storeName, "readwrite");
   if (storeName === "taskTags") {

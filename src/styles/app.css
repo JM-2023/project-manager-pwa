@@ -1494,8 +1494,15 @@ input:focus, select:focus, textarea:focus { outline: none; }
     }
   }
   .task-table-row.with-date { grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
-  .task-table-row:last-child { border-bottom: 0; }
+  .task-table-row:last-child { border-bottom: 0; border-bottom-left-radius: var(--r-lg); border-bottom-right-radius: var(--r-lg); }
   .task-table-row::before { width: 3px; top: 0; bottom: 0; left: 0; border-radius: 0; z-index: 1; }
+  /* Last row meets the table's rounded bottom-left corner. The table keeps
+     overflow: visible (so the row action menu can escape), so the square spine
+     would poke past the curve — fade it into the corner over the radius span. */
+  .task-table-row:last-child::before {
+    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--r-lg)), transparent);
+    mask-image: linear-gradient(to bottom, #000 calc(100% - var(--r-lg)), transparent);
+  }
   .tt-label { display: none; }
   .tt-cell { display: flex; gap: 0; border-right: 1px solid var(--line); }
   .tt-notes { border-right: 0; }

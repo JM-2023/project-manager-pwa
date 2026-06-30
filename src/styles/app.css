@@ -604,6 +604,31 @@ button.project-row,
 .reveal-complete .offline-banner,
 .reveal-complete .bottom-nav { animation: none; }
 
+/* Collapse-and-fade for items being removed (delete / archive / unarchive),
+   driven by useRemoveTransition. JS locks the element's height then drops it to
+   0; we transition that height alongside opacity/padding/margin so neighbouring
+   rows glide up into the gap instead of snapping shut. */
+.is-removing {
+  overflow: hidden !important;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.98);
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border-top-width: 0 !important;
+  border-bottom-width: 0 !important;
+  animation: none !important;
+  transition:
+    height var(--t-slow) var(--ease),
+    opacity var(--t-slow) var(--ease),
+    transform var(--t-slow) var(--ease),
+    padding var(--t-slow) var(--ease),
+    margin var(--t-slow) var(--ease),
+    border-width var(--t-slow) var(--ease) !important;
+}
+
 /* =========================================================================
    App shell + page scaffolding
    ========================================================================= */
@@ -1580,6 +1605,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border: 1.25px solid var(--chip-rim);
   border-radius: var(--r-md);
   box-shadow: var(--chip-shadow);
+  animation: fade-up var(--t-slow) var(--ease) both;
   transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.16s var(--ease);
 }
 @media (hover: hover) {
@@ -1668,6 +1694,7 @@ button.project-row {
   border: 1.25px solid var(--chip-rim);
   border-radius: var(--r-md);
   box-shadow: var(--chip-shadow);
+  animation: fade-up var(--t-slow) var(--ease) both;
   transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.16s var(--ease);
 }
 button.project-row .row-progress { right: 13px; left: 13px; bottom: 7px; }

@@ -2,6 +2,7 @@ import { Archive, ArchiveRestore, Check, ChevronDown, MoreHorizontal, Pencil, Pl
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Project, Task } from "../lib/types";
 import { isWorklogTask, progressTone, summarizeWorklogOverview, type WorklogOverview } from "../lib/progress";
+import { useRemoveTransition } from "../lib/useRemoveTransition";
 
 function ProgressMeter({ value }: { value: number }) {
   return (
@@ -47,6 +48,10 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const exitActionRef = useRef<(project: Project) => void>(onDelete);
+  const { ref: rowRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLDivElement>(
+    () => exitActionRef.current(project)
+  );
 
   useEffect(() => {
     setDraft(project.name);
@@ -98,12 +103,12 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
   }
 
   function runConfirm() {
-    if (confirm === "archive") {
-      onArchive(project);
-    } else if (confirm === "delete") {
-      onDelete(project);
-    }
+    const action = confirm === "archive" ? onArchive : confirm === "delete" ? onDelete : null;
     setMenuOpen(false);
+    if (action) {
+      exitActionRef.current = action;
+      beginRemove();
+    }
   }
 
   if (editing) {
@@ -134,7 +139,11 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
   }
 
   return (
-    <div className={active ? "project-row active" : "project-row"}>
+    <div
+      ref={rowRef}
+      className={`project-row${active ? " active" : ""}${removing ? " is-removing" : ""}`}
+      onTransitionEnd={onTransitionEnd}
+    >
       <button type="button" onClick={() => onSelect(project.id)}>
         <span className="project-color" style={{ backgroundColor: project.color ?? "var(--primary)" }} />
         <span>{project.name}</span>
@@ -206,14 +215,21 @@ interface ArchivedRowProps {
 }
 
 function ArchivedRow({ project, onUnarchive }: ArchivedRowProps) {
+  const { ref: rowRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLDivElement>(
+    () => onUnarchive(project)
+  );
   return (
-    <div className="archived-row">
+    <div
+      ref={rowRef}
+      className={`archived-row${removing ? " is-removing" : ""}`}
+      onTransitionEnd={onTransitionEnd}
+    >
       <span className="project-color" style={{ backgroundColor: project.color ?? "var(--primary)" }} />
       <span className="archived-row__name">{project.name}</span>
       <button
         type="button"
         className="icon-button"
-        onClick={() => onUnarchive(project)}
+        onClick={beginRemove}
         aria-label={`Restore ${project.name}`}
         title="Move back to projects"
       >

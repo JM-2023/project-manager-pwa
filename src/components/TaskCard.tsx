@@ -5,6 +5,7 @@ import { StatusPill } from "./StatusPill";
 import type { Tag, Task, TaskPriority, TaskStatus, TaskTag } from "../lib/types";
 import { formatShortDate } from "../lib/dates";
 import { priorityLabel, statusLabel } from "../lib/validation";
+import { useRemoveTransition } from "../lib/useRemoveTransition";
 
 interface TaskCardProps {
   task: Task;
@@ -31,6 +32,15 @@ export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchiv
   const [notes, setNotes] = useState(task.notes ?? "");
   const [tagName, setTagName] = useState("");
   const previousTaskRef = useRef(task);
+  const exitActionRef = useRef<(task: Task) => void>(onDelete);
+  const { ref: cardRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLElement>(
+    () => exitActionRef.current(task)
+  );
+
+  function removeWith(action: (task: Task) => void) {
+    exitActionRef.current = action;
+    beginRemove();
+  }
 
   useEffect(() => {
     const previous = previousTaskRef.current;
@@ -73,7 +83,11 @@ export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchiv
   }
 
   return (
-    <article className={`task-card priority-${task.priority}`}>
+    <article
+      ref={cardRef}
+      className={`task-card priority-${task.priority}${removing ? " is-removing" : ""}`}
+      onTransitionEnd={onTransitionEnd}
+    >
       <div className="task-card-top">
         <div>
           <input
@@ -145,11 +159,11 @@ export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchiv
       </div>
 
       <div className="task-actions">
-        <button type="button" className="ghost-button" onClick={() => onArchive(task)}>
+        <button type="button" className="ghost-button" onClick={() => removeWith(onArchive)}>
           <Archive size={16} aria-hidden="true" />
           <span>Archive</span>
         </button>
-        <button type="button" className="ghost-button danger" onClick={() => onDelete(task)}>
+        <button type="button" className="ghost-button danger" onClick={() => removeWith(onDelete)}>
           <Trash2 size={16} aria-hidden="true" />
           <span>Delete</span>
         </button>

@@ -24,6 +24,7 @@ import {
   type TaskImportance,
   type TaskProgress
 } from "../lib/progress";
+import { useRemoveTransition } from "../lib/useRemoveTransition";
 
 interface TaskTableProps {
   tasks: Task[];
@@ -69,6 +70,9 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const previousTaskRef = useRef(task);
+  const { ref: rowRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLDivElement>(
+    () => onDelete(task)
+  );
 
   useEffect(() => {
     const previous = previousTaskRef.current;
@@ -236,7 +240,11 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
   const importance = getTaskImportance(task);
 
   return (
-    <div className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}`}>
+    <div
+      ref={rowRef}
+      className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}${removing ? " is-removing" : ""}`}
+      onTransitionEnd={onTransitionEnd}
+    >
       <label className="tt-cell tt-importance">
         <span className="tt-label">重要程度</span>
         <select
@@ -356,7 +364,7 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
                   <span>Move to tomorrow</span>
                 </button>
                 <span className="task-action-menu__sep" role="separator" />
-                <button type="button" role="menuitem" className="danger" onClick={() => { onDelete(task); setMenuOpen(false); }}>
+                <button type="button" role="menuitem" className="danger" onClick={() => { setMenuOpen(false); beginRemove(); }}>
                   <Trash2 size={15} aria-hidden="true" />
                   <span>Delete task</span>
                 </button>

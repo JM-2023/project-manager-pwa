@@ -1346,19 +1346,6 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 @media (hover: hover) { .task-table-row:hover { box-shadow: var(--shadow); border-color: var(--line-strong); } }
 
-/* Flush colour spine — reads as part of the card's left edge, not a floating
-   sticker. Vertical gradient + matched corner radius lets it melt into the
-   surface wash above. */
-.task-table-row::before {
-  content: "";
-  position: absolute;
-  top: 0; bottom: 0; left: 0;
-  width: 3px;
-  border-radius: var(--r-md) 0 0 var(--r-md);
-  background: linear-gradient(180deg,
-    color-mix(in srgb, var(--importance-color) 92%, transparent),
-    color-mix(in srgb, var(--importance-color) 58%, transparent));
-}
 .task-table-row.importance-1 { --importance-color: var(--imp-1); }
 .task-table-row.importance-2 { --importance-color: var(--imp-2); }
 .task-table-row.importance-3 { --importance-color: var(--imp-3); }
@@ -1391,11 +1378,27 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .tt-cell > textarea, .task-table-note-cell textarea { overflow: hidden; resize: vertical; }
 .tt-task .task-table-title { font-weight: 700; font-size: 1rem; }
 
-/* Importance number colored by level */
-.task-table-importance.imp-1 { color: var(--imp-1); font-weight: 800; }
-.task-table-importance.imp-2 { color: var(--imp-2); font-weight: 750; }
-.task-table-importance.imp-3 { color: var(--imp-3); font-weight: 700; }
-.task-table-importance.imp-4 { color: var(--imp-4); font-weight: 700; }
+/* Importance shown as a self-contained colour chip (replaces the old left
+   spine, which poked past the table's rounded corner). Lives entirely inside
+   the importance cell, so it can never overflow the table edge. */
+.tt-cell > .task-table-importance {
+  width: auto;
+  justify-self: start;
+  min-width: 0;
+  min-height: 38px;
+  padding: 6px 16px !important;
+  font-weight: 800;
+  text-align: center;
+  text-align-last: center;
+  color: var(--importance-color);
+  background-color: color-mix(in srgb, var(--importance-color) 16%, var(--field-bg));
+  background-image: none;
+  border: 1px solid color-mix(in srgb, var(--importance-color) 32%, var(--line-strong));
+  border-radius: var(--r-pill);
+}
+.task-table-importance.imp-2 { font-weight: 750; }
+.task-table-importance.imp-3,
+.task-table-importance.imp-4 { font-weight: 700; }
 
 .tone-none { --prog-color: var(--prog-none); }
 .tone-low { --prog-color: var(--prog-low); }
@@ -1495,15 +1498,22 @@ input:focus, select:focus, textarea:focus { outline: none; }
   }
   .task-table-row.with-date { grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
   .task-table-row:last-child { border-bottom: 0; border-bottom-left-radius: var(--r-lg); border-bottom-right-radius: var(--r-lg); }
-  .task-table-row::before { width: 3px; top: 0; bottom: 0; left: 0; border-radius: 0; z-index: 1; }
-  /* Last row meets the table's rounded bottom-left corner. The table keeps
-     overflow: visible (so the row action menu can escape), so the square spine
-     would poke past the curve — fade it into the corner over the radius span. */
-  .task-table-row:last-child::before {
-    -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - var(--r-lg)), transparent);
-    mask-image: linear-gradient(to bottom, #000 calc(100% - var(--r-lg)), transparent);
-  }
   .tt-label { display: none; }
+  /* Importance chip stays a centred, contained pill in the table view. */
+  .tt-importance { align-items: center; justify-content: center; padding: 0 9px; }
+  .tt-importance > .task-table-importance {
+    min-height: 30px; min-width: 38px; padding: 3px 8px !important;
+    background-color: color-mix(in srgb, var(--importance-color) 16%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--importance-color) 30%, transparent);
+    border-radius: var(--r-pill);
+    transition: background-color var(--t) var(--ease), border-color var(--t) var(--ease);
+  }
+  /* Keep the chip's tint on focus instead of snapping to a plain white field. */
+  .tt-importance > .task-table-importance:focus {
+    background-color: color-mix(in srgb, var(--importance-color) 24%, var(--surface));
+    border-color: color-mix(in srgb, var(--importance-color) 45%, transparent);
+    border-radius: var(--r-pill);
+  }
   .tt-cell { display: flex; gap: 0; border-right: 1px solid var(--line); }
   .tt-notes { border-right: 0; }
   .tt-cell > select, .tt-cell > input, .tt-cell > textarea {

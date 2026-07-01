@@ -7,9 +7,9 @@ interface HeroPulseProps {
 
 const CELL = 8; // css px per matrix cell (square + gap)
 const DOT = 6; // filled square size within a cell
-const WAVELENGTH = 200; // px between travelling ripple crests (wide, gentle swells)
-const FLOW = 0.6; // ripple crests advanced per second (rightward flow speed)
-const SHARP = 1.25; // crest sharpness: near 1 = broad, soft, smoothly-fading bands
+const WAVELENGTH = 310; // px between travelling ripple crests (wide, gentle swells)
+const FLOW = 0.5; // ripple crests advanced per second (rightward flow speed)
+const SHARP = 1; // crest sharpness: 1 = pure sinusoid, broadest & smoothest band
 
 /** Hermite smoothstep: 0 below a, 1 above b, eased in between. */
 function smoothstep(a: number, b: number, x: number) {
@@ -135,10 +135,10 @@ export function HeroPulse({ pct }: HeroPulseProps) {
             const on = bias[idx] < cov ? 1 : 0;
             const ambient = on * (0.4 + 0.6 * tw) * emerge; // faint live bed
             const crest = band * bandEmerge * (0.35 + 0.65 * bias[idx]);
-            const level = env * (ambient * 0.32 + crest * 0.72);
+            const level = env * (ambient * 0.32 + crest * 0.6);
             if (level <= 0.03) continue;
             // Whiter toward the right and at the ripple crests.
-            const wp = Math.min(white + band * 0.34, 1);
+            const wp = Math.min(white + band * 0.26, 1);
             const r = Math.round(150 + 105 * wp);
             const g = Math.round(232 + 23 * wp);
             const b = Math.round(198 + 57 * wp);

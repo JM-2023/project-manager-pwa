@@ -19,17 +19,19 @@ function smoothstep(a: number, b: number, x: number) {
 }
 
 /**
- * Dot-matrix pulse over the hero's unfilled track: a green/white take on the
- * ultra "thinking" particles. The green liquid flows continuously past the fill
- * edge (the tail starts at the fill's end-green and fades to transparent by
- * 100%) so the two layers read as one body of water. Over it a grid of small
- * white squares does two things at once: a dim, random per-cell twinkle for a
- * live shimmer, and layered on top, bright Gaussian crests that emit from the
- * water line, sweep rightward, and dim as they travel (a visible left-to-right
- * pulse). A soft glow at the water line hides the fill/tail seam.
+ * The whole weighted-progress hero fill, drawn on one canvas so the solid green
+ * and the dot-matrix are a single object rather than two layers meeting at a
+ * seam. In one continuous render it draws: (1) a green body gradient: solid at
+ * the left, strongest at the water line, fading to transparent by 100%; (2) a
+ * dissolving grid of small squares that emerges around the water line, is green
+ * (blending into the fill) near it and turns white as it scatters right, with a
+ * random per-cell twinkle plus bright Gaussian crests that pulse left-to-right and
+ * fade before 100%; (3) a glass sheen composited source-atop so it only lands on
+ * the liquid. A green-to-white gradient runs through the middle, so there is no
+ * boundary between "fill" and "particles".
  *
- * Rendered on a canvas because a genuinely random shimmer plus travelling crests
- * can't be expressed with tiled CSS backgrounds.
+ * On a canvas because the random shimmer, travelling crests and per-pixel
+ * dissolve can't be expressed with CSS/tiled backgrounds.
  */
 export function HeroPulse({ pct }: HeroPulseProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -78,45 +80,52 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       }
     };
 
+    // Eased, displayed percent so the fill grows smoothly when the data changes
+    // (replaces the CSS width transition the old fill element used to have).
+    let renderPct = Math.min(Math.max(pctRef.current, 0), 100);
+
     const draw = (tms: number) => {
       const t = tms / 1000;
-      ctx.clearRect(0, 0, W, H);
-      const pctX = (Math.min(Math.max(pctRef.current, 0), 100) / 100) * W;
-      const tail = W - pctX;
-      if (tail > 2) {
-        // Smooth green bed: continuous with the fill, fading to transparent by
-        // 100%. This is the base the pixels dissolve out of.
-        const grad = ctx.createLinearGradient(pctX, 0, W, 0);
-        grad.addColorStop(0, "rgba(6, 150, 105, 0.52)");
-        grad.addColorStop(0.45, "rgba(16, 185, 129, 0.16)");
-        grad.addColorStop(1, "rgba(16, 185, 129, 0)");
-        ctx.fillStyle = grad;
-        ctx.fillRect(pctX, 0, tail, H);
+      const target = Math.min(Math.max(pctRef.current, 0), 100);
+      renderPct += (target - renderPct) * (reduce ? 1 : 0.1);
+      if (Math.abs(target - renderPct) < 0.05) renderPct = target;
 
-        // Positions (in u-space) of the travelling pulse crests this frame.
+      ctx.clearRect(0, 0, W, H);
+      const pctX = (renderPct / 100) * W;
+      const tail = W - pctX;
+
+      // 1) One continuous green body across the whole bar: solid at the left,
+      //    strongest at the water line, fading to transparent by 100%. Drawing
+      //    the fill here (rather than as a separate CSS element) is what makes
+      //    the fill and the pixels a single object with a gradient between them.
+      const f = Math.min(Math.max(pctX / W, 0.0001), 0.9999);
+      const body = ctx.createLinearGradient(0, 0, W, 0);
+      body.addColorStop(0, "rgba(16, 180, 120, 0.34)");
+      body.addColorStop(f * 0.55, "rgba(11, 168, 116, 0.56)");
+      body.addColorStop(f, "rgba(4, 146, 100, 0.72)");
+      body.addColorStop(Math.min(1, f + (1 - f) * 0.42), "rgba(16, 185, 129, 0.14)");
+      body.addColorStop(1, "rgba(16, 185, 129, 0)");
+      ctx.fillStyle = body;
+      ctx.fillRect(0, 0, W, H);
+
+      // 2) Dissolving dot matrix + travelling pulse. The pixels emerge around
+      //    the water line so the solid green disintegrates into a grid.
+      if (tail > 2) {
         const crests: number[] = [];
         for (let k = 0; k < BANDS; k += 1) {
           const p = t / PERIOD + k / BANDS;
           crests.push(p - Math.floor(p));
         }
 
-        // Start a couple of cells inside the fill so the pixels grow out of the
-        // solid green instead of switching on at a hard edge.
-        const startX = pctX - 2 * CELL;
         for (let cx = 0; cx < cols; cx += 1) {
-          const x = startX + cx * CELL;
-          if (x > W) break;
+          const x = cx * CELL;
           const u = (x - pctX) / tail; // <0 inside the fill, 1 at 100%
-          if (u > 1) continue;
+          if (u < -0.12 || u > 1) continue;
           const env = u < 0 ? 1 : Math.max(0, 1 - u); // overall fade toward 100%
-          // Dissolve: fully covered at the water line, scattering to nothing.
-          const cov = Math.min(Math.max(1.2 - u * 1.85, 0), 1);
-          // Cells are green (blend into the fill) near the edge, turning white
-          // as they scatter outward.
-          const white = smoothstep(0.05, 0.5, u);
+          const emerge = smoothstep(0, 0.22, u); // ~0 at the crest, rising out
+          const cov = Math.min(Math.max(1.15 - u * 1.7, 0), 1); // dissolve density
+          const white = smoothstep(0.04, 0.5, u); // green near fill -> white out
 
-          // Travelling pulse: bright where a crest sits; each crest dims as it
-          // advances (1 - p), so the wave fades before it reaches 100%.
           let pulse = 0;
           for (let k = 0; k < BANDS; k += 1) {
             const d = u - crests[k];
@@ -127,23 +136,42 @@ export function HeroPulse({ pct }: HeroPulseProps) {
           for (let cy = 0; cy < rows; cy += 1) {
             const idx = cx * rows + cy;
             const tw = 0.5 + 0.5 * Math.sin(t * speeds[idx] + seeds[idx]);
-            const on = bias[idx] < cov ? 1 : 0; // dissolve mask (ambient bed)
-            const ambient = on * (0.45 + 0.55 * tw);
-            const crestLevel = pulse * (0.5 + 0.5 * tw); // crest lights any cell
-            const level = env * (ambient * 0.6 + crestLevel);
+            const on = bias[idx] < cov ? 1 : 0;
+            // Ambient bed is hidden at the crest (emerge ~= 0) so the fill stays
+            // solid there, then dissolves out; the pulse can light any cell.
+            const ambient = on * (0.4 + 0.6 * tw) * emerge;
+            const crestLevel = pulse * (0.5 + 0.5 * tw);
+            const level = env * (ambient * 0.7 + crestLevel);
             if (level <= 0.03) continue;
             // Whiter toward the right and wherever a crest currently sits.
-            const wp = Math.min(white + pulse * 0.55, 1);
+            const wp = Math.min(white + pulse * 0.5, 1);
             const r = Math.round(150 + 105 * wp);
             const g = Math.round(232 + 23 * wp);
             const b = Math.round(198 + 57 * wp);
-            let a = level * (0.55 + 0.45 * bias[idx]);
+            let a = level * (0.5 + 0.5 * bias[idx]);
             if (a > 1) a = 1;
             ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
             ctx.fillRect(x, cy * CELL, DOT, DOT);
           }
         }
       }
+
+      // 3) Glass sheen: composited source-atop so it lands only on the liquid
+      //    (green + pixels), following its shape and alpha, so there is no seam.
+      ctx.globalCompositeOperation = "source-atop";
+      const sheen = ctx.createLinearGradient(0, 0, 0, H);
+      sheen.addColorStop(0, "rgba(255, 255, 255, 0.42)");
+      sheen.addColorStop(0.45, "rgba(255, 255, 255, 0.05)");
+      sheen.addColorStop(0.8, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = sheen;
+      ctx.fillRect(0, 0, W, H);
+      const shade = ctx.createLinearGradient(0, H * 0.45, 0, H);
+      shade.addColorStop(0, "rgba(3, 60, 40, 0)");
+      shade.addColorStop(1, "rgba(3, 60, 40, 0.42)");
+      ctx.fillStyle = shade;
+      ctx.fillRect(0, 0, W, H);
+      ctx.globalCompositeOperation = "source-over";
+
       if (!reduce) raf = requestAnimationFrame(draw);
     };
 

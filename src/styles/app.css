@@ -1217,35 +1217,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
   box-shadow: var(--glass-highlight), var(--shadow);
 }
 
-.summary-hero__fill {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  width: clamp(0%, var(--pct, 0%), 100%);
-  /* Straight right edge so the fill flows into the canvas tail rather than
-     ending in a rounded pill; the container's overflow:hidden rounds the left. */
-  border-radius: 0;
-  overflow: hidden;
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.16) 0%, rgba(16, 185, 129, 0.4) 66%, rgba(5, 150, 105, 0.55) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -16px 26px -8px rgba(6, 78, 59, 0.42);
-  transition: width var(--t-slow) var(--ease);
-}
-.summary-hero[style*="--pct:0%"] .summary-hero__fill,
-.summary-hero[style*="--pct: 0%"] .summary-hero__fill { box-shadow: none; }
-
-.summary-hero__sheen {
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 52%;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0.1) 55%, rgba(255, 255, 255, 0) 100%);
-  mix-blend-mode: screen;
-}
-/* Dot-matrix pulse: a canvas-drawn green/white take on the ultra "thinking"
-   particles. From the fill's right edge a faint green tail runs to 100% while a
-   grid of small white squares twinkles continuously and dissolves rightward.
-   The drawing (grid, water line, fade envelope) lives in HeroPulse.tsx; this
-   just parks the canvas above the liquid fill and below the label/value text.
+/* The entire weighted-progress fill is drawn on one canvas (HeroPulse.tsx) so
+   the solid green and the dissolving dot-matrix are a single object with no
+   seam. This just parks the canvas over the glass pane and below the text.
    width/height 100% is required: a <canvas> is a replaced element, so inset:0
    alone leaves it at its intrinsic size instead of filling the pane. */
 .summary-hero__matrix {

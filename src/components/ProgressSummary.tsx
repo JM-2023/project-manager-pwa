@@ -12,13 +12,9 @@ export function ProgressSummary({ summary, label }: ProgressSummaryProps) {
     <section className="progress-summary" aria-label={label}>
       <div
         className="summary-hero"
-        style={{ "--pct": `${summary.weightedPercent}%` } as CSSProperties}
         role="img"
         aria-label={`加权推进 ${summary.weightedPercent}%`}
       >
-        <span className="summary-hero__fill" aria-hidden="true">
-          <span className="summary-hero__sheen" />
-        </span>
         <HeroPulse pct={summary.weightedPercent} />
         <span className="summary-hero__label">加权推进</span>
         <strong className="summary-hero__value">{progressLabel(summary.weightedPercent)}</strong>

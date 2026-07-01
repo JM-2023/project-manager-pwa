@@ -133,7 +133,7 @@ export function HeroPulse({ pct }: HeroPulseProps) {
             // Fade the crest IN as it is born (smoothstep) as well as out as it
             // travels (1 - p), so it swells up from the water line instead of
             // popping on at full brightness.
-            const amp = smoothstep(0, 0.18, p) * (1 - p);
+            const amp = smoothstep(0, 0.3, p) * (1 - p);
             pulse += Math.exp(-(d * d) / (2 * SIGMA * SIGMA)) * amp;
           }
           if (pulse > 1) pulse = 1;

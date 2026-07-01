@@ -9,7 +9,14 @@ const CELL = 8; // css px per matrix cell (square + gap)
 const DOT = 6; // filled square size within a cell
 const PERIOD = 2.4; // seconds for one pulse crest to cross the track
 const BANDS = 2; // concurrent crests, phase-staggered so the pulse never gaps
-const SIGMA = 0.11; // crest half-width in u-space (0..1 across the tail)
+const SIGMA = 0.12; // crest half-width in u-space (0..1 across the tail)
+
+/** Hermite smoothstep: 0 below a, 1 above b, eased in between. */
+function smoothstep(a: number, b: number, x: number) {
+  let t = (x - a) / (b - a);
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return t * t * (3 - 2 * t);
+}
 
 /**
  * Dot-matrix pulse over the hero's unfilled track: a green/white take on the
@@ -43,7 +50,7 @@ export function HeroPulse({ pct }: HeroPulseProps) {
     let H = 0;
     let cols = 0;
     let rows = 0;
-    // Per-cell random phase / speed / base brightness — the source of the
+    // Per-cell random phase / speed / base brightness: the source of the
     // irregular, continuous (non-marching) twinkle.
     let seeds = new Float32Array(0);
     let speeds = new Float32Array(0);
@@ -58,7 +65,7 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      cols = Math.ceil(W / CELL) + 1;
+      cols = Math.ceil(W / CELL) + 3; // +3 covers the 2-cell overlap start
       rows = Math.ceil(H / CELL) + 1;
       const n = cols * rows;
       seeds = new Float32Array(n);
@@ -77,22 +84,14 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       const pctX = (Math.min(Math.max(pctRef.current, 0), 100) / 100) * W;
       const tail = W - pctX;
       if (tail > 2) {
-        // Continuous green tail starts at the fill's end-green and fades to
-        // transparent by 100%, so the fill and this layer merge into one body.
+        // Smooth green bed: continuous with the fill, fading to transparent by
+        // 100%. This is the base the pixels dissolve out of.
         const grad = ctx.createLinearGradient(pctX, 0, W, 0);
-        grad.addColorStop(0, "rgba(6, 150, 105, 0.5)");
-        grad.addColorStop(0.5, "rgba(16, 185, 129, 0.14)");
+        grad.addColorStop(0, "rgba(6, 150, 105, 0.52)");
+        grad.addColorStop(0.45, "rgba(16, 185, 129, 0.16)");
         grad.addColorStop(1, "rgba(16, 185, 129, 0)");
         ctx.fillStyle = grad;
         ctx.fillRect(pctX, 0, tail, H);
-
-        // Soft glow straddling the water line, hiding the fill/tail seam.
-        const glow = ctx.createLinearGradient(pctX - 12, 0, pctX + 26, 0);
-        glow.addColorStop(0, "rgba(214, 255, 235, 0)");
-        glow.addColorStop(0.4, "rgba(214, 255, 235, 0.45)");
-        glow.addColorStop(1, "rgba(214, 255, 235, 0)");
-        ctx.fillStyle = glow;
-        ctx.fillRect(pctX - 12, 0, 38, H);
 
         // Positions (in u-space) of the travelling pulse crests this frame.
         const crests: number[] = [];
@@ -101,15 +100,23 @@ export function HeroPulse({ pct }: HeroPulseProps) {
           crests.push(p - Math.floor(p));
         }
 
+        // Start a couple of cells inside the fill so the pixels grow out of the
+        // solid green instead of switching on at a hard edge.
+        const startX = pctX - 2 * CELL;
         for (let cx = 0; cx < cols; cx += 1) {
-          const x = cx * CELL;
-          if (x < pctX - CELL || x > W) continue;
-          const u = (x - pctX) / tail; // 0 at the water line, 1 at 100%
+          const x = startX + cx * CELL;
+          if (x > W) break;
+          const u = (x - pctX) / tail; // <0 inside the fill, 1 at 100%
           if (u > 1) continue;
-          const env = Math.max(0, 1 - u); // fades everything out toward the end
+          const env = u < 0 ? 1 : Math.max(0, 1 - u); // overall fade toward 100%
+          // Dissolve: fully covered at the water line, scattering to nothing.
+          const cov = Math.min(Math.max(1.2 - u * 1.85, 0), 1);
+          // Cells are green (blend into the fill) near the edge, turning white
+          // as they scatter outward.
+          const white = smoothstep(0.05, 0.5, u);
 
-          // Travelling pulse: bright where a crest currently sits; each crest
-          // dims as it advances (1 - p), so the wave fades before reaching 100%.
+          // Travelling pulse: bright where a crest sits; each crest dims as it
+          // advances (1 - p), so the wave fades before it reaches 100%.
           let pulse = 0;
           for (let k = 0; k < BANDS; k += 1) {
             const d = u - crests[k];
@@ -120,13 +127,19 @@ export function HeroPulse({ pct }: HeroPulseProps) {
           for (let cy = 0; cy < rows; cy += 1) {
             const idx = cx * rows + cy;
             const tw = 0.5 + 0.5 * Math.sin(t * speeds[idx] + seeds[idx]);
-            // Dim ambient shimmer + the bright pulse crest, both kept pixelated
-            // by the per-cell random bias so the wave front scatters.
-            const ambient = 0.2 * (0.4 + 0.6 * bias[idx]) * tw;
-            const crest = pulse * (0.35 + 0.65 * bias[idx]) * (0.55 + 0.45 * tw);
-            const a = env * (ambient + 0.95 * crest);
-            if (a < 0.035) continue;
-            ctx.fillStyle = `rgba(255, 255, 255, ${a > 1 ? 1 : a})`;
+            const on = bias[idx] < cov ? 1 : 0; // dissolve mask (ambient bed)
+            const ambient = on * (0.45 + 0.55 * tw);
+            const crestLevel = pulse * (0.5 + 0.5 * tw); // crest lights any cell
+            const level = env * (ambient * 0.6 + crestLevel);
+            if (level <= 0.03) continue;
+            // Whiter toward the right and wherever a crest currently sits.
+            const wp = Math.min(white + pulse * 0.55, 1);
+            const r = Math.round(150 + 105 * wp);
+            const g = Math.round(232 + 23 * wp);
+            const b = Math.round(198 + 57 * wp);
+            let a = level * (0.55 + 0.45 * bias[idx]);
+            if (a > 1) a = 1;
+            ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
             ctx.fillRect(x, cy * CELL, DOT, DOT);
           }
         }

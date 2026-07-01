@@ -7,8 +7,8 @@ interface HeroPulseProps {
 
 const CELL = 8; // css px per matrix cell (square + gap)
 const DOT = 6; // filled square size within a cell
-const PERIOD = 2.4; // seconds for one pulse crest to cross the track
-const BANDS = 2; // concurrent crests, phase-staggered so the pulse never gaps
+const PERIOD = 2.6; // seconds for one pulse crest to cross the track
+const BANDS = 5; // concurrent crests, evenly phase-spread for a continuous stream
 const SIGMA = 0.12; // crest half-width in u-space (0..1 across the tail)
 
 /** Hermite smoothstep: 0 below a, 1 above b, eased in between. */

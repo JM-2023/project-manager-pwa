@@ -18,7 +18,6 @@ export function ProgressSummary({ summary, label }: ProgressSummaryProps) {
       >
         <span className="summary-hero__fill" aria-hidden="true">
           <span className="summary-hero__sheen" />
-          <span className="summary-hero__edge" />
         </span>
         <HeroPulse pct={summary.weightedPercent} />
         <span className="summary-hero__label">加权推进</span>

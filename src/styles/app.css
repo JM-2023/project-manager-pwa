@@ -1246,6 +1246,88 @@ input:focus, select:focus, textarea:focus { outline: none; }
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(167, 243, 208, 0.65));
   box-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
 }
+
+/* Advancing-water particle shimmer — a green take on the ultra "thinking"
+   particle field. Spans the whole pane so the unfilled right also glimmers;
+   the field drifts left→right and is brightest at the current water line.
+   Sits above the liquid fill, below the label/value text. */
+.summary-hero__particles {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  /* a soft crest of light sweeping across, selling the rising motion */
+  background: linear-gradient(100deg,
+    transparent 38%,
+    rgba(110, 231, 183, 0.18) 50%,
+    transparent 62%);
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  /* brightest at the current fill line, still glimmering to the right */
+  -webkit-mask-image: linear-gradient(90deg,
+    rgba(0, 0, 0, 0.62) 0%,
+    rgba(0, 0, 0, 1) clamp(0%, var(--pct, 0%), 100%),
+    rgba(0, 0, 0, 0.55) 100%);
+          mask-image: linear-gradient(90deg,
+    rgba(0, 0, 0, 0.62) 0%,
+    rgba(0, 0, 0, 1) clamp(0%, var(--pct, 0%), 100%),
+    rgba(0, 0, 0, 0.55) 100%);
+  animation: hero-crest 5s ease-in-out infinite;
+}
+.summary-hero__particles::before,
+.summary-hero__particles::after {
+  content: "";
+  position: absolute;
+  inset: -40% -30%;
+  background-repeat: repeat;
+  will-change: transform, opacity;
+}
+/* slow, larger, brighter grains */
+.summary-hero__particles::before {
+  background-image:
+    radial-gradient(circle at center, rgba(209, 250, 229, 0.95) 0, rgba(209, 250, 229, 0) 1.5px),
+    radial-gradient(circle at center, rgba(52, 211, 153, 0.75) 0, rgba(52, 211, 153, 0) 1.5px);
+  background-size: 46px 46px, 72px 60px;
+  background-position: 0 0, 24px 18px;
+  animation: hero-grains-a 7s linear infinite, hero-twinkle 2.6s ease-in-out infinite;
+}
+/* faster, finer grains for parallax depth */
+.summary-hero__particles::after {
+  opacity: 0.72;
+  background-image:
+    radial-gradient(circle at center, rgba(167, 243, 208, 0.85) 0, rgba(167, 243, 208, 0) 1.3px),
+    radial-gradient(circle at center, rgba(110, 231, 183, 0.6) 0, rgba(110, 231, 183, 0) 1.3px);
+  background-size: 34px 34px, 58px 50px;
+  background-position: 12px 8px, 40px 26px;
+  animation: hero-grains-b 4.4s linear infinite, hero-twinkle 1.9s ease-in-out infinite reverse;
+}
+/* translate by exactly one horizontal tile so the repeat loops seamlessly */
+@keyframes hero-grains-a {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(46px, 0, 0); }
+}
+@keyframes hero-grains-b {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(34px, 0, 0); }
+}
+@keyframes hero-twinkle {
+  0%, 100% { opacity: 0.4; }
+  50%      { opacity: 0.92; }
+}
+@keyframes hero-crest {
+  0%   { background-position: -40% 0; }
+  100% { background-position: 160% 0; }
+}
+.summary-hero[style*="--pct:0%"] .summary-hero__particles,
+.summary-hero[style*="--pct: 0%"] .summary-hero__particles { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .summary-hero__particles,
+  .summary-hero__particles::before,
+  .summary-hero__particles::after { animation: none; }
+}
 .summary-hero__label {
   position: relative;
   overflow: visible;

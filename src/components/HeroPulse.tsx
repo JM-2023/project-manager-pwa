@@ -7,7 +7,7 @@ interface HeroPulseProps {
 
 const CELL = 8; // css px per matrix cell (square + gap)
 const DOT = 6; // filled square size within a cell
-const WAVELENGTH = 310; // px between travelling ripple crests (wide, gentle swells)
+const WAVELENGTH = 380; // px between travelling ripple crests (wide, gentle swells)
 const FLOW = 0.5; // ripple crests advanced per second (rightward flow speed)
 const SHARP = 1; // crest sharpness: 1 = pure sinusoid, broadest & smoothest band
 

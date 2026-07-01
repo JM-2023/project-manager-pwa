@@ -2,8 +2,14 @@ import { LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
 import { ExportButton } from "../components/ExportButton";
 import { ImportWizard } from "../components/ImportWizard";
 import { ThemeToggle } from "../components/ThemeToggle";
+import { useHeroAnimation, type HeroAnimation } from "../lib/heroAnimation";
 import type { ImportResponse, ImportRow, SessionResponse } from "../lib/types";
 import type { WorklogOverview } from "../lib/progress";
+
+const HERO_ANIM_OPTIONS: { id: HeroAnimation; label: string }[] = [
+  { id: "flow", label: "游动" },
+  { id: "shimmer", label: "闪烁" }
+];
 
 interface SettingsPageProps {
   taskCount: number;
@@ -35,6 +41,7 @@ export function SettingsPage({
   onLogout
 }: SettingsPageProps) {
   const r2Enabled = Boolean(session?.features.r2Backups);
+  const [heroAnim, setHeroAnim] = useHeroAnimation();
 
   function handleForceResync() {
     const confirmed = window.confirm(
@@ -88,6 +95,27 @@ export function SettingsPage({
           <span>Last export</span>
           <strong>{lastExport ? new Date(lastExport).toLocaleString() : "Never"}</strong>
         </div>
+      </section>
+
+      <section className="settings-section">
+        <h2>外观</h2>
+        <div className="settings-row">
+          <span>加权推进动画</span>
+          <div className="cal-seg" role="group" aria-label="加权推进动画">
+            {HERO_ANIM_OPTIONS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={heroAnim === item.id ? "active" : ""}
+                aria-pressed={heroAnim === item.id}
+                onClick={() => setHeroAnim(item.id)}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="settings-hint">今日页「加权推进」的像素动画：游动让像素顺着填充方向游出并消散，闪烁则原地明暗闪烁。</p>
       </section>
 
       <section className="settings-section">

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useHeroAnimation } from "../lib/heroAnimation";
 
 interface HeroPulseProps {
   /** Weighted percent 0-100: the water line the dot matrix is emitted from. */
@@ -7,9 +8,8 @@ interface HeroPulseProps {
 
 const CELL = 8; // css px per matrix cell (square + gap)
 const DOT = 6; // filled square size within a cell
-const WAVELENGTH = 720; // px between travelling ripple crests (wide, gentle swells)
-const FLOW = 0.6; // ripple crests advanced per second (rightward flow speed)
-const SHARP = 0.5; // crest sharpness: below 1 = broader, softer bands
+const OVERLAP = 72; // px the mosaic dithers in over the solid fill (no seam)
+const DRIFT = 20; // px per second the dot field glides rightward in "flow" mode
 
 /** Hermite smoothstep: 0 below a, 1 above b, eased in between. */
 function smoothstep(a: number, b: number, x: number) {
@@ -23,21 +23,29 @@ function smoothstep(a: number, b: number, x: number) {
  * and the dot-matrix are a single object rather than two layers meeting at a
  * seam. In one continuous render it draws: (1) a green body gradient: solid at
  * the left, strongest at the water line, fading to transparent by 100%; (2) a
- * dissolving grid of small squares that emerges around the water line, is green
- * (blending into the fill) near it and turns white as it scatters right, lit by a
- * continuous travelling wave of ripple-bands that flow left-to-right out of the
- * water line and fade before 100%; (3) a glass sheen composited source-atop so it
- * only lands on the liquid. A green-to-white gradient runs through the middle, so
- * there is no boundary between "fill" and "particles".
+ * dense shimmering mosaic of small squares that overlays the last stretch of
+ * the fill — mixed lighter/darker green tints there, so the solid fill visibly
+ * dissolves into pixels — then scatters, whitens and fades out well before
+ * 100%. Each cell breathes in and out at its own random pace — the sparkling
+ * dither of the effort-slider effect. In the "flow" animation preference the
+ * whole dot field also glides rightward, so pixels visibly swim out of the
+ * fill, whiten and dissolve as they travel; in "shimmer" the field twinkles
+ * in place; (3) a glass sheen composited source-atop so it only lands
+ * on the liquid. A green-to-white gradient runs through the middle, so there
+ * is no boundary between "fill" and "particles".
  *
- * On a canvas because the random shimmer, travelling crests and per-pixel
- * dissolve can't be expressed with CSS/tiled backgrounds.
+ * On a canvas because the per-cell random shimmer and per-pixel dissolve can't
+ * be expressed with CSS/tiled backgrounds.
  */
 export function HeroPulse({ pct }: HeroPulseProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Read the live percent inside the animation loop without re-seeding on change.
+  const [anim] = useHeroAnimation();
+  // Read the live percent / animation mode inside the animation loop without
+  // re-seeding the random field on change.
   const pctRef = useRef(pct);
   pctRef.current = pct;
+  const animRef = useRef(anim);
+  animRef.current = anim;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -67,7 +75,7 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       canvas.width = Math.round(W * dpr);
       canvas.height = Math.round(H * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      cols = Math.ceil(W / CELL) + 3; // +3 covers the 2-cell overlap start
+      cols = Math.ceil(W / CELL) + 1;
       rows = Math.ceil(H / CELL) + 1;
       const n = cols * rows;
       seeds = new Float32Array(n);
@@ -75,7 +83,7 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       bias = new Float32Array(n);
       for (let i = 0; i < n; i += 1) {
         seeds[i] = Math.random() * Math.PI * 2;
-        speeds[i] = 1.2 + Math.random() * 2.8;
+        speeds[i] = 1.5 + Math.random() * 3.5;
         bias[i] = Math.random();
       }
     };
@@ -108,42 +116,53 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       ctx.fillStyle = body;
       ctx.fillRect(0, 0, W, H);
 
-      // 2) Dissolving dot matrix that flows left-to-right like water. A continuous
-      //    travelling wave of vertical ripple-bands scrolls rightward out of the
-      //    water line so the direction is always legible, while the solid green
-      //    disintegrates into pixels that whiten and fade before 100%.
+      // 2) Shimmering dot mosaic. A dense grid of squares rides over the last
+      //    OVERLAP px of the fill — mixed light/dark green tints there, the
+      //    dither look — then thins out, whitens and fades before 100%. Each
+      //    square breathes at its own random pace, and the whole field glides
+      //    rightward at DRIFT px/s: the sub-cell offset `frac` slides the grid
+      //    smoothly while `shiftC` re-bases which random column each screen
+      //    column samples, so a dot keeps its identity (tone, twinkle phase)
+      //    as it swims out of the fill toward 100%.
       if (tail > 2) {
-        for (let cx = 0; cx < cols; cx += 1) {
-          const x = cx * CELL;
-          const u = (x - pctX) / tail; // <0 inside the fill, 1 at 100%
-          if (u < -0.12 || u > 1) continue;
-          const env = u < 0 ? 1 : Math.max(0, 1 - u); // overall fade toward 100%
-          const emerge = smoothstep(0, 0.22, u); // ambient bed hidden at the line
-          const cov = Math.min(Math.max(1.15 - u * 1.7, 0), 1); // dissolve density
-          const white = smoothstep(0.04, 0.5, u); // green near fill -> white out
-
-          // Travelling ripple: subtracting t * FLOW moves the crests in +x over
-          // time; SHARP narrows them into distinct bands with gaps so the flow
-          // direction reads clearly.
-          const phase = (x - pctX) / WAVELENGTH - t * FLOW;
-          const band = Math.pow(0.5 + 0.5 * Math.cos(phase * Math.PI * 2), SHARP);
-          const bandEmerge = smoothstep(0, 0.1, u); // bands swell in from the line
+        const drift = animRef.current === "flow" ? t * DRIFT : 0;
+        const shiftC = Math.floor(drift / CELL);
+        const frac = drift - shiftC * CELL;
+        for (let cx = -1; cx < cols; cx += 1) {
+          const x = cx * CELL + frac;
+          const d = x - pctX; // px past the water line, <0 over the fill
+          if (d < -OVERLAP) continue;
+          const u = d / tail; // 0 at the water line, 1 at 100%
+          if (u > 1) continue;
+          const env = u <= 0 ? 1 : 1 - u; // overall fade toward 100%
+          // Coverage combines both fronts of the dither: it ramps 0 -> 1 over
+          // the fill (sparse dots first, then a full mosaic — the effort-slider
+          // ramp) and back down past the line as the pixels dissolve away.
+          const covIn = smoothstep(-OVERLAP, -4, d);
+          const covOut = Math.min(Math.max(1.15 - u * 1.55, 0), 1);
+          const cov = covIn * covOut;
+          const white = smoothstep(0.05, 0.55, u); // green near fill -> white out
+          if (cov <= 0) continue;
+          const fc = (((cx - shiftC) % cols) + cols) % cols; // wrapped field column
 
           for (let cy = 0; cy < rows; cy += 1) {
-            const idx = cx * rows + cy;
+            const idx = fc * rows + cy;
+            const gap = cov - bias[idx];
+            if (gap <= 0) continue; // this cell hasn't emerged / has dissolved
+            // Squared sine keeps cells dim most of the time with smooth bright
+            // blinks — sparkle rather than uniform throb.
             const tw = 0.5 + 0.5 * Math.sin(t * speeds[idx] + seeds[idx]);
-            const on = bias[idx] < cov ? 1 : 0;
-            const ambient = on * (0.4 + 0.6 * tw) * emerge; // faint live bed
-            const crest = band * bandEmerge * (0.35 + 0.65 * bias[idx]);
-            const level = env * (ambient * 0.32 + crest * 0.6);
-            if (level <= 0.03) continue;
-            // Whiter toward the right and at the ripple crests.
-            const wp = Math.min(white + band * 0.26, 1);
-            const r = Math.round(150 + 105 * wp);
-            const g = Math.round(232 + 23 * wp);
-            const b = Math.round(198 + 57 * wp);
-            let a = level * (0.5 + 0.5 * bias[idx]);
-            if (a > 1) a = 1;
+            // Cells near the coverage front ease in instead of popping.
+            const edge = smoothstep(0, 0.12, gap);
+            const a = env * edge * (0.3 + 0.62 * tw * tw);
+            if (a <= 0.03) continue;
+            // Cell tone: low-bias cells are the light ones (they also survive
+            // the dissolve longest, so the far scattered dots read pale), high
+            // bias cells the dark ones; everything whitens toward the right.
+            const L = Math.min(0.12 + (1 - bias[idx]) * 0.8 + white, 1);
+            const r = Math.round(8 + 244 * L);
+            const g = Math.round(120 + 135 * L);
+            const b = Math.round(84 + 166 * L);
             ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
             ctx.fillRect(x, cy * CELL, DOT, DOT);
           }

@@ -1801,6 +1801,11 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .settings-section .ghost-button { margin-bottom: 10px; }
 .settings-hint { margin: 8px 2px 0; font-size: 0.82rem; line-height: 1.55; color: var(--muted); }
 
+/* A label + control pair inside a settings section (e.g. the hero-animation
+   segmented toggle). Wraps so the control drops below the label when narrow. */
+.settings-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; }
+.settings-row > span { font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+
 /* File picker */
 .file-picker { position: relative; width: fit-content; }
 .file-picker input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }

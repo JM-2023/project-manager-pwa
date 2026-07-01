@@ -1247,52 +1247,21 @@ input:focus, select:focus, textarea:focus { outline: none; }
   box-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
 }
 
-/* Dot-matrix pulse — a green take on the ultra "thinking" particles. A wave of
-   small glowing dots is emitted from the water line (the fill's right edge) and
-   travels rightward across the empty track, fading out before it reaches 100%.
-   The layer only occupies the unfilled region (left starts at --pct); a fixed
-   dot grid is revealed by a moving band mask ∩ a rightward fade envelope, so
-   the same dots light up in sequence and dim as the pulse advances. */
-.summary-hero__particles {
+/* Dot-matrix pulse: a canvas-drawn green/white take on the ultra "thinking"
+   particles. From the fill's right edge a faint green tail runs to 100% while a
+   grid of small white squares twinkles continuously and dissolves rightward.
+   The drawing (grid, water line, fade envelope) lives in HeroPulse.tsx; this
+   just parks the canvas above the liquid fill and below the label/value text.
+   width/height 100% is required: a <canvas> is a replaced element, so inset:0
+   alone leaves it at its intrinsic size instead of filling the pane. */
+.summary-hero__matrix {
   position: absolute;
-  top: 0; right: 0; bottom: 0;
-  left: clamp(0%, var(--pct, 0%), 100%);
+  inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: -1;
-  overflow: hidden;
+  border-radius: inherit;
   pointer-events: none;
-  /* the static dot matrix: a crisp mint core over a soft green halo */
-  background-image:
-    radial-gradient(circle at center, rgba(214, 255, 233, 0.98) 0, rgba(214, 255, 233, 0) 1.3px),
-    radial-gradient(circle at center, rgba(52, 211, 153, 0.55) 0, rgba(52, 211, 153, 0) 2.6px);
-  background-size: 13px 11px;
-  background-position: center;
-  /* layer 1 = travelling pulse band; layer 2 = fade-out toward 100% */
-  -webkit-mask-image:
-    linear-gradient(90deg, transparent 0 43%, #000 50%, transparent 57% 100%),
-    linear-gradient(90deg, #000 0 10%, transparent 94%);
-          mask-image:
-    linear-gradient(90deg, transparent 0 43%, #000 50%, transparent 57% 100%),
-    linear-gradient(90deg, #000 0 10%, transparent 94%);
-  -webkit-mask-size: 240% 100%, 100% 100%;
-          mask-size: 240% 100%, 100% 100%;
-  -webkit-mask-repeat: no-repeat, no-repeat;
-          mask-repeat: no-repeat, no-repeat;
-  -webkit-mask-composite: source-in;
-          mask-composite: intersect;
-  animation: hero-pulse 2.6s linear infinite;
-}
-/* mask-position math (band image is 240% wide): the bright stripe centre sits
-   at the left edge near 86% and at the right edge near 14%, so animating past
-   both (110% → -10%) sweeps one pulse from the water line off the right end. */
-@keyframes hero-pulse {
-  from { -webkit-mask-position: 110% 0, 0 0;          mask-position: 110% 0, 0 0; }
-  to   { -webkit-mask-position: -10% 0, 0 0;          mask-position: -10% 0, 0 0; }
-}
-.summary-hero[style*="--pct:100%"] .summary-hero__particles,
-.summary-hero[style*="--pct: 100%"] .summary-hero__particles { display: none; }
-
-@media (prefers-reduced-motion: reduce) {
-  .summary-hero__particles { animation: none; opacity: 0; }
 }
 .summary-hero__label {
   position: relative;

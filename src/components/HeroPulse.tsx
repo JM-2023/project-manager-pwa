@@ -7,9 +7,9 @@ interface HeroPulseProps {
 
 const CELL = 8; // css px per matrix cell (square + gap)
 const DOT = 6; // filled square size within a cell
-const PERIOD = 2.6; // seconds for one pulse crest to cross the track
-const BANDS = 5; // concurrent crests, evenly phase-spread for a continuous stream
-const SIGMA = 0.12; // crest half-width in u-space (0..1 across the tail)
+const WAVELENGTH = 115; // px between travelling ripple crests
+const FLOW = 0.8; // ripple crests advanced per second (rightward flow speed)
+const SHARP = 2.4; // crest sharpness: higher = narrower bright bands with gaps
 
 /** Hermite smoothstep: 0 below a, 1 above b, eased in between. */
 function smoothstep(a: number, b: number, x: number) {
@@ -24,11 +24,11 @@ function smoothstep(a: number, b: number, x: number) {
  * seam. In one continuous render it draws: (1) a green body gradient: solid at
  * the left, strongest at the water line, fading to transparent by 100%; (2) a
  * dissolving grid of small squares that emerges around the water line, is green
- * (blending into the fill) near it and turns white as it scatters right, with a
- * random per-cell twinkle plus bright Gaussian crests that pulse left-to-right and
- * fade before 100%; (3) a glass sheen composited source-atop so it only lands on
- * the liquid. A green-to-white gradient runs through the middle, so there is no
- * boundary between "fill" and "particles".
+ * (blending into the fill) near it and turns white as it scatters right, lit by a
+ * continuous travelling wave of ripple-bands that flow left-to-right out of the
+ * water line and fade before 100%; (3) a glass sheen composited source-atop so it
+ * only lands on the liquid. A green-to-white gradient runs through the middle, so
+ * there is no boundary between "fill" and "particles".
  *
  * On a canvas because the random shimmer, travelling crests and per-pixel
  * dissolve can't be expressed with CSS/tiled backgrounds.
@@ -108,48 +108,37 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       ctx.fillStyle = body;
       ctx.fillRect(0, 0, W, H);
 
-      // 2) Dissolving dot matrix + travelling pulse. The pixels emerge around
-      //    the water line so the solid green disintegrates into a grid.
+      // 2) Dissolving dot matrix that flows left-to-right like water. A continuous
+      //    travelling wave of vertical ripple-bands scrolls rightward out of the
+      //    water line so the direction is always legible, while the solid green
+      //    disintegrates into pixels that whiten and fade before 100%.
       if (tail > 2) {
-        const crests: number[] = [];
-        for (let k = 0; k < BANDS; k += 1) {
-          const p = t / PERIOD + k / BANDS;
-          crests.push(p - Math.floor(p));
-        }
-
         for (let cx = 0; cx < cols; cx += 1) {
           const x = cx * CELL;
           const u = (x - pctX) / tail; // <0 inside the fill, 1 at 100%
           if (u < -0.12 || u > 1) continue;
           const env = u < 0 ? 1 : Math.max(0, 1 - u); // overall fade toward 100%
-          const emerge = smoothstep(0, 0.22, u); // ~0 at the crest, rising out
+          const emerge = smoothstep(0, 0.22, u); // ambient bed hidden at the line
           const cov = Math.min(Math.max(1.15 - u * 1.7, 0), 1); // dissolve density
           const white = smoothstep(0.04, 0.5, u); // green near fill -> white out
 
-          let pulse = 0;
-          for (let k = 0; k < BANDS; k += 1) {
-            const p = crests[k];
-            const d = u - p;
-            // Fade the crest IN as it is born (smoothstep) as well as out as it
-            // travels (1 - p), so it swells up from the water line instead of
-            // popping on at full brightness.
-            const amp = smoothstep(0, 0.3, p) * (1 - p);
-            pulse += Math.exp(-(d * d) / (2 * SIGMA * SIGMA)) * amp;
-          }
-          if (pulse > 1) pulse = 1;
+          // Travelling ripple: subtracting t * FLOW moves the crests in +x over
+          // time; SHARP narrows them into distinct bands with gaps so the flow
+          // direction reads clearly.
+          const phase = (x - pctX) / WAVELENGTH - t * FLOW;
+          const band = Math.pow(0.5 + 0.5 * Math.cos(phase * Math.PI * 2), SHARP);
+          const bandEmerge = smoothstep(0, 0.1, u); // bands swell in from the line
 
           for (let cy = 0; cy < rows; cy += 1) {
             const idx = cx * rows + cy;
             const tw = 0.5 + 0.5 * Math.sin(t * speeds[idx] + seeds[idx]);
             const on = bias[idx] < cov ? 1 : 0;
-            // Ambient bed is hidden at the crest (emerge ~= 0) so the fill stays
-            // solid there, then dissolves out; the pulse can light any cell.
-            const ambient = on * (0.4 + 0.6 * tw) * emerge;
-            const crestLevel = pulse * (0.5 + 0.5 * tw);
-            const level = env * (ambient * 0.7 + crestLevel);
+            const ambient = on * (0.4 + 0.6 * tw) * emerge; // faint live bed
+            const crest = band * bandEmerge * (0.35 + 0.65 * bias[idx]);
+            const level = env * (ambient * 0.32 + crest * 1.05);
             if (level <= 0.03) continue;
-            // Whiter toward the right and wherever a crest currently sits.
-            const wp = Math.min(white + pulse * 0.5, 1);
+            // Whiter toward the right and at the ripple crests.
+            const wp = Math.min(white + band * 0.5, 1);
             const r = Math.round(150 + 105 * wp);
             const g = Math.round(232 + 23 * wp);
             const b = Math.round(198 + 57 * wp);

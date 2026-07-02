@@ -180,6 +180,31 @@
     0 4px 10px rgba(20, 27, 45, 0.1),
     0 24px 46px -12px rgba(20, 27, 45, 0.36);
 
+  /* Download-button glass (ported from the Liquid Glass reference page).
+     Dark mode = the reference's final rendered state: a transparent chip
+     (its dark page shows through) + white rim + the exact shadows.
+     Light mode = clear glass: the reference button's base recipe minus the
+     iris band — specular highlight + translucent white tint + real frost
+     (saturate(200%) blur(20px)) + the same shadows. */
+  --dl-rim: rgba(10, 16, 28, 0.12);
+  /* No iris band: the reference has one in its base rule but it never renders
+     (killed by the final overlay, and --lg-iris: none in its
+     reduced-transparency mode). Clear glass only: specular + white tint. */
+  --dl-fill:
+    radial-gradient(180px 260px at 50% 0%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
+  --dl-sampling: saturate(200%) blur(20px);
+  --dl-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 12px 35px rgba(0, 0, 0, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
+  --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  --dl-danger-rim: rgba(255, 90, 90, 0.35);
+  --dl-danger-fill:
+    radial-gradient(160px 200px at 50% 0%, rgba(255, 120, 120, 0.35), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, rgba(255, 120, 120, 0.18), rgba(255, 120, 120, 0.1));
+
   /* Tier C wash (hover for transparent controls) */
   --wash: rgba(20, 27, 45, 0.05);
   --wash-strong: rgba(20, 27, 45, 0.08);
@@ -313,9 +338,19 @@
 
     --hero-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 
-    /* Kill the top white sheen on Tier A glass buttons in dark mode */
-    --btn-sheen: 0;
-    --btn-sheen-primary: 0;
+    /* Download-button glass: the reference page's exact final dark render —
+       transparent body, white rim, no frost pass. */
+    --dl-rim: rgba(255, 255, 255, 0.35);
+    --dl-fill: none;
+    --dl-danger-fill: none;
+    --dl-sampling: none;
+    --dl-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 12px 35px rgba(0, 0, 0, 0.25),
+      0 2px 8px rgba(0, 0, 0, 0.15);
+    --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
+    --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    --dl-danger-rim: rgba(255, 90, 90, 0.35);
   }
 }
 
@@ -435,9 +470,19 @@
 
   --hero-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 
-  /* Kill the top white sheen on Tier A glass buttons in dark mode */
-  --btn-sheen: 0;
-  --btn-sheen-primary: 0;
+  /* Download-button glass: the reference page's exact final dark render —
+     transparent body, white rim, no frost pass. */
+  --dl-rim: rgba(255, 255, 255, 0.35);
+  --dl-fill: none;
+  --dl-danger-fill: none;
+  --dl-sampling: none;
+  --dl-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 12px 35px rgba(0, 0, 0, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
+  --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  --dl-danger-rim: rgba(255, 90, 90, 0.35);
 }
 
 /* Slow, premium drift of the specular glow — dark mode only. Driven on :root so
@@ -498,6 +543,7 @@ button:focus-visible,
 .file-picker:focus-within,
 .file-picker input:focus-visible { outline: none; }
 
+/* Keyboard focus on glass buttons — the reference's .is-selected treatment. */
 .add-row-button:focus-visible,
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
@@ -506,7 +552,11 @@ button:focus-visible,
 .composer-row button:focus-visible,
 .composer-project-row button:focus-visible,
 .cache-add button:focus-visible,
-.project-create button:focus-visible,
+.project-create button:focus-visible {
+  outline: 2px solid rgba(124, 122, 255, 0.55);
+  outline-offset: 2px;
+  box-shadow: 0 16px 44px rgba(124, 122, 255, 0.28);
+}
 button.project-row:focus-visible {
   background: var(--chip-hover-fill);
   box-shadow: var(--chip-hover-shadow);
@@ -536,15 +586,6 @@ select {
 .bottom-nav button.active,
 .offline-banner,
 .offline-banner button,
-.add-row-button,
-.primary-button,
-.secondary-button,
-.file-picker,
-.ghost-button,
-.composer-row button,
-.composer-project-row button,
-.cache-add button,
-.project-create button,
 .today-title-button.active,
 .quick-status button.active,
 .project-row,
@@ -851,106 +892,67 @@ button.project-row,
 }
 
 /* -------------------------------------------------------------------------
-   TIER A — Liquid glass + signature spring.
-   The one primary action per context: Add task, row "+" add buttons,
-   primary CTAs. Padding/radius swell on hover, scale on press.
+   TIER A — the Liquid Glass "download button", ported from the reference
+   page. The motion is the reference's exact surviving spring: padding
+   12px 22px → 14px 25px and radius 20px → 24px on
+   cubic-bezier(.175,.885,.32,2.2), icon easing to .95. The chip REALLY grows
+   in flow — neighbouring UI gets pushed aside, that physical inflation is
+   the point. A hover margin-left of -3px lets the left edge swell outwards
+   too (these buttons are left-anchored, unlike the reference's centered
+   layout), so the growth reads symmetric instead of right-only.
+   No translateY lift and no :active scale — the reference kills every
+   transform with !important.
+
+   Appearance: --dl-* tokens. Dark = the reference's final render
+   (transparent body + white rim over its dark page). Light = the reference
+   button's own base glass recipe (specular + white gradient + iris + frost).
    ------------------------------------------------------------------------- */
 .add-row-button,
+.primary-button,
+.secondary-button,
+.file-picker,
+.ghost-button,
 .composer-row button,
 .composer-project-row button,
 .cache-add button,
-.project-create button,
-.secondary-button,
-.file-picker,
-.ghost-button {
-  --py: 12px; --px: 18px;
-  --py-h: 13px; --px-h: 21px;
-  --rad: 16px; --rad-h: 20px;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.55rem;
-  padding: var(--py) var(--px);
-  color: var(--primary-dark);
-  font-weight: 700;
-  background: var(--chip-fill);
-  border: 1.25px solid var(--chip-rim);
-  border-radius: var(--rad);
-  box-shadow: var(--chip-shadow);
-  overflow: hidden;
-  transition:
-    background var(--t) var(--ease),
-    box-shadow var(--t) var(--ease),
-    color var(--t) var(--ease),
-    padding 0.42s var(--spring),
-    border-radius 0.42s var(--spring),
-    transform 0.16s var(--ease);
-}
-/* Specular sheen — a soft diagonal highlight that gives the wet-glass read */
-.add-row-button::before,
-.composer-row button::before,
-.composer-project-row button::before,
-.cache-add button::before,
-.project-create button::before,
-.secondary-button::before,
-.file-picker::before,
-.ghost-button::before,
-.primary-button::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 56%;
-  border-radius: inherit;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 100%);
-  opacity: var(--btn-sheen, 0.8);
-  pointer-events: none;
-}
-
-/* The Add-task / primary CTA — clear, TRANSPARENT liquid glass (the original
-   look). Indigo text + a living iris shimmer + the signature swell make it the
-   hero with no heavy fill. */
-.primary-button,
-.add-row-button {
-  color: var(--primary-dark);
-  background: var(--primary-fill);
-  border-color: var(--primary-rim);
-  box-shadow: var(--primary-shadow);
-  animation: iris-spin 18s linear infinite;
-}
-.primary-button::before,
-.add-row-button::before { opacity: var(--btn-sheen-primary, 0.65); }
-
-.primary-button {
+.project-create button {
   --py: 12px; --px: 22px;
-  --py-h: 13px; --px-h: 25px;
-  --rad: 16px; --rad-h: 20px;
+  --py-h: 14px; --px-h: 25px;
+  --rad: 20px; --rad-h: 24px;
   position: relative;
+  isolation: isolate;
   display: inline-flex;
-  min-height: 46px;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  gap: 0.7rem;
   padding: var(--py) var(--px);
+  color: var(--ink);
+  font-size: 1.02rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
   text-decoration: none;
-  border: 1.25px solid var(--primary-rim);
+  cursor: pointer;
+  background: var(--dl-fill);
+  -webkit-backdrop-filter: var(--dl-sampling);
+  backdrop-filter: var(--dl-sampling);
+  border: 1.5px solid var(--dl-rim);
   border-radius: var(--rad);
+  box-shadow: var(--dl-shadow);
   overflow: hidden;
   transition:
-    background var(--t) var(--ease), box-shadow var(--t) var(--ease), color var(--t) var(--ease),
-    padding 0.42s var(--spring), border-radius 0.42s var(--spring), transform 0.16s var(--ease);
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    margin-left 0.4s var(--spring),
+    padding 0.4s var(--spring),
+    border-radius 0.4s var(--spring);
 }
 
+/* Layout-only placement. */
 .add-row-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
   width: fit-content;
   max-width: 100%;
-  min-height: 46px;
-  margin: 0 auto 16px;
+  margin: 0 0 16px;
 }
 
 .composer-row button,
@@ -959,11 +961,11 @@ button.project-row,
 .project-create button {
   width: max-content;
   min-width: 56px;
-  min-height: 44px;
   justify-self: center;
   align-self: center;
 }
 
+/* Icon: the reference's 1.5rem glyph, easing down on the same spring. */
 .add-row-button svg,
 .primary-button svg,
 .composer-row button svg,
@@ -972,66 +974,72 @@ button.project-row,
 .project-create button svg,
 .secondary-button svg,
 .file-picker svg,
-.ghost-button svg { transition: transform 0.42s var(--spring); }
+.ghost-button svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  stroke-width: 2.2;
+  transition: transform 0.4s var(--spring);
+}
 
 @media (hover: hover) {
+  .add-row-button:hover,
   .primary-button:hover,
-  .add-row-button:hover {
-    padding: var(--py-h) var(--px-h);
-    border-radius: var(--rad-h);
-    background: var(--primary-hover-fill);
-    box-shadow: var(--primary-hover-shadow);
-  }
+  .secondary-button:hover,
+  .file-picker:hover,
+  .ghost-button:hover,
   .composer-row button:hover,
   .composer-project-row button:hover,
   .cache-add button:hover,
-  .project-create button:hover,
-  .secondary-button:hover,
-  .file-picker:hover,
-  .ghost-button:hover {
+  .project-create button:hover {
+    margin-left: -3px;
     padding: var(--py-h) var(--px-h);
     border-radius: var(--rad-h);
-    background: var(--chip-hover-fill);
-    box-shadow: var(--chip-hover-shadow);
+    box-shadow: var(--dl-hover-shadow);
   }
-  .primary-button:hover svg,
   .add-row-button:hover svg,
+  .primary-button:hover svg,
+  .secondary-button:hover svg,
+  .file-picker:hover svg,
+  .ghost-button:hover svg,
   .composer-row button:hover svg,
   .composer-project-row button:hover svg,
   .cache-add button:hover svg,
-  .project-create button:hover svg,
-  .secondary-button:hover svg,
-  .file-picker:hover svg,
-  .ghost-button:hover svg { transform: scale(0.95); }
+  .project-create button:hover svg { transform: scale(0.95); }
 }
-.primary-button:active,
+
+/* Press: the shadow tightens; the reference kills every transform. */
 .add-row-button:active,
+.primary-button:active,
+.secondary-button:active,
+.file-picker:active,
+.ghost-button:active,
 .composer-row button:active,
 .composer-project-row button:active,
 .cache-add button:active,
-.project-create button:active,
-.secondary-button:active,
-.file-picker:active,
-.ghost-button:active { transform: scale(0.97); }
+.project-create button:active { box-shadow: var(--dl-active-shadow); }
 
-/* -------------------------------------------------------------------------
-   TIER B — Quiet glass, gentle motion. Secondary button + keypad.
-   Soft chip, press-scale only. No swell.
-   ------------------------------------------------------------------------- */
-/* -------------------------------------------------------------------------
-   Secondary / file-picker / ghost — share the Tier A liquid-glass material and
-   spring above, but sit at neutral (ink) text so the +/Add actions still read
-   as the primary action. Ghost "danger" (Sign out) is the same glass, red-tinted.
-   ------------------------------------------------------------------------- */
-.secondary-button,
-.file-picker,
-.ghost-button {
-  min-height: 46px;
-  color: var(--ink);
-  font-weight: 650;
-  text-decoration: none;
+.add-row-button:disabled,
+.primary-button:disabled,
+.secondary-button:disabled,
+.ghost-button:disabled,
+.composer-row button:disabled,
+.composer-project-row button:disabled,
+.cache-add button:disabled,
+.project-create button:disabled {
+  opacity: 0.6;
+  filter: grayscale(8%);
+  cursor: default;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.08);
 }
-.ghost-button.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 36%, var(--chip-rim)); }
+
+/* Sign out — the reference's .is-destructive: red rim + red-tinted glass
+   (light); in dark the fill token collapses to none, matching the render. */
+.ghost-button.danger {
+  color: var(--danger);
+  border-color: var(--dl-danger-rim);
+  background: var(--dl-danger-fill);
+}
 
 /* -------------------------------------------------------------------------
    TIER C — Flat / transparent. Icon buttons only. Hover wash, press-scale.

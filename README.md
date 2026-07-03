@@ -8,7 +8,7 @@ The deployment mode in `wrangler.toml` is `AUTH_MODE=local_password`: the app is
 
 - **First run** — on a fresh database the login screen asks you to create a passcode. It is stored as a PBKDF2 hash in D1 (`app_settings`), never in the code or the bundle.
 - **Change it** — Settings -> Security -> Change passcode (current passcode required). The old passcode stops working immediately.
-- **Pre-seeded passcode** -- until a passcode has been created in-app, a deploy-time `APP_PASSWORD_HASH` secret is accepted. Creating or changing a passcode in-app revokes that deploy-time hash. There is no built-in default passcode.
+- **Pre-seeded passcode** — until a passcode has been created in-app, a deploy-time `APP_PASSWORD_HASH` secret is accepted. Creating or changing a passcode in-app revokes that deploy-time hash. There is no built-in default passcode.
 
 Redeploying the app never resets the passcode: it lives in D1, and deploys only replace code. `SESSION_SECRET` must be set (secret or `.dev.vars`) for login to work in any case.
 

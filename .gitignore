@@ -2,6 +2,9 @@ node_modules
 dist
 .wrangler
 .wrangler-home
+.claude
+.env
+.env.*
 .dev.vars
 worker-configuration.d.ts
 .DS_Store

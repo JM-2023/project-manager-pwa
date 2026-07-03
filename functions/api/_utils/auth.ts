@@ -111,24 +111,28 @@ export async function hashPassword(password: string): Promise<string> {
   return `pbkdf2_sha256$${HASH_ITERATIONS}$${base64UrlEncode(salt)}$${base64UrlEncode(derived)}`;
 }
 
-export async function verifyPassword(password: string, hashSetting: string | undefined): Promise<boolean> {
+export async function verifyPassword(password: string, hashSetting: string | undefined | null): Promise<boolean> {
   const normalizedHash = normalizePasswordHash(hashSetting);
-  if (normalizedHash) {
-    try {
-      const [algorithm, iterationsText, saltText, expectedText] = normalizedHash.split("$");
-      const iterations = Number(iterationsText);
-      if (algorithm === "pbkdf2_sha256" && Number.isInteger(iterations) && iterations >= 100_000) {
-        const salt = base64UrlDecode(saltText);
-        const expected = base64UrlDecode(expectedText);
-        const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
-        const derived = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: arrayBuffer(salt), iterations }, key, expected.length * 8);
-        if (await timingSafeEqual(base64UrlEncode(derived), base64UrlEncode(expected))) {
-          return true;
-        }
-      }
-    } catch {
-    }
+  if (!normalizedHash) {
+    return false;
   }
+
+  try {
+    const [algorithm, iterationsText, saltText, expectedText] = normalizedHash.split("$");
+    const iterations = Number(iterationsText);
+    if (algorithm === "pbkdf2_sha256" && Number.isInteger(iterations) && iterations >= 100_000) {
+      const salt = base64UrlDecode(saltText);
+      const expected = base64UrlDecode(expectedText);
+      const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+      const derived = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: arrayBuffer(salt), iterations }, key, expected.length * 8);
+      if (await timingSafeEqual(base64UrlEncode(derived), base64UrlEncode(expected))) {
+        return true;
+      }
+    }
+  } catch {
+    return false;
+  }
+
   return false;
 }
 

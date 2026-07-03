@@ -28,7 +28,6 @@ const IMPORT_FIELDS: ImportField[] = [
   "next_action",
   "notes",
   "description",
-  "tags",
   "progress",
   "blocker",
   "output"

@@ -955,6 +955,21 @@ button.project-row,
   margin: 0 0 16px;
 }
 
+/* Two Tier-A chips side by side (Today page: add task + roll over). The gap
+   leaves room for the hover swell (padding +3px per side, margin-left -3px on
+   the hovered chip) so the buttons never touch mid-animation. */
+.add-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 20px;
+  margin: 0 0 16px;
+}
+
+.add-row-actions .add-row-button {
+  margin: 0;
+}
+
 .composer-row button,
 .composer-project-row button,
 .cache-add button,

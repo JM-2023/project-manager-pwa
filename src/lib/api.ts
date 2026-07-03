@@ -8,6 +8,7 @@ import type {
   ImportResponse,
   ImportRow,
   MutationsResponse,
+  RestoreResponse,
   SessionResponse
 } from "./types";
 
@@ -115,6 +116,19 @@ export async function importRows(filename: string, rows: ImportRow[], mode = "cr
 
 export function getExportData(): Promise<ExportDataResponse> {
   return apiFetch<ExportDataResponse>("/api/export-data");
+}
+
+/** Merge a JSON backup (the export-data payload) back into the cloud data. */
+export function restoreData(data: Pick<BootstrapResponse, "projects" | "tasks" | "nextProjects" | "nextIdeas">): Promise<RestoreResponse> {
+  return apiFetch<RestoreResponse>("/api/restore", {
+    method: "POST",
+    body: JSON.stringify({
+      projects: data.projects,
+      tasks: data.tasks,
+      nextProjects: data.nextProjects,
+      nextIdeas: data.nextIdeas
+    })
+  });
 }
 
 export async function uploadCloudExcel(file: Blob, filename: string, rowCount: number): Promise<CloudExcelUploadResponse> {

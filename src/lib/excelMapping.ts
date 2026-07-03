@@ -17,7 +17,6 @@ export type ImportField =
   | "next_action"
   | "notes"
   | "description"
-  | "tags"
   | "progress"
   | "blocker"
   | "output";
@@ -65,9 +64,6 @@ const FIELD_ALIASES: Record<string, ImportField> = {
   备注: "notes",
   description: "description",
   描述: "description",
-  tag: "tags",
-  tags: "tags",
-  标签: "tags",
   progress: "progress",
   进度: "progress",
   卡住的地方: "blocker",
@@ -131,13 +127,6 @@ function summaryStartIndex(headers: string[]): number {
   return headers.findIndex((header) => normalizeHeader(header).replace(/\s+\(\d+\)$/, "") === "daily summary");
 }
 
-function splitTags(value: unknown): string[] {
-  return String(value ?? "")
-    .split(/[,;，；、]/)
-    .map((tag) => tag.trim())
-    .filter(Boolean);
-}
-
 function stableHash(value: string): string {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
@@ -167,7 +156,6 @@ export function normalizeImportRows(sheet: ParsedSheet, mapping: ColumnMapping):
       const status = statusValue ? normalizeStatus(statusValue) : statusFromProgress(progress, blocker);
       const importance = normalizeImportance(readMapped(raw, mapping, "importance"));
       const priority = importance ? importancePriority(importance) : normalizePriority(readMapped(raw, mapping, "priority"));
-      const tags = splitTags(readMapped(raw, mapping, "tags"));
       const startDate = parseLooseDate(readMapped(raw, mapping, "start_date"));
       const dueDate = parseLooseDate(readMapped(raw, mapping, "due_date"));
       const sourceRow = sheet.headerIndex + bodyIndex + 2;
@@ -213,7 +201,6 @@ export function normalizeImportRows(sheet: ParsedSheet, mapping: ColumnMapping):
         next_action: String(readMapped(raw, mapping, "next_action") ?? "").trim() || null,
         notes: notes || null,
         description: String(readMapped(raw, mapping, "description") ?? "").trim() || null,
-        tags,
         extra_json
       };
     })

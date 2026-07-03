@@ -1,19 +1,18 @@
-import type { BootstrapResponse, ClientMutation, NextIdea, NextProject, Project, Tag, Task, TaskTag } from "./types";
+import type { BootstrapResponse, ClientMutation, NextIdea, NextProject, Project, Task } from "./types";
 import { sanitizeSettings } from "./sync";
 
 const DB_NAME = "project-manager-pwa";
-const DB_VERSION = 2;
+// v3 removes the tag stores ("tags", "taskTags") after the tag feature was cut.
+const DB_VERSION = 3;
+const REMOVED_STORES = ["tags", "taskTags"];
 
-type StoreName = "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas" | "pendingMutations" | "meta";
-export type EntityStoreName = "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas";
-export type SavableEntity = Project | Task | Tag | TaskTag | NextProject | NextIdea;
-type LocalTaskTag = TaskTag & { key: string };
+type StoreName = "projects" | "tasks" | "nextProjects" | "nextIdeas" | "pendingMutations" | "meta";
+export type EntityStoreName = "projects" | "tasks" | "nextProjects" | "nextIdeas";
+export type SavableEntity = Project | Task | NextProject | NextIdea;
 
 export interface LocalSnapshot {
   projects: Project[];
   tasks: Task[];
-  tags: Tag[];
-  taskTags: TaskTag[];
   nextProjects: NextProject[];
   nextIdeas: NextIdea[];
   settings: Record<string, unknown>;
@@ -35,12 +34,13 @@ function openDb(): Promise<IDBDatabase> {
       const db = request.result;
       if (!db.objectStoreNames.contains("projects")) db.createObjectStore("projects", { keyPath: "id" });
       if (!db.objectStoreNames.contains("tasks")) db.createObjectStore("tasks", { keyPath: "id" });
-      if (!db.objectStoreNames.contains("tags")) db.createObjectStore("tags", { keyPath: "id" });
-      if (!db.objectStoreNames.contains("taskTags")) db.createObjectStore("taskTags", { keyPath: "key" });
       if (!db.objectStoreNames.contains("nextProjects")) db.createObjectStore("nextProjects", { keyPath: "id" });
       if (!db.objectStoreNames.contains("nextIdeas")) db.createObjectStore("nextIdeas", { keyPath: "id" });
       if (!db.objectStoreNames.contains("pendingMutations")) db.createObjectStore("pendingMutations", { keyPath: "id" });
       if (!db.objectStoreNames.contains("meta")) db.createObjectStore("meta", { keyPath: "key" });
+      for (const store of REMOVED_STORES) {
+        if (db.objectStoreNames.contains(store)) db.deleteObjectStore(store);
+      }
     };
 
     request.onsuccess = () => resolve(request.result);
@@ -83,16 +83,10 @@ async function setMeta(key: string, value: unknown): Promise<void> {
   await transactionDone(tx);
 }
 
-function tagKey(tag: TaskTag): string {
-  return `${tag.task_id}:${tag.tag_id}`;
-}
-
 export async function loadLocalSnapshot(): Promise<LocalSnapshot> {
-  const [projects, tasks, tags, rawTaskTags, nextProjects, nextIdeas, pendingMutations, settings, lastSync] = await Promise.all([
+  const [projects, tasks, nextProjects, nextIdeas, pendingMutations, settings, lastSync] = await Promise.all([
     getAll<Project>("projects"),
     getAll<Task>("tasks"),
-    getAll<Tag>("tags"),
-    getAll<LocalTaskTag>("taskTags"),
     getAll<NextProject>("nextProjects"),
     getAll<NextIdea>("nextIdeas"),
     getAll<ClientMutation>("pendingMutations"),
@@ -103,8 +97,6 @@ export async function loadLocalSnapshot(): Promise<LocalSnapshot> {
   return {
     projects,
     tasks,
-    tags,
-    taskTags: rawTaskTags.map(({ key: _key, ...taskTag }) => taskTag),
     nextProjects,
     nextIdeas,
     settings: sanitizeSettings(settings ?? {}),
@@ -115,15 +107,13 @@ export async function loadLocalSnapshot(): Promise<LocalSnapshot> {
 
 export async function saveBootstrapSnapshot(snapshot: BootstrapResponse): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(["projects", "tasks", "tags", "taskTags", "nextProjects", "nextIdeas", "meta"], "readwrite");
+  const tx = db.transaction(["projects", "tasks", "nextProjects", "nextIdeas", "meta"], "readwrite");
 
-  for (const storeName of ["projects", "tasks", "tags", "taskTags", "nextProjects", "nextIdeas"] as const) {
+  for (const storeName of ["projects", "tasks", "nextProjects", "nextIdeas"] as const) {
     tx.objectStore(storeName).clear();
   }
   for (const project of snapshot.projects) tx.objectStore("projects").put(project);
   for (const task of snapshot.tasks) tx.objectStore("tasks").put(task);
-  for (const tag of snapshot.tags) tx.objectStore("tags").put(tag);
-  for (const taskTag of snapshot.taskTags) tx.objectStore("taskTags").put({ ...taskTag, key: tagKey(taskTag) });
   for (const nextProject of snapshot.nextProjects) tx.objectStore("nextProjects").put(nextProject);
   for (const nextIdea of snapshot.nextIdeas) tx.objectStore("nextIdeas").put(nextIdea);
   tx.objectStore("meta").put({ key: "settings", value: sanitizeSettings(snapshot.settings) });
@@ -135,11 +125,7 @@ export async function saveBootstrapSnapshot(snapshot: BootstrapResponse): Promis
 export async function saveEntity(storeName: EntityStoreName, record: SavableEntity): Promise<void> {
   const db = await openDb();
   const tx = db.transaction(storeName, "readwrite");
-  if (storeName === "taskTags") {
-    tx.objectStore(storeName).put({ ...(record as TaskTag), key: tagKey(record as TaskTag) });
-  } else {
-    tx.objectStore(storeName).put(record);
-  }
+  tx.objectStore(storeName).put(record);
   await transactionDone(tx);
 }
 
@@ -160,30 +146,24 @@ export async function purgeNextIdeaData(ideaId: string): Promise<void> {
   await transactionDone(tx);
 }
 
-// Hard-delete a project and its cascade (tasks + tag links) from local storage
-// in a single transaction so the cache can never end up half-pruned.
-export async function purgeProjectData(projectId: string, taskIds: string[], taskTagKeys: string[]): Promise<void> {
+// Hard-delete a project and its cascade (tasks) from local storage in a single
+// transaction so the cache can never end up half-pruned.
+export async function purgeProjectData(projectId: string, taskIds: string[]): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(["projects", "tasks", "taskTags"], "readwrite");
+  const tx = db.transaction(["projects", "tasks"], "readwrite");
   tx.objectStore("projects").delete(projectId);
   for (const id of taskIds) {
     tx.objectStore("tasks").delete(id);
   }
-  for (const key of taskTagKeys) {
-    tx.objectStore("taskTags").delete(key);
-  }
   await transactionDone(tx);
 }
 
-// Hard-delete a single task and its tag links from local storage in one
-// transaction (the task-level counterpart to purgeProjectData).
-export async function purgeTaskData(taskId: string, taskTagKeys: string[]): Promise<void> {
+// Hard-delete a single task from local storage (the task-level counterpart to
+// purgeProjectData).
+export async function purgeTaskData(taskId: string): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(["tasks", "taskTags"], "readwrite");
+  const tx = db.transaction("tasks", "readwrite");
   tx.objectStore("tasks").delete(taskId);
-  for (const key of taskTagKeys) {
-    tx.objectStore("taskTags").delete(key);
-  }
   await transactionDone(tx);
 }
 
@@ -216,8 +196,8 @@ export async function setLastSync(value: string): Promise<void> {
 
 export async function resetLocalData(): Promise<void> {
   const db = await openDb();
-  const tx = db.transaction(["projects", "tasks", "tags", "taskTags", "nextProjects", "nextIdeas", "pendingMutations", "meta"], "readwrite");
-  for (const store of ["projects", "tasks", "tags", "taskTags", "nextProjects", "nextIdeas", "pendingMutations", "meta"] as StoreName[]) {
+  const tx = db.transaction(["projects", "tasks", "nextProjects", "nextIdeas", "pendingMutations", "meta"], "readwrite");
+  for (const store of ["projects", "tasks", "nextProjects", "nextIdeas", "pendingMutations", "meta"] as StoreName[]) {
     tx.objectStore(store).clear();
   }
   await transactionDone(tx);

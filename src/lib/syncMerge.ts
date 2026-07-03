@@ -5,23 +5,20 @@
 // Everything here is side-effect free and decoupled from React, IndexedDB, and
 // the network so it can be unit-tested directly (see syncMerge.test.ts). The
 // imperative orchestration that calls into it lives in syncEngine.ts.
-import type { BootstrapResponse, ClientMutation, TaskTag } from "./types";
+import type { BootstrapResponse, ClientMutation } from "./types";
 import type { AppState } from "../state/appStore";
 
 export const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
 export const KEEPALIVE_MAX_BYTES = 60_000;
 
-export type MergeEntity = "project" | "task" | "tag" | "next_project" | "next_idea";
+export type MergeEntity = "project" | "task" | "next_project" | "next_idea";
 
 export interface PendingMutationGroup {
   mutation: ClientMutation;
   sourceIds: string[];
 }
 
-export type SyncBootstrapState = Pick<
-  AppState,
-  "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas" | "settings"
->;
+export type SyncBootstrapState = Pick<AppState, "projects" | "tasks" | "nextProjects" | "nextIdeas" | "settings">;
 
 export function mutationData(mutation: ClientMutation): Record<string, unknown> {
   return mutation.data && typeof mutation.data === "object" ? (mutation.data as Record<string, unknown>) : {};
@@ -33,11 +30,6 @@ export function mutationCreatedAt(mutation: ClientMutation): string {
 
 export function mutationRecordKey(mutation: ClientMutation): string | null {
   const data = mutationData(mutation);
-  if (mutation.entity === "task_tag") {
-    const taskId = data.task_id ? String(data.task_id) : "";
-    const tagId = data.tag_id ? String(data.tag_id) : "";
-    return taskId && tagId ? `${mutation.entity}:${taskId}:${tagId}` : null;
-  }
   if (mutation.entity === "setting") {
     const key = data.key ?? data.id;
     return key ? `${mutation.entity}:${String(key)}` : null;
@@ -176,35 +168,6 @@ export function mergeRecordsForSync<T extends { id: string; updated_at?: string 
   return [...records.values()];
 }
 
-export function mergeTaskTagsForSync(local: TaskTag[], incoming: TaskTag[], protectedKeys: Set<string>, replaceMode: boolean): TaskTag[] {
-  const keyFor = (tag: TaskTag) => `task_tag:${tag.task_id}:${tag.tag_id}`;
-  const records = new Map<string, TaskTag>();
-
-  if (!replaceMode) {
-    for (const tag of local) {
-      records.set(keyFor(tag), tag);
-    }
-  }
-
-  for (const tag of incoming) {
-    const key = keyFor(tag);
-    if (!protectedKeys.has(key)) {
-      records.set(key, tag);
-    }
-  }
-
-  if (replaceMode) {
-    for (const tag of local) {
-      const key = keyFor(tag);
-      if (protectedKeys.has(key)) {
-        records.set(key, tag);
-      }
-    }
-  }
-
-  return [...records.values()];
-}
-
 export function mergeFullLiveRecordsForSync<T extends { id: string }>(
   local: T[],
   incoming: T[],
@@ -262,8 +225,6 @@ export function mergeBootstrapForLocal(
     serverTime: snapshot.serverTime,
     projects: mergeRecordsForSync(current.projects, snapshot.projects, "project", protectedKeys, replaceMode),
     tasks: mergeRecordsForSync(current.tasks, snapshot.tasks, "task", protectedKeys, replaceMode),
-    tags: mergeRecordsForSync(current.tags, snapshot.tags, "tag", protectedKeys, replaceMode),
-    taskTags: mergeTaskTagsForSync(current.taskTags, snapshot.taskTags, protectedKeys, replaceMode),
     nextProjects: mergeFullLiveRecordsForSync(current.nextProjects, snapshot.nextProjects, "next_project", protectedKeys),
     nextIdeas,
     settings: mergeSettingsForSync(current.settings, snapshot.settings, protectedKeys, replaceMode)
@@ -275,8 +236,6 @@ export function stateWithBootstrap(state: AppState, snapshot: BootstrapResponse)
     ...state,
     projects: snapshot.projects,
     tasks: snapshot.tasks,
-    tags: snapshot.tags,
-    taskTags: snapshot.taskTags,
     nextProjects: snapshot.nextProjects,
     nextIdeas: snapshot.nextIdeas,
     settings: snapshot.settings,
@@ -297,19 +256,4 @@ export function upsertRecord<T extends { id: string }>(records: T[], record: T):
 
 export function removeRecord<T extends { id: string }>(records: T[], id: string): T[] {
   return records.filter((item) => item.id !== id);
-}
-
-export function taskTagKey(tag: TaskTag): string {
-  return `${tag.task_id}:${tag.tag_id}`;
-}
-
-export function upsertTaskTagRecord(records: TaskTag[], record: TaskTag): TaskTag[] {
-  const key = taskTagKey(record);
-  const index = records.findIndex((item) => taskTagKey(item) === key);
-  if (index < 0) {
-    return [...records, record];
-  }
-  const next = records.slice();
-  next[index] = record;
-  return next;
 }

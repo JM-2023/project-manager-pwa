@@ -1,5 +1,6 @@
 import { KeyRound, LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
 import { useState } from "react";
+import { BackupControls } from "../components/BackupControls";
 import { ChangePasscode } from "../components/ChangePasscode";
 import { ExportButton } from "../components/ExportButton";
 import { ImportWizard } from "../components/ImportWizard";
@@ -24,6 +25,8 @@ interface SettingsPageProps {
   pendingCount: number;
   lastSync: string | null;
   lastExport: string | null;
+  syncError: string | null;
+  conflicts: number;
   session: SessionResponse | null;
   worklogOverview: WorklogOverview;
   onImport: (filename: string, rows: ImportRow[]) => Promise<ImportResponse>;
@@ -39,6 +42,8 @@ export function SettingsPage({
   pendingCount,
   lastSync,
   lastExport,
+  syncError,
+  conflicts,
   session,
   worklogOverview,
   onImport,
@@ -106,6 +111,18 @@ export function SettingsPage({
           <span>{m.settings.lastExport}</span>
           <strong>{lastExport ? new Date(lastExport).toLocaleString(locale) : m.settings.never}</strong>
         </div>
+        {conflicts > 0 ? (
+          <div className="metric">
+            <span>{m.settings.conflicts}</span>
+            <strong>{conflicts}</strong>
+          </div>
+        ) : null}
+        {syncError ? (
+          <div className="metric wide">
+            <span>{m.settings.syncError}</span>
+            <strong>{syncError}</strong>
+          </div>
+        ) : null}
       </section>
 
       <section className="settings-section">
@@ -155,6 +172,12 @@ export function SettingsPage({
         <h2>{m.settings.excel}</h2>
         <ImportWizard onImport={onImport} />
         <ExportButton r2Enabled={r2Enabled} onExported={onExported} />
+      </section>
+
+      <section className="settings-section">
+        <h2>{m.settings.backup}</h2>
+        <BackupControls onRestored={onForceResync} />
+        <p className="settings-hint">{m.settings.backupHint}</p>
       </section>
 
       <section className="settings-section">

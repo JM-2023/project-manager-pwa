@@ -30,12 +30,12 @@ import {
   startOfMonth,
   startOfWeek,
   startOfYear,
-  todayDate,
   weekdayLabels,
   weekdayShort,
   yearOf,
   type MonthGridDay
 } from "../lib/dates";
+import { useToday } from "../lib/useToday";
 import {
   bucketTasksByDay,
   completionValue,
@@ -74,7 +74,7 @@ function focusLabels(m: Messages) {
 
 export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, initialDate }: CalendarPageProps) {
   const { m, lang } = useI18n();
-  const today = todayDate();
+  const today = useToday();
   const [granularity, setGranularity] = useState<Granularity>("month");
   const [metric, setMetric] = useState<CompletionMetric>("weighted");
   const [anchor, setAnchor] = useState(initialDate || today);

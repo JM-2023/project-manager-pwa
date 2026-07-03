@@ -23,7 +23,27 @@ export function getStoredTheme(): ThemePreference {
   }
 }
 
-/** Apply a preference to the document root. Mirrors the inline boot script. */
+// Browser-chrome colors for the theme-color metas; keep in sync with the --bg
+// tokens in app.css and with public/theme-init.js.
+const THEME_COLORS: Record<"light" | "dark", string> = { light: "#f3f4f7", dark: "#0c0e13" };
+
+/**
+ * Point the theme-color metas at the rendered theme. A pinned theme overrides
+ * both media-scoped metas; "system" restores their per-scheme defaults.
+ */
+function applyThemeColorMeta(pref: ThemePreference): void {
+  const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
+  metas.forEach((meta) => {
+    if (pref === "system") {
+      const media = meta.getAttribute("media") ?? "";
+      meta.content = media.includes("dark") ? THEME_COLORS.dark : THEME_COLORS.light;
+    } else {
+      meta.content = THEME_COLORS[pref];
+    }
+  });
+}
+
+/** Apply a preference to the document root. Mirrors the boot script. */
 export function applyTheme(pref: ThemePreference): void {
   const root = document.documentElement;
   if (pref === "system") {
@@ -31,6 +51,7 @@ export function applyTheme(pref: ThemePreference): void {
   } else {
     root.setAttribute("data-theme", pref);
   }
+  applyThemeColorMeta(pref);
 }
 
 export function setStoredTheme(pref: ThemePreference): void {

@@ -107,6 +107,8 @@ const en = {
     subtitle: (n: number, pct: number) => `${plural(n, "task")} · Weighted ${pct}%`,
     dailySummary: "Daily Summary",
     addTask: "Add task",
+    rollover: "Roll over unfinished",
+    rolloverAria: "Move this day's unfinished tasks to the next day",
     empty: (date: string) => `No tasks for ${date} yet. Tap “Add task” to start.`,
     prevDay: "Previous day",
     nextDay: "Next day",
@@ -136,19 +138,10 @@ const en = {
     moveToYesterday: "Move to yesterday",
     moveToTomorrow: "Move to tomorrow",
     deleteTask: "Delete task",
+    deletePrompt: "Delete this task permanently?",
+    confirmDelete: "Confirm delete",
     noteAria: "Note",
     showing: (visible: number, total: number) => `Showing ${visible} of ${total}. Scroll for more, or search to narrow down.`
-  },
-  taskCard: {
-    titleAria: "Task title",
-    quickStatus: "Quick status",
-    setStatus: (label: string) => `Set status to ${label}`,
-    priorityLabel: "Priority",
-    due: "Due",
-    nextAction: "Next action",
-    tagPlaceholder: "Tag",
-    tagNameAria: "Tag name",
-    addTag: "Add tag"
   },
   composer: {
     newTask: "New task",
@@ -314,13 +307,31 @@ const en = {
       "Clears the local cache and re-downloads everything from the cloud. Use only after the cloud data was wiped and re-imported, to remove duplicate tasks.",
     forceResyncConfirm:
       "Force full resync clears the local cache and re-downloads all data from the cloud. Use it only when the cloud was wiped and re-imported, or duplicate/stale tasks appear on this device. Continue?",
+    syncError: "Sync error",
+    conflicts: "Conflicts",
+    backup: "Backup",
+    downloadJson: "Download JSON backup",
+    restoreJson: "Restore from JSON",
+    restoring: "Restoring",
+    backupHint:
+      "The JSON backup contains every field of every project, task, and Next idea. Restoring merges the file into the cloud data (matching records are overwritten, nothing is deleted).",
+    restoreConfirm: (projects: number, tasks: number, nextProjects: number, nextIdeas: number) =>
+      `Restore ${projects} projects, ${tasks} tasks, ${nextProjects} Next projects and ${nextIdeas} ideas from this file? Matching records will be overwritten.`,
+    restoreDone: (projects: number, tasks: number, nextProjects: number, nextIdeas: number) =>
+      `Restored ${projects} projects, ${tasks} tasks, ${nextProjects} Next projects, ${nextIdeas} ideas.`,
+    restoreInvalid: "This file is not a valid backup JSON.",
+    restoreFailed: "Restore failed",
+    backupDownloaded: "Backup downloaded.",
+    backupFailed: "Backup failed",
     security: "Security",
     changePasscode: "Change passcode",
     passcodeHint:
-      "Change the 4-digit sign-in passcode. It takes effect immediately; the old passcode — including the initial one from deployment — stops working.",
+      "Change the 4-digit sign-in passcode. It takes effect immediately; the old passcode — including the initial one from deployment — stops working. Other signed-in devices are signed out.",
     iphone: "iPhone",
     installNote: "In Safari, open Share, choose Add to Home Screen, then launch Projects from the Home Screen icon.",
-    signOut: "Sign out"
+    signOut: "Sign out",
+    signOutPendingConfirm: (n: number) =>
+      `${plural(n, "change")} could not be synced and will be lost if you sign out now. Sign out anyway?`
   },
   importer: {
     pick: "Import Excel",
@@ -350,7 +361,6 @@ const en = {
       next_action: "Next action",
       notes: "Notes",
       description: "Description",
-      tags: "Tags",
       progress: "Progress",
       blocker: "Blocker",
       output: "Output"
@@ -458,6 +468,8 @@ const zh: Messages = {
     subtitle: (n, pct) => `${n} 个任务 · 加权推进 ${pct}%`,
     dailySummary: "每日总结",
     addTask: "添加任务",
+    rollover: "顺延未完成",
+    rolloverAria: "把当天未完成的任务移到明天",
     empty: (date) => `${date} 还没有任务，点「添加任务」开始记录。`,
     prevDay: "前一天",
     nextDay: "后一天",
@@ -487,19 +499,10 @@ const zh: Messages = {
     moveToYesterday: "移到昨天",
     moveToTomorrow: "移到明天",
     deleteTask: "删除任务",
+    deletePrompt: "永久删除这个任务？",
+    confirmDelete: "确认删除",
     noteAria: "备注",
     showing: (visible, total) => `已显示 ${visible} / ${total} 条，向下滚动加载更多，或用搜索缩小范围。`
-  },
-  taskCard: {
-    titleAria: "任务标题",
-    quickStatus: "快捷状态",
-    setStatus: (label) => `将状态设为「${label}」`,
-    priorityLabel: "优先级",
-    due: "截止",
-    nextAction: "下一步",
-    tagPlaceholder: "标签",
-    tagNameAria: "标签名",
-    addTag: "添加标签"
   },
   composer: {
     newTask: "新任务",
@@ -662,12 +665,28 @@ const zh: Messages = {
     forceResync: "强制全量同步",
     forceResyncHint: "清空本机缓存并从云端重新拉取全部数据。仅在云端被清空重导后用于消除重复任务。",
     forceResyncConfirm: "强制全量同步会清空本机缓存并从云端重新拉取全部数据。仅在云端数据被清空重导、本机出现重复/残留任务时使用。继续？",
+    syncError: "同步错误",
+    conflicts: "冲突数",
+    backup: "备份",
+    downloadJson: "下载 JSON 备份",
+    restoreJson: "从 JSON 恢复",
+    restoring: "恢复中",
+    backupHint: "JSON 备份包含所有项目、任务和想法的完整字段。恢复时会把文件合并进云端数据（同 ID 记录被覆盖，不会删除任何数据）。",
+    restoreConfirm: (projects, tasks, nextProjects, nextIdeas) =>
+      `从该文件恢复 ${projects} 个项目、${tasks} 个任务、${nextProjects} 个想法分组和 ${nextIdeas} 条想法？同 ID 记录将被覆盖。`,
+    restoreDone: (projects, tasks, nextProjects, nextIdeas) =>
+      `已恢复 ${projects} 个项目、${tasks} 个任务、${nextProjects} 个想法分组、${nextIdeas} 条想法。`,
+    restoreInvalid: "该文件不是有效的备份 JSON。",
+    restoreFailed: "恢复失败",
+    backupDownloaded: "备份已下载。",
+    backupFailed: "备份失败",
     security: "安全",
     changePasscode: "修改密码",
-    passcodeHint: "修改登录密码（4 位数字）。修改后立即生效，旧密码——包括部署时自带的初始密码——将不再可用。",
+    passcodeHint: "修改登录密码（4 位数字）。修改后立即生效，旧密码——包括部署时自带的初始密码——将不再可用，其他已登录设备会被登出。",
     iphone: "iPhone",
     installNote: "在 Safari 中打开「分享」，选择「添加到主屏幕」，之后从主屏幕图标启动应用。",
-    signOut: "退出登录"
+    signOut: "退出登录",
+    signOutPendingConfirm: (n) => `还有 ${n} 项更改未能同步，现在退出将丢失这些更改。仍要退出？`
   },
   importer: {
     pick: "导入 Excel",
@@ -696,7 +715,6 @@ const zh: Messages = {
       next_action: "下一步",
       notes: "备注",
       description: "描述",
-      tags: "标签",
       progress: "进度",
       blocker: "卡点",
       output: "产出"

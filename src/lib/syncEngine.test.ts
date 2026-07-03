@@ -24,8 +24,6 @@ function bootstrapResponse(tasks: Task[]): BootstrapResponse {
     serverTime: "2026-06-30T12:00:00.000Z",
     projects: [],
     tasks,
-    tags: [],
-    taskTags: [],
     nextProjects: [],
     nextIdeas: [],
     settings: {}
@@ -60,8 +58,6 @@ function makeState(tasks: Task[]): AppState {
     lastSync: null,
     projects: [],
     tasks,
-    tags: [],
-    taskTags: [],
     nextProjects: [],
     nextIdeas: [],
     settings: {}

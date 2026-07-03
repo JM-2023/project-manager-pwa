@@ -207,13 +207,6 @@ export class SyncEngine {
         this.stateRef.current = { ...this.stateRef.current, projects: upsertRecord(this.stateRef.current.projects, next) };
         this.dispatch({ type: "upsertProject", payload: next });
         saves.push(this.io.saveEntity("projects", next));
-      } else if (result.entity === "tag") {
-        const existing = this.stateRef.current.tags.find((tag) => tag.id === result.recordId);
-        if (!existing) continue;
-        const next = stamp(existing, result);
-        this.stateRef.current = { ...this.stateRef.current, tags: upsertRecord(this.stateRef.current.tags, next) };
-        this.dispatch({ type: "upsertTag", payload: next });
-        saves.push(this.io.saveEntity("tags", next));
       } else if (result.entity === "next_project") {
         const existing = this.stateRef.current.nextProjects.find((project) => project.id === result.recordId);
         if (!existing) continue;

@@ -1,21 +1,17 @@
 import type { Filters } from "../state/appStore";
-import type { NextIdea, NextProject, Project, Tag, Task, TaskTag } from "../lib/types";
+import type { NextIdea, NextProject, Project, Task } from "../lib/types";
 
 export interface TaskPageProps {
   projects: Project[];
   archivedProjects: Project[];
   tasks: Task[];
-  tags: Tag[];
-  taskTags: TaskTag[];
   nextProjects: NextProject[];
   nextIdeas: NextIdea[];
   filters: Filters;
   onFiltersChange: (filters: Partial<Filters>) => void;
-  onCreateTask: (input: Partial<Task> & { title: string }) => void;
+  onCreateTask: (input: Partial<Task> & { title: string }) => string;
   onUpdateTask: (task: Task, changes: Partial<Task>) => void;
-  onArchiveTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
-  onAddTag: (task: Task, tagName: string) => void;
   onCreateProject: (name: string) => string;
   onArchiveProject: (project: Project) => void;
   onUnarchiveProject: (project: Project) => void;

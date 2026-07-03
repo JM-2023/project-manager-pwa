@@ -1,5 +1,5 @@
-import type { BootstrapResponse, NextIdea, NextProject, Project, SessionResponse, Tag, Task, TaskTag } from "../lib/types";
-import { mergeBootstrap, visibleProjects, visibleTasks } from "../lib/sync";
+import type { BootstrapResponse, NextIdea, NextProject, Project, SessionResponse, Task } from "../lib/types";
+import { visibleProjects, visibleTasks } from "../lib/sync";
 import { priorityScore } from "../lib/validation";
 
 export type TabId = "today" | "calendar" | "projects" | "next" | "search" | "settings";
@@ -10,7 +10,6 @@ export interface Filters {
   projectId: string;
   status: string;
   priority: string;
-  tagId: string;
   due: "all" | "today" | "overdue" | "none";
 }
 
@@ -27,8 +26,6 @@ export function matchesProjectFilter(filterProjectId: string, taskProjectId: str
 export interface AppState {
   projects: Project[];
   tasks: Task[];
-  tags: Tag[];
-  taskTags: TaskTag[];
   nextProjects: NextProject[];
   nextIdeas: NextIdea[];
   settings: Record<string, unknown>;
@@ -49,12 +46,8 @@ export interface AppState {
 export type AppAction =
   | {
       type: "hydrateLocal";
-      payload: Pick<
-        AppState,
-        "projects" | "tasks" | "tags" | "taskTags" | "nextProjects" | "nextIdeas" | "settings" | "pendingCount" | "lastSync"
-      >;
+      payload: Pick<AppState, "projects" | "tasks" | "nextProjects" | "nextIdeas" | "settings" | "pendingCount" | "lastSync">;
     }
-  | { type: "mergeBootstrap"; payload: BootstrapResponse }
   | { type: "replaceBootstrap"; payload: BootstrapResponse }
   | { type: "setSession"; payload: SessionResponse | null }
   | { type: "setAuthRequired"; payload: boolean }
@@ -69,8 +62,6 @@ export type AppAction =
   | { type: "purgeNextProject"; payload: string }
   | { type: "upsertNextIdea"; payload: NextIdea }
   | { type: "purgeNextIdea"; payload: string }
-  | { type: "upsertTag"; payload: Tag }
-  | { type: "upsertTaskTag"; payload: TaskTag }
   | { type: "setPendingCount"; payload: number }
   | { type: "setLastSync"; payload: string | null }
   | { type: "setLastExport"; payload: string | null }
@@ -82,8 +73,6 @@ export type AppAction =
 export const initialState: AppState = {
   projects: [],
   tasks: [],
-  tags: [],
-  taskTags: [],
   nextProjects: [],
   nextIdeas: [],
   settings: {},
@@ -96,7 +85,6 @@ export const initialState: AppState = {
     projectId: "",
     status: "",
     priority: "",
-    tagId: "",
     due: "all"
   },
   pendingCount: 0,
@@ -118,47 +106,15 @@ function byId<T extends { id: string }>(records: T[], record: T): T[] {
   return next;
 }
 
-function taskTagKey(tag: TaskTag): string {
-  return `${tag.task_id}:${tag.tag_id}`;
-}
-
-function byTaskTag(records: TaskTag[], record: TaskTag): TaskTag[] {
-  const key = taskTagKey(record);
-  const index = records.findIndex((item) => taskTagKey(item) === key);
-  if (index === -1) {
-    return [...records, record];
-  }
-  const next = records.slice();
-  next[index] = record;
-  return next;
-}
-
 export function appReducer(state: AppState, action: AppAction): AppState {
   switch (action.type) {
     case "hydrateLocal":
       return { ...state, ...action.payload };
-    case "mergeBootstrap": {
-      const merged = mergeBootstrap(state, action.payload);
-      return {
-        ...state,
-        projects: merged.projects,
-        tasks: merged.tasks,
-        tags: merged.tags,
-        taskTags: merged.taskTags,
-        nextProjects: merged.nextProjects,
-        nextIdeas: merged.nextIdeas,
-        settings: merged.settings,
-        lastSync: merged.serverTime,
-        syncStatus: "idle"
-      };
-    }
     case "replaceBootstrap":
       return {
         ...state,
         projects: action.payload.projects,
         tasks: action.payload.tasks,
-        tags: action.payload.tags,
-        taskTags: action.payload.taskTags,
         nextProjects: action.payload.nextProjects,
         nextIdeas: action.payload.nextIdeas,
         settings: action.payload.settings,
@@ -178,28 +134,19 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "upsertProject":
       return { ...state, projects: byId(state.projects, action.payload) };
     case "purgeProject": {
-      // Hard delete a project and everything hanging off it: its tasks and those
-      // tasks' tag links. Nothing is left behind as a tombstone.
+      // Hard delete a project and its tasks. Nothing is left behind as a tombstone.
       const projectId = action.payload;
-      const purgedTaskIds = new Set(state.tasks.filter((task) => task.project_id === projectId).map((task) => task.id));
       return {
         ...state,
         projects: state.projects.filter((project) => project.id !== projectId),
-        tasks: state.tasks.filter((task) => task.project_id !== projectId),
-        taskTags: state.taskTags.filter((link) => !purgedTaskIds.has(link.task_id))
+        tasks: state.tasks.filter((task) => task.project_id !== projectId)
       };
     }
     case "upsertTask":
       return { ...state, tasks: byId(state.tasks, action.payload) };
-    case "purgeTask": {
-      // Hard delete a task and its tag links — no tombstone left behind.
-      const taskId = action.payload;
-      return {
-        ...state,
-        tasks: state.tasks.filter((task) => task.id !== taskId),
-        taskTags: state.taskTags.filter((link) => link.task_id !== taskId)
-      };
-    }
+    case "purgeTask":
+      // Hard delete a task — no tombstone left behind.
+      return { ...state, tasks: state.tasks.filter((task) => task.id !== action.payload) };
     case "upsertNextProject":
       return { ...state, nextProjects: byId(state.nextProjects, action.payload) };
     case "purgeNextProject": {
@@ -214,10 +161,6 @@ export function appReducer(state: AppState, action: AppAction): AppState {
       return { ...state, nextIdeas: byId(state.nextIdeas, action.payload) };
     case "purgeNextIdea":
       return { ...state, nextIdeas: state.nextIdeas.filter((idea) => idea.id !== action.payload) };
-    case "upsertTag":
-      return { ...state, tags: byId(state.tags, action.payload) };
-    case "upsertTaskTag":
-      return { ...state, taskTags: byTaskTag(state.taskTags, action.payload) };
     case "setPendingCount":
       return { ...state, pendingCount: action.payload };
     case "setLastSync":

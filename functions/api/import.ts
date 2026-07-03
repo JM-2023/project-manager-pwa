@@ -17,7 +17,6 @@ interface ImportRow {
   next_action?: string | null;
   notes?: string | null;
   description?: string | null;
-  tags?: string[];
   extra_json?: Record<string, unknown>;
 }
 
@@ -67,24 +66,6 @@ async function getOrCreateProject(context: AppContext, user: AuthUser, name: str
     "INSERT INTO projects (id, user_id, name, description, color, sort_order, archived, created_at, updated_at, deleted_at, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   )
     .bind(id, user.id, clean, null, null, 0, 0, timestamp, timestamp, null, 1)
-    .run();
-  return id;
-}
-
-async function getOrCreateTag(context: AppContext, user: AuthUser, name: string, timestamp: string): Promise<string | null> {
-  const clean = name.trim();
-  if (!clean) {
-    return null;
-  }
-  const existing = await context.env.DB.prepare("SELECT id FROM tags WHERE user_id = ? AND name = ? AND deleted_at IS NULL")
-    .bind(user.id, clean)
-    .first<{ id: string }>();
-  if (existing) {
-    return existing.id;
-  }
-  const id = crypto.randomUUID();
-  await context.env.DB.prepare("INSERT INTO tags (id, user_id, name, color, created_at, updated_at, deleted_at, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-    .bind(id, user.id, clean, null, timestamp, timestamp, null, 1)
     .run();
   return id;
 }
@@ -216,20 +197,6 @@ async function upsertTask(context: AppContext, user: AuthUser, row: ImportRow, p
   return { id, created: !existing, changed: true };
 }
 
-async function attachTags(context: AppContext, user: AuthUser, taskId: string, tags: string[] | undefined, timestamp: string): Promise<void> {
-  for (const tagName of tags ?? []) {
-    const tagId = await getOrCreateTag(context, user, tagName, timestamp);
-    if (!tagId) continue;
-    await context.env.DB.prepare(
-      `INSERT INTO task_tags (task_id, tag_id, user_id, created_at, updated_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT(task_id, tag_id) DO UPDATE SET deleted_at = NULL, updated_at = excluded.updated_at`
-    )
-      .bind(taskId, tagId, user.id, timestamp, timestamp, null)
-      .run();
-  }
-}
-
 export async function onRequestPost(context: AppContext): Promise<Response> {
   const originError = requireSameOrigin(context.request);
   if (originError) return originError;
@@ -262,7 +229,6 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
     }
     const projectId = await getOrCreateProject(context, user, row.project ?? "", timestamp);
     const task = await upsertTask(context, user, row, projectId, timestamp);
-    await attachTags(context, user, task.id, row.tags, timestamp);
     if (task.created) created += 1;
     else if (task.changed) updated += 1;
   }

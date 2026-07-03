@@ -63,29 +63,6 @@ export interface Task {
   version: number;
 }
 
-export interface Tag {
-  id: string;
-  user_id?: string;
-  name: string;
-  color?: string | null;
-  created_at: string;
-  updated_at: string;
-  deleted_at?: string | null;
-  version: number;
-}
-
-export interface TaskTag {
-  task_id: string;
-  tag_id: string;
-  user_id?: string;
-  created_at: string;
-  // Stamped server-side on every add / remove / re-add so the incremental
-  // bootstrap cursor can surface re-links (migration 0003). Optimistic local
-  // links may omit it until the next bootstrap fills it in.
-  updated_at?: string | null;
-  deleted_at?: string | null;
-}
-
 // Next-page idea board. These rows live in their own tables (next_projects /
 // next_ideas) and are intentionally independent of the formal `projects` and
 // `tasks` data — see docs/next-page-data-separation-guideline.md.
@@ -125,14 +102,12 @@ export interface BootstrapResponse {
   serverTime: string;
   projects: Project[];
   tasks: Task[];
-  tags: Tag[];
-  taskTags: TaskTag[];
   nextProjects: NextProject[];
   nextIdeas: NextIdea[];
   settings: Record<string, unknown>;
 }
 
-export type MutationEntity = "project" | "task" | "tag" | "task_tag" | "setting" | "next_project" | "next_idea";
+export type MutationEntity = "project" | "task" | "setting" | "next_project" | "next_idea";
 // "purge" is an irreversible hard delete (row removed, no tombstone). Used for
 // project deletion, which cascades to the project's tasks and their task_tags.
 export type MutationOperation = "upsert" | "delete" | "purge";
@@ -183,7 +158,6 @@ export interface ImportRow {
   next_action?: string | null;
   notes?: string | null;
   description?: string | null;
-  tags?: string[];
   extra_json?: Record<string, unknown>;
 }
 
@@ -197,6 +171,14 @@ export interface ImportResponse {
 
 export interface ExportDataResponse extends BootstrapResponse {
   exportedAt: string;
+}
+
+export interface RestoreResponse {
+  ok: true;
+  projects: number;
+  tasks: number;
+  nextProjects: number;
+  nextIdeas: number;
 }
 
 export interface BackupLog {

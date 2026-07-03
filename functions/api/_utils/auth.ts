@@ -6,6 +6,10 @@ import type { AppContext, AppEnv, AuthUser } from "./types";
 const encoder = new TextEncoder();
 const SESSION_COOKIE = "pm_session";
 const LOCAL_PASSWORD_HASH_SETTING_KEY = "local_password_hash";
+// Bumped on every passcode change. Cookies embed the generation they were
+// minted with; a mismatch invalidates them, so changing the passcode signs
+// every other device out even though the HMAC secret stays the same.
+const SESSION_GENERATION_SETTING_KEY = "session_generation";
 const HASH_ITERATIONS = 210_000;
 
 function base64UrlEncode(bytes: ArrayBuffer | Uint8Array): string {
@@ -140,12 +144,42 @@ export async function verifyLocalPassword(env: AppEnv, password: string): Promis
   return verifyPassword(password, (await readStoredPasswordHash(env)) ?? env.APP_PASSWORD_HASH);
 }
 
+async function readSessionGeneration(env: AppEnv): Promise<number> {
+  const email = ownerEmail(env);
+  if (!email) return 0;
+  const user = await getOrCreateUser(env, email);
+  const row = await env.DB.prepare("SELECT value_json FROM app_settings WHERE user_id = ? AND key = ?")
+    .bind(user.id, SESSION_GENERATION_SETTING_KEY)
+    .first<{ value_json: string }>();
+  if (!row) return 0;
+  const parsed = Number(JSON.parse(row.value_json));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Invalidate every outstanding session cookie (called on passcode change). */
+export async function bumpSessionGeneration(env: AppEnv): Promise<void> {
+  const email = ownerEmail(env);
+  if (!email) {
+    throw new Error("OWNER_EMAIL is missing");
+  }
+  const user = await getOrCreateUser(env, email);
+  const next = (await readSessionGeneration(env)) + 1;
+  await env.DB.prepare(
+    `INSERT INTO app_settings (user_id, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
+  )
+    .bind(user.id, SESSION_GENERATION_SETTING_KEY, JSON.stringify(next), nowIso())
+    .run();
+}
+
 export async function createSessionCookie(env: AppEnv, email: string): Promise<string> {
   if (!env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET is missing");
   }
+  const generation = await readSessionGeneration(env);
   const expiresAt = Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 30;
-  const payload = base64UrlEncode(encoder.encode(JSON.stringify({ email, exp: expiresAt, nonce: crypto.randomUUID() })));
+  const payload = base64UrlEncode(encoder.encode(JSON.stringify({ email, exp: expiresAt, gen: generation, nonce: crypto.randomUUID() })));
   const signature = await hmac(env.SESSION_SECRET, payload);
   return `${SESSION_COOKIE}=${encodeURIComponent(`${payload}.${signature}`)}; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${60 * 60 * 24 * 30}`;
 }
@@ -170,8 +204,13 @@ async function userFromLocalSession(env: AppEnv, request: Request): Promise<stri
   if (!(await timingSafeEqual(signature, expected))) {
     return null;
   }
-  const parsed = JSON.parse(new TextDecoder().decode(base64UrlDecode(payload))) as { email?: string; exp?: number };
+  const parsed = JSON.parse(new TextDecoder().decode(base64UrlDecode(payload))) as { email?: string; exp?: number; gen?: number };
   if (!parsed.email || !parsed.exp || parsed.exp < Math.floor(Date.now() / 1000)) {
+    return null;
+  }
+  // Cookies minted before the last passcode change carry a stale generation
+  // (missing = 0, the pre-feature default) and stop being accepted.
+  if ((parsed.gen ?? 0) !== (await readSessionGeneration(env))) {
     return null;
   }
   return parsed.email.toLowerCase();

@@ -12,7 +12,7 @@ import {
   safeJsonString
 } from "./_utils/validation";
 
-type Entity = "project" | "task" | "tag" | "task_tag" | "setting" | "next_project" | "next_idea";
+type Entity = "project" | "task" | "setting" | "next_project" | "next_idea";
 type Operation = "upsert" | "delete" | "purge";
 
 interface IncomingMutation {
@@ -60,6 +60,11 @@ interface MutationPlan {
 
 const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
 
+// The idempotency ledger only needs to cover redelivery windows (a keepalive
+// beacon followed by the next sync), so entries older than this are dead weight
+// and get pruned opportunistically after each write batch.
+const PROCESSED_MUTATION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
 function excelAutosyncEnabled(context: AppContext): boolean {
   return (context.env.ENABLE_R2_BACKUPS === "true" && Boolean(context.env.BACKUPS)) || context.env.ENABLE_D1_EXCEL_STATE === "true";
 }
@@ -101,19 +106,13 @@ function nextVersion(existing: Record<string, unknown> | null): number {
 }
 
 async function findExisting(context: AppContext, user: AuthUser, mutation: IncomingMutation): Promise<Record<string, unknown> | null> {
-  const id = String(mutation.data.id ?? mutation.data.task_id ?? "");
-  if (mutation.entity === "task_tag") {
-    return context.env.DB.prepare("SELECT * FROM task_tags WHERE user_id = ? AND task_id = ? AND tag_id = ?")
-      .bind(user.id, mutation.data.task_id, mutation.data.tag_id)
-      .first<Record<string, unknown>>();
-  }
+  const id = String(mutation.data.id ?? "");
   if (!id) {
     return null;
   }
   const table = {
     project: "projects",
     task: "tasks",
-    tag: "tags",
     next_project: "next_projects",
     next_idea: "next_ideas",
     setting: "app_settings"
@@ -327,72 +326,6 @@ function planTask(context: AppContext, user: AuthUser, mutation: IncomingMutatio
   return { result: { id: mutation.id, entity: "task", recordId: id, version, updated_at: timestamp }, statements: [statement] };
 }
 
-async function planTag(context: AppContext, user: AuthUser, mutation: IncomingMutation, existing: Record<string, unknown> | null, timestamp: string): Promise<MutationPlan> {
-  const data = mutation.data;
-  const id = assertUuidish(data.id);
-  const name = nullableText(data.name) ?? "Tag";
-
-  // tags carries UNIQUE(user_id, name). When two devices create the same-named
-  // tag offline they mint different ids; the second insert would otherwise hit
-  // the name constraint, throw, and get re-queued as a transient conflict
-  // forever (a poisoned queue that never drains). If this is a fresh tag (no row
-  // by id) but the name already exists, adopt that existing tag instead of
-  // inserting a duplicate, so the mutation resolves cleanly.
-  if (!existing) {
-    const byName = await context.env.DB.prepare("SELECT * FROM tags WHERE user_id = ? AND name = ?")
-      .bind(user.id, name)
-      .first<Record<string, unknown>>();
-    if (byName && String(byName.id) !== id) {
-      const statements: D1PreparedStatement[] = [];
-      if (byName.deleted_at) {
-        statements.push(
-          context.env.DB.prepare("UPDATE tags SET deleted_at = NULL, updated_at = ?, version = version + 1 WHERE user_id = ? AND id = ?")
-            .bind(timestamp, user.id, String(byName.id))
-        );
-      }
-      return {
-        result: {
-          id: mutation.id,
-          entity: "tag",
-          recordId: String(byName.id),
-          version: Number(byName.version ?? 1) + (byName.deleted_at ? 1 : 0),
-          updated_at: timestamp
-        },
-        statements
-      };
-    }
-  }
-
-  const version = nextVersion(existing);
-  const createdAt = String(existing?.created_at ?? data.created_at ?? timestamp);
-  const statement = context.env.DB.prepare(
-    `INSERT INTO tags (id, user_id, name, color, created_at, updated_at, deleted_at, version)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       name = excluded.name,
-       color = excluded.color,
-       updated_at = excluded.updated_at,
-       deleted_at = excluded.deleted_at,
-       version = excluded.version`
-  ).bind(id, user.id, name, nullableText(data.color), createdAt, timestamp, nullableText(data.deleted_at), version);
-  return { result: { id: mutation.id, entity: "tag", recordId: id, version, updated_at: timestamp }, statements: [statement] };
-}
-
-function planTaskTag(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): MutationPlan {
-  const taskId = String(mutation.data.task_id ?? "");
-  const tagId = String(mutation.data.tag_id ?? "");
-  // Stamp updated_at on every link write (add and re-add). Without it, a re-add
-  // (deleted_at: value -> NULL) would leave created_at untouched and the
-  // incremental bootstrap cursor would never surface the re-link to other
-  // devices. See migration 0003.
-  const statement = context.env.DB.prepare(
-    `INSERT INTO task_tags (task_id, tag_id, user_id, created_at, updated_at, deleted_at)
-     VALUES (?, ?, ?, ?, ?, ?)
-     ON CONFLICT(task_id, tag_id) DO UPDATE SET deleted_at = excluded.deleted_at, updated_at = excluded.updated_at`
-  ).bind(taskId, tagId, user.id, String(mutation.data.created_at ?? timestamp), timestamp, nullableText(mutation.data.deleted_at));
-  return { result: { id: mutation.id, entity: "task_tag", recordId: `${taskId}:${tagId}`, updated_at: timestamp }, statements: [statement] };
-}
-
 function planSetting(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): MutationPlan {
   const key = String(mutation.data.key ?? mutation.data.id ?? "");
   const statement = context.env.DB.prepare(
@@ -405,14 +338,6 @@ function planSetting(context: AppContext, user: AuthUser, mutation: IncomingMuta
 
 /** Deletes are tombstones (soft delete) so they converge like any other edit. */
 function planDelete(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): MutationPlan {
-  if (mutation.entity === "task_tag") {
-    const taskId = String(mutation.data.task_id ?? "");
-    const tagId = String(mutation.data.tag_id ?? "");
-    const statement = context.env.DB.prepare("UPDATE task_tags SET deleted_at = ?, updated_at = ? WHERE user_id = ? AND task_id = ? AND tag_id = ?")
-      .bind(timestamp, timestamp, user.id, taskId, tagId);
-    return { result: { id: mutation.id, entity: mutation.entity, recordId: `${taskId}:${tagId}`, updated_at: timestamp }, statements: [statement] };
-  }
-
   const id = String(mutation.data.id ?? "");
   if (mutation.entity === "setting") {
     const statement = context.env.DB.prepare("DELETE FROM app_settings WHERE user_id = ? AND key = ?").bind(user.id, id);
@@ -434,24 +359,23 @@ function planDelete(context: AppContext, user: AuthUser, mutation: IncomingMutat
     return { result: { id: mutation.id, entity: "next_idea", recordId: id, updated_at: timestamp }, statements: [statement] };
   }
 
-  const table = { project: "projects", task: "tasks", tag: "tags" }[mutation.entity];
+  const table = { project: "projects", task: "tasks" }[mutation.entity];
   if (!table) {
     return { result: { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp }, statements: [] };
   }
-  const archivedColumn = mutation.entity === "task" || mutation.entity === "project" ? ", archived = 1" : "";
   const statement = context.env.DB.prepare(
-    `UPDATE ${table} SET deleted_at = ?, updated_at = ?, version = version + 1${archivedColumn} WHERE user_id = ? AND id = ?`
+    `UPDATE ${table} SET deleted_at = ?, updated_at = ?, version = version + 1, archived = 1 WHERE user_id = ? AND id = ?`
   ).bind(timestamp, timestamp, user.id, id);
   return { result: { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp }, statements: [statement] };
 }
 
 /**
  * Hard delete — the one place this server removes rows instead of tombstoning.
- * A project purge cascades to its tasks and their tag links. This trades the
- * tombstone convergence guarantee for a real delete, so other live devices only
- * catch up on their next full-replace bootstrap (which they run on app start).
- * Cascade statements are ordered so child rows go before parents and all run in
- * the same atomic batch.
+ * A project purge cascades to its tasks. This trades the tombstone convergence
+ * guarantee for a real delete, so other live devices only catch up on their
+ * next full-replace bootstrap (which they run on app start). Cascade statements
+ * are ordered so child rows go before parents and all run in the same atomic
+ * batch.
  */
 function planPurge(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): MutationPlan {
   const id = String(mutation.data.id ?? "");
@@ -463,9 +387,6 @@ function planPurge(context: AppContext, user: AuthUser, mutation: IncomingMutati
     return {
       result: { id: mutation.id, entity: "project", recordId: id, updated_at: timestamp },
       statements: [
-        context.env.DB.prepare(
-          "DELETE FROM task_tags WHERE user_id = ? AND task_id IN (SELECT id FROM tasks WHERE user_id = ? AND project_id = ?)"
-        ).bind(user.id, user.id, id),
         context.env.DB.prepare("DELETE FROM tasks WHERE user_id = ? AND project_id = ?").bind(user.id, id),
         context.env.DB.prepare("DELETE FROM projects WHERE user_id = ? AND id = ?").bind(user.id, id)
       ]
@@ -473,13 +394,8 @@ function planPurge(context: AppContext, user: AuthUser, mutation: IncomingMutati
   }
 
   if (mutation.entity === "task") {
-    return {
-      result: { id: mutation.id, entity: "task", recordId: id, updated_at: timestamp },
-      statements: [
-        context.env.DB.prepare("DELETE FROM task_tags WHERE user_id = ? AND task_id = ?").bind(user.id, id),
-        context.env.DB.prepare("DELETE FROM tasks WHERE user_id = ? AND id = ?").bind(user.id, id)
-      ]
-    };
+    const statement = context.env.DB.prepare("DELETE FROM tasks WHERE user_id = ? AND id = ?").bind(user.id, id);
+    return { result: { id: mutation.id, entity: "task", recordId: id, updated_at: timestamp }, statements: [statement] };
   }
 
   if (mutation.entity === "next_project") {
@@ -497,14 +413,14 @@ function planPurge(context: AppContext, user: AuthUser, mutation: IncomingMutati
     return { result: { id: mutation.id, entity: "next_idea", recordId: id, updated_at: timestamp }, statements: [statement] };
   }
 
-  const table = { tag: "tags" }[mutation.entity as "tag"];
-  const statements = table ? [context.env.DB.prepare(`DELETE FROM ${table} WHERE user_id = ? AND id = ?`).bind(user.id, id)] : [];
-  return { result: { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp }, statements };
+  return { result: { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp }, statements: [] };
 }
 
 async function planMutation(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): Promise<MutationPlan> {
+  // "tag" / "task_tag" are gone (feature removed); a stale client still sending
+  // them gets a permanent conflict so its queue drains cleanly.
   if (
-    !["project", "task", "tag", "task_tag", "setting", "next_project", "next_idea"].includes(mutation.entity) ||
+    !["project", "task", "setting", "next_project", "next_idea"].includes(mutation.entity) ||
     !["upsert", "delete", "purge"].includes(mutation.operation)
   ) {
     return { result: { id: mutation.id, entity: mutation.entity, reason: "Unsupported mutation", permanent: true }, statements: [] };
@@ -513,9 +429,6 @@ async function planMutation(context: AppContext, user: AuthUser, mutation: Incom
   // Reject malformed mutations up front as *permanent* conflicts the client can
   // drop. That keeps them out of the transient-error path where they would be
   // re-sent on every sync.
-  if (mutation.entity === "task_tag" && (!mutation.data.task_id || !mutation.data.tag_id)) {
-    return { result: { id: mutation.id, entity: mutation.entity, reason: "Task tag requires task_id and tag_id", permanent: true }, statements: [] };
-  }
   if (mutation.entity === "setting" && !mutation.data.key && !mutation.data.id) {
     return { result: { id: mutation.id, entity: mutation.entity, reason: "Setting key is required", permanent: true }, statements: [] };
   }
@@ -536,8 +449,6 @@ async function planMutation(context: AppContext, user: AuthUser, mutation: Incom
   const existing = await findExisting(context, user, mutation);
   if (mutation.entity === "project") return planProject(context, user, mutation, existing, timestamp);
   if (mutation.entity === "task") return planTask(context, user, mutation, existing, timestamp);
-  if (mutation.entity === "tag") return planTag(context, user, mutation, existing, timestamp);
-  if (mutation.entity === "task_tag") return planTaskTag(context, user, mutation, timestamp);
   if (mutation.entity === "next_project") return planNextProject(context, user, mutation, existing, timestamp);
   if (mutation.entity === "next_idea") return planNextIdea(context, user, mutation, existing, timestamp);
   return planSetting(context, user, mutation, timestamp);
@@ -563,9 +474,6 @@ async function findProcessedIds(context: AppContext, user: AuthUser, ids: string
 }
 
 function recordIdFor(mutation: IncomingMutation): string {
-  if (mutation.entity === "task_tag") {
-    return `${String(mutation.data.task_id ?? "")}:${String(mutation.data.tag_id ?? "")}`;
-  }
   if (mutation.entity === "setting") {
     return String(mutation.data.key ?? mutation.data.id ?? "");
   }
@@ -646,6 +554,12 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
     // Only real writes mark the cloud Excel dirty; an idempotent re-delivery
     // (already-processed mutations, no writes) must not bounce the snapshot.
     await markExcelDirty(context, user, timestamp);
+
+    // Prune expired idempotency entries without delaying the response.
+    const cutoff = new Date(Date.parse(timestamp) - PROCESSED_MUTATION_TTL_MS).toISOString();
+    context.waitUntil(
+      context.env.DB.prepare("DELETE FROM processed_mutations WHERE created_at < ?").bind(cutoff).run()
+    );
   }
 
   return json({ ok: true, serverTime: timestamp, applied, conflicts });

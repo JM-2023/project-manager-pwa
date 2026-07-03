@@ -189,9 +189,6 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
     });
     etag = latest.httpEtag;
   } else {
-    if (bytes.byteLength > 2_000_000) {
-      return apiError(413, "Excel file is too large for D1 fallback. Enable R2 for larger files.");
-    }
     const state: D1ExcelState = {
       dataBase64: bytesToBase64(bytes),
       etag,
@@ -199,12 +196,18 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
       updatedAt: timestamp,
       size: bytes.byteLength
     };
+    // D1 caps a single string/row at 2 MB, and base64 inflates the file by
+    // ~4/3 — so the real limit is on the JSON payload, not the raw bytes.
+    const payload = JSON.stringify(state);
+    if (payload.length > 1_900_000) {
+      return apiError(413, "Excel file is too large for D1 fallback. Enable R2 for larger files.");
+    }
     await context.env.DB.prepare(
       `INSERT INTO app_settings (user_id, key, value_json, updated_at)
        VALUES (?, ?, ?, ?)
        ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
     )
-      .bind(user.id, D1_EXCEL_STATE_KEY, JSON.stringify(state), timestamp)
+      .bind(user.id, D1_EXCEL_STATE_KEY, payload, timestamp)
       .run();
   }
 

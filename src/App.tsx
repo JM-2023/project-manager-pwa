@@ -15,6 +15,8 @@ import {
 } from "./lib/api";
 import { nowIso } from "./lib/dates";
 import { getOrCreateClientId, newId, newMutationId } from "./lib/ids";
+import { buildWorkbookBlobInWorker } from "./lib/excelWorkbookClient";
+import { useI18n } from "./lib/i18n";
 import {
   getPendingMutations,
   loadLocalSnapshot,
@@ -30,9 +32,9 @@ import {
 } from "./lib/localDb";
 import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
-import { compactPendingMutations, mutationData, mutationRecordKey, removeRecord, upsertRecord, upsertTaskTagRecord } from "./lib/syncMerge";
+import { compactPendingMutations, mutationRecordKey, removeRecord, upsertRecord } from "./lib/syncMerge";
 import { SyncEngine, type SyncIO } from "./lib/syncEngine";
-import type { ImportRow, NextIdea, NextProject, Project, Tag, Task, TaskTag } from "./lib/types";
+import type { ImportRow, NextIdea, NextProject, Project, Task } from "./lib/types";
 import { CalendarPage } from "./pages/CalendarPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NextPage } from "./pages/NextPage";
@@ -55,9 +57,15 @@ const syncIO: SyncIO = {
   sendMutations,
   getExportData,
   uploadCloudExcel,
+  // Build the autosync workbook off the main thread; fall back to an inline
+  // build when workers are unavailable (e.g. very old WebKit).
   workbookBlob: async (data) => {
-    const { workbookBlob } = await import("./lib/excelExport");
-    return workbookBlob(data);
+    try {
+      return await buildWorkbookBlobInWorker(data);
+    } catch {
+      const { workbookBlob } = await import("./lib/excelExport");
+      return workbookBlob(data);
+    }
   },
   queueMutation,
   getPendingMutations,
@@ -71,6 +79,7 @@ const syncIO: SyncIO = {
 };
 
 export function App() {
+  const { m } = useI18n();
   const [state, dispatch] = useReducer(appReducer, initialState);
   const stateRef = useRef(state);
   const clientId = useMemo(() => getOrCreateClientId(), []);
@@ -100,8 +109,6 @@ export function App() {
         const payload = {
           projects: local.projects,
           tasks: local.tasks,
-          tags: local.tags,
-          taskTags: local.taskTags,
           nextProjects: local.nextProjects,
           nextIdeas: local.nextIdeas,
           settings: local.settings,
@@ -184,7 +191,7 @@ export function App() {
     });
   }
 
-  function createTask(input: Partial<Task> & { title: string }) {
+  function createTask(input: Partial<Task> & { title: string }): string {
     const timestamp = nowIso();
     const task: Task = {
       id: newId(),
@@ -213,33 +220,20 @@ export function App() {
     stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, task) };
     void saveEntity("tasks", task);
     void persistMutation({ id: newMutationId(), entity: "task", operation: "upsert", baseVersion: null, data: task });
+    return task.id;
   }
 
   function deleteTask(task: Task) {
-    // Irreversible hard delete: the task and its tag links are removed everywhere
-    // (no tombstone). The server purge mutation does the same cascade in D1.
-    const purgedTagKeys = stateRef.current.taskTags
-      .filter((link) => link.task_id === task.id)
-      .map((link) => `${link.task_id}:${link.tag_id}`);
-
+    // Irreversible hard delete: the task is removed everywhere (no tombstone).
+    // The server purge mutation does the same in D1.
     dispatch({ type: "purgeTask", payload: task.id });
-    stateRef.current = {
-      ...stateRef.current,
-      tasks: removeRecord(stateRef.current.tasks, task.id),
-      taskTags: stateRef.current.taskTags.filter((link) => link.task_id !== task.id)
-    };
-    void purgeTaskData(task.id, purgedTagKeys);
+    stateRef.current = { ...stateRef.current, tasks: removeRecord(stateRef.current.tasks, task.id) };
+    void purgeTaskData(task.id);
 
-    // Drop any queued edits for this task / its tag links so a late upsert can't
-    // resurrect a row the purge already removed.
+    // Drop any queued edits for this task so a late upsert can't resurrect a
+    // row the purge already removed.
     const staleMutationIds = engine.pendingMutations()
-      .filter((mutation) => {
-        if (mutation.entity === "task_tag") {
-          return String(mutationData(mutation).task_id ?? "") === task.id;
-        }
-        const key = mutationRecordKey(mutation);
-        return key === `task:${task.id}`;
-      })
+      .filter((mutation) => mutationRecordKey(mutation) === `task:${task.id}`)
       .map((mutation) => mutation.id);
     if (staleMutationIds.length > 0) {
       engine.dropPendingMutations(staleMutationIds);
@@ -252,16 +246,6 @@ export function App() {
       baseVersion: task.version,
       data: { id: task.id }
     });
-  }
-
-  // Archive is a recoverable soft state (archived = 1), kept distinct from the
-  // irreversible hard delete above.
-  function archiveTask(task: Task) {
-    const next: Task = { ...task, archived: 1, updated_at: nowIso(), version: task.version + 1 };
-    dispatch({ type: "upsertTask", payload: next });
-    stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, next) };
-    void saveEntity("tasks", next);
-    void persistMutation({ id: newMutationId(), entity: "task", operation: "upsert", baseVersion: task.version, data: next });
   }
 
   function createProject(name: string): string {
@@ -340,38 +324,31 @@ export function App() {
   }
 
   function deleteProject(project: Project) {
-    // Irreversible cascade hard delete: the project, its tasks, and those tasks'
-    // tag links are removed everywhere (no tombstone). The server purge mutation
-    // does the same cascade in D1.
+    // Irreversible cascade hard delete: the project and its tasks are removed
+    // everywhere (no tombstone). The server purge mutation does the same cascade
+    // in D1.
     const purgedTasks = stateRef.current.tasks.filter((task) => task.project_id === project.id);
     const purgedTaskIds = purgedTasks.map((task) => task.id);
     const purgedTaskIdSet = new Set(purgedTaskIds);
-    const purgedTagKeys = stateRef.current.taskTags
-      .filter((link) => purgedTaskIdSet.has(link.task_id))
-      .map((link) => `${link.task_id}:${link.tag_id}`);
 
     dispatch({ type: "purgeProject", payload: project.id });
     stateRef.current = {
       ...stateRef.current,
       projects: removeRecord(stateRef.current.projects, project.id),
-      tasks: stateRef.current.tasks.filter((task) => !purgedTaskIdSet.has(task.id)),
-      taskTags: stateRef.current.taskTags.filter((link) => !purgedTaskIdSet.has(link.task_id))
+      tasks: stateRef.current.tasks.filter((task) => !purgedTaskIdSet.has(task.id))
     };
-    void purgeProjectData(project.id, purgedTaskIds, purgedTagKeys);
+    void purgeProjectData(project.id, purgedTaskIds);
     if (stateRef.current.filters.projectId === project.id) {
       const filters = { ...stateRef.current.filters, projectId: "" };
       stateRef.current = { ...stateRef.current, filters };
       dispatch({ type: "setFilters", payload: { projectId: "" } });
     }
 
-    // Drop any still-queued edits for the purged tasks/links so a late upsert in
-    // a later sync can't resurrect a row the purge already removed. (The project's
+    // Drop any still-queued edits for the purged tasks so a late upsert in a
+    // later sync can't resurrect a row the purge already removed. (The project's
     // own pending edits are superseded by the purge during mutation compaction.)
     const staleMutationIds = engine.pendingMutations()
       .filter((mutation) => {
-        if (mutation.entity === "task_tag") {
-          return purgedTaskIdSet.has(String(mutationData(mutation).task_id ?? ""));
-        }
         const key = mutationRecordKey(mutation);
         return key ? key === `project:${project.id}` || purgedTaskIds.some((id) => key === `task:${id}`) : false;
       })
@@ -543,39 +520,6 @@ export function App() {
     });
   }
 
-  function addTag(task: Task, tagName: string) {
-    const existing = stateRef.current.tags.find((tag) => tag.name.toLowerCase() === tagName.toLowerCase() && !tag.deleted_at);
-    const timestamp = nowIso();
-    const tag: Tag =
-      existing ??
-      ({
-        id: newId(),
-        name: tagName,
-        color: null,
-        created_at: timestamp,
-        updated_at: timestamp,
-        deleted_at: null,
-        version: 1
-      } satisfies Tag);
-
-    if (!existing) {
-      dispatch({ type: "upsertTag", payload: tag });
-      stateRef.current = { ...stateRef.current, tags: upsertRecord(stateRef.current.tags, tag) };
-      void saveEntity("tags", tag);
-      void persistMutation({ id: newMutationId(), entity: "tag", operation: "upsert", baseVersion: null, data: tag });
-    }
-
-    const alreadyLinked = stateRef.current.taskTags.some((link) => link.task_id === task.id && link.tag_id === tag.id && !link.deleted_at);
-    if (alreadyLinked) {
-      return;
-    }
-    const link: TaskTag = { task_id: task.id, tag_id: tag.id, created_at: timestamp, deleted_at: null };
-    dispatch({ type: "upsertTaskTag", payload: link });
-    stateRef.current = { ...stateRef.current, taskTags: upsertTaskTagRecord(stateRef.current.taskTags, link) };
-    void saveEntity("taskTags", link);
-    void persistMutation({ id: newMutationId(), entity: "task_tag", operation: "upsert", baseVersion: null, data: link });
-  }
-
   async function handleImport(filename: string, rows: ImportRow[]) {
     const result = await importRows(filename, rows);
     await syncNow();
@@ -602,8 +546,6 @@ export function App() {
     const payload = {
       projects: local.projects,
       tasks: local.tasks,
-      tags: local.tags,
-      taskTags: local.taskTags,
       nextProjects: local.nextProjects,
       nextIdeas: local.nextIdeas,
       settings: local.settings,
@@ -616,8 +558,24 @@ export function App() {
     await syncNow();
   }
 
+  // Sign-out clears the local cache so the data isn't readable on a shared
+  // device afterwards. Pending edits are flushed first; if any still can't
+  // sync (offline), the user must explicitly accept losing them.
   async function handleLogout() {
+    if (navigator.onLine) {
+      await syncNow().catch(() => undefined);
+    }
+    const pendingCount = compactPendingMutations(engine.pendingMutations()).length;
+    if (pendingCount > 0 && !window.confirm(m.settings.signOutPendingConfirm(pendingCount))) {
+      return;
+    }
     await logout().catch(() => ({ ok: true as const }));
+    await resetLocalData().catch(() => undefined);
+    engine.hydratePending([]);
+    const empty = { projects: [], tasks: [], nextProjects: [], nextIdeas: [], settings: {}, pendingCount: 0, lastSync: null };
+    stateRef.current = { ...stateRef.current, ...empty, session: null, authRequired: true };
+    dispatch({ type: "hydrateLocal", payload: empty });
+    dispatch({ type: "setLastExport", payload: null });
     dispatch({ type: "setSession", payload: null });
     dispatch({ type: "setAuthRequired", payload: true });
   }
@@ -649,17 +607,13 @@ export function App() {
     projects,
     archivedProjects,
     tasks,
-    tags: state.tags.filter((tag) => !tag.deleted_at),
-    taskTags: state.taskTags,
     nextProjects,
     nextIdeas,
     filters: state.filters,
     onFiltersChange: (filters) => dispatch({ type: "setFilters", payload: filters }),
     onCreateTask: createTask,
     onUpdateTask: updateTask,
-    onArchiveTask: archiveTask,
     onDeleteTask: deleteTask,
-    onAddTag: addTag,
     onCreateProject: createProject,
     onArchiveProject: archiveProject,
     onUnarchiveProject: unarchiveProject,
@@ -701,6 +655,8 @@ export function App() {
           pendingCount={state.pendingCount}
           lastSync={state.lastSync}
           lastExport={state.lastExport}
+          syncError={state.error}
+          conflicts={state.conflicts}
           session={state.session}
           worklogOverview={summarizeWorklogOverview(visibleTasks(state.tasks))}
           onImport={handleImport}

@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content="#f3f4f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c0e13" media="(prefers-color-scheme: dark)" />
     <meta name="robots" content="noindex, nofollow, noarchive, noimageindex" />
     <meta name="googlebot" content="noindex, nofollow, noarchive, noimageindex" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -12,23 +13,7 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <title>Project Manager</title>
-    <script>
-      // Apply a pinned theme before first paint to avoid a flash of the wrong
-      // theme. "system" (or unset) falls through to prefers-color-scheme.
-      // Same for the UI language ("en" is the default; i18n.tsx re-applies
-      // after hydration).
-      (function () {
-        try {
-          var t = localStorage.getItem("pm:theme");
-          if (t === "light" || t === "dark") {
-            document.documentElement.setAttribute("data-theme", t);
-          }
-          if (localStorage.getItem("pm:lang") === "zh") {
-            document.documentElement.lang = "zh-CN";
-          }
-        } catch (e) {}
-      })();
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>

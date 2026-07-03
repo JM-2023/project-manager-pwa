@@ -3,11 +3,10 @@ import {
   compactPendingMutations,
   mergeBootstrapForLocal,
   mergeRecordsForSync,
-  mergeTaskTagsForSync,
   mutationRecordKey,
   pendingRecordKeys
 } from "./syncMerge";
-import type { BootstrapResponse, ClientMutation, Task, TaskTag } from "./types";
+import type { BootstrapResponse, ClientMutation, Task } from "./types";
 import type { SyncBootstrapState } from "./syncMerge";
 
 function mutation(partial: Partial<ClientMutation> & Pick<ClientMutation, "id" | "entity" | "operation">): ClientMutation {
@@ -31,12 +30,8 @@ function task(id: string, updatedAt: string, extra: Partial<Task> = {}): Task {
   };
 }
 
-function link(taskId: string, tagId: string, deletedAt: string | null, updatedAt: string): TaskTag {
-  return { task_id: taskId, tag_id: tagId, created_at: "2026-01-01T00:00:00.000Z", updated_at: updatedAt, deleted_at: deletedAt };
-}
-
 function emptyState(overrides: Partial<SyncBootstrapState> = {}): SyncBootstrapState {
-  return { projects: [], tasks: [], tags: [], taskTags: [], nextProjects: [], nextIdeas: [], settings: {}, ...overrides };
+  return { projects: [], tasks: [], nextProjects: [], nextIdeas: [], settings: {}, ...overrides };
 }
 
 function snapshot(overrides: Partial<BootstrapResponse> = {}): BootstrapResponse {
@@ -44,8 +39,6 @@ function snapshot(overrides: Partial<BootstrapResponse> = {}): BootstrapResponse
     serverTime: "2026-06-30T00:00:00.000Z",
     projects: [],
     tasks: [],
-    tags: [],
-    taskTags: [],
     nextProjects: [],
     nextIdeas: [],
     settings: {},
@@ -54,11 +47,10 @@ function snapshot(overrides: Partial<BootstrapResponse> = {}): BootstrapResponse
 }
 
 describe("mutationRecordKey", () => {
-  it("keys task_tags by composite, settings by key, entities by id", () => {
-    expect(mutationRecordKey(mutation({ id: "m1", entity: "task_tag", operation: "upsert", data: { task_id: "t", tag_id: "g" } }))).toBe("task_tag:t:g");
+  it("keys settings by key and entities by id", () => {
     expect(mutationRecordKey(mutation({ id: "m2", entity: "setting", operation: "upsert", data: { key: "theme" } }))).toBe("setting:theme");
     expect(mutationRecordKey(mutation({ id: "m3", entity: "task", operation: "upsert", data: { id: "abc" } }))).toBe("task:abc");
-    expect(mutationRecordKey(mutation({ id: "m4", entity: "task_tag", operation: "upsert", data: {} }))).toBeNull();
+    expect(mutationRecordKey(mutation({ id: "m4", entity: "task", operation: "upsert", data: {} }))).toBeNull();
   });
 });
 
@@ -77,8 +69,8 @@ describe("compactPendingMutations", () => {
 
   it("never collapses key-less mutations together", () => {
     const groups = compactPendingMutations([
-      mutation({ id: "a", entity: "task_tag", operation: "upsert", data: {} }),
-      mutation({ id: "b", entity: "task_tag", operation: "upsert", data: {} })
+      mutation({ id: "a", entity: "task", operation: "upsert", data: {} }),
+      mutation({ id: "b", entity: "task", operation: "upsert", data: {} })
     ]);
     expect(groups).toHaveLength(2);
   });
@@ -112,25 +104,6 @@ describe("mergeRecordsForSync (last-writer-wins)", () => {
   });
 });
 
-describe("mergeTaskTagsForSync", () => {
-  // Regression for the convergence bug fixed in migration 0003: a re-added link
-  // (deleted_at flipped back to null) must overwrite the locally-tombstoned one.
-  it("lets an incoming re-link replace a locally deleted link", () => {
-    const local = [link("t1", "g1", "2026-06-30T09:00:00.000Z", "2026-06-30T09:00:00.000Z")];
-    const incoming = [link("t1", "g1", null, "2026-06-30T10:00:00.000Z")];
-    const merged = mergeTaskTagsForSync(local, incoming, new Set(), false);
-    expect(merged).toHaveLength(1);
-    expect(merged[0].deleted_at).toBeNull();
-  });
-
-  it("protects an un-synced local link from the server snapshot", () => {
-    const local = [link("t1", "g1", null, "2026-06-30T10:00:00.000Z")];
-    const incoming = [link("t1", "g1", "2026-06-30T08:00:00.000Z", "2026-06-30T08:00:00.000Z")];
-    const merged = mergeTaskTagsForSync(local, incoming, new Set(["task_tag:t1:g1"]), false);
-    expect(merged[0].deleted_at).toBeNull();
-  });
-});
-
 describe("mergeBootstrapForLocal", () => {
   it("hides next ideas whose parent has a pending purge", () => {
     const current = emptyState({
@@ -144,8 +117,8 @@ describe("mergeBootstrapForLocal", () => {
   it("derives protected keys from the pending queue", () => {
     const keys = pendingRecordKeys([
       mutation({ id: "m1", entity: "task", operation: "upsert", data: { id: "t1" } }),
-      mutation({ id: "m2", entity: "task_tag", operation: "upsert", data: { task_id: "t1", tag_id: "g1" } })
+      mutation({ id: "m2", entity: "setting", operation: "upsert", data: { key: "theme" } })
     ]);
-    expect(keys).toEqual(new Set(["task:t1", "task_tag:t1:g1"]));
+    expect(keys).toEqual(new Set(["task:t1", "setting:theme"]));
   });
 });

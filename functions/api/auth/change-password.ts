@@ -1,4 +1,14 @@
-import { authenticate, authMode, createSessionCookie, hashPassword, isResponse, ownerEmail, savePasswordHash, verifyLocalPassword } from "../_utils/auth";
+import {
+  authenticate,
+  authMode,
+  bumpSessionGeneration,
+  createSessionCookie,
+  hashPassword,
+  isResponse,
+  ownerEmail,
+  savePasswordHash,
+  verifyLocalPassword
+} from "../_utils/auth";
 import { apiError, json, readJson, requireSameOrigin } from "../_utils/response";
 import type { AppContext } from "../_utils/types";
 
@@ -32,5 +42,8 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
   }
 
   await savePasswordHash(context.env, await hashPassword(newPassword));
+  // Invalidate every other device's session; the fresh cookie below carries
+  // the new generation so this device stays signed in.
+  await bumpSessionGeneration(context.env);
   return json({ ok: true }, { headers: { "Set-Cookie": await createSessionCookie(context.env, ownerEmail(context.env)) } });
 }

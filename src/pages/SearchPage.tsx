@@ -14,6 +14,9 @@ export function SearchPage(props: TaskPageProps) {
   const filtered = tasks.filter((task) => {
     if (task.deleted_at || task.archived) return false;
     if (isProjectCacheTask(task)) return false;
+    // Untitled rows are drafts still being written on the Today page — showing
+    // them here would just be blank lines.
+    if (!task.title.trim()) return false;
     if (query) {
       const haystack = [task.title, worklogOutput(task), worklogBlocker(task), task.next_action, task.notes, projectMap.get(task.project_id ?? "")]
         .join(" ")

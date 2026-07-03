@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowLeftToLine, ArrowRight, ArrowRightToLine, MoreHorizontal, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowLeftToLine, ArrowRight, ArrowRightToLine, MoreHorizontal, Trash2, X } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -31,6 +31,9 @@ interface TaskTableProps {
   tasks: Task[];
   projects: Project[];
   showDate?: boolean;
+  // When set, the matching row's title field focuses on mount (used by the
+  // Today page so a freshly added task is immediately typeable).
+  focusTaskId?: string | null;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
@@ -40,6 +43,7 @@ interface TaskRowProps {
   task: Task;
   projects: Project[];
   showDate: boolean;
+  autoFocusTitle?: boolean;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
@@ -61,7 +65,7 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} ref={ref} />;
 }
 
-function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: TaskRowProps) {
+function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate, onDelete }: TaskRowProps) {
   const { m } = useI18n();
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
@@ -70,6 +74,7 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
   const [notes, setNotes] = useState(task.notes ?? "");
   const [progress, setProgress] = useState<TaskProgress>(getTaskProgress(task));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const previousTaskRef = useRef(task);
   const { ref: rowRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLDivElement>(
@@ -185,6 +190,14 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
     };
   }, [menuOpen]);
 
+  // Reset the delete-confirm step whenever the menu closes so it reopens on
+  // the root view (same two-step pattern as ProjectList).
+  useEffect(() => {
+    if (!menuOpen) {
+      setConfirmingDelete(false);
+    }
+  }, [menuOpen]);
+
   function updateImportance(value: TaskImportance) {
     const extra = parseTaskExtra(task);
     extra.importance = value;
@@ -287,6 +300,7 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
           onChange={(event) => setTitle(event.target.value)}
           onBlur={commitText}
           rows={1}
+          autoFocus={autoFocusTitle}
           placeholder={m.taskTable.newTask}
           aria-label={m.taskTable.task}
         />
@@ -349,27 +363,45 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
             </button>
             {menuOpen ? (
               <div className="task-action-menu" role="menu" aria-label={m.taskTable.taskActions}>
-                <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
-                  <ArrowLeftToLine size={15} aria-hidden="true" />
-                  <span>{m.taskTable.copyToYesterday}</span>
-                </button>
-                <button type="button" role="menuitem" onClick={() => copyTask(1)}>
-                  <ArrowRightToLine size={15} aria-hidden="true" />
-                  <span>{m.taskTable.copyToTomorrow}</span>
-                </button>
-                <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
-                  <ArrowLeft size={15} aria-hidden="true" />
-                  <span>{m.taskTable.moveToYesterday}</span>
-                </button>
-                <button type="button" role="menuitem" onClick={() => moveTask(1)}>
-                  <ArrowRight size={15} aria-hidden="true" />
-                  <span>{m.taskTable.moveToTomorrow}</span>
-                </button>
-                <span className="task-action-menu__sep" role="separator" />
-                <button type="button" role="menuitem" className="danger" onClick={() => { setMenuOpen(false); beginRemove(); }}>
-                  <Trash2 size={15} aria-hidden="true" />
-                  <span>{m.taskTable.deleteTask}</span>
-                </button>
+                {confirmingDelete ? (
+                  <>
+                    <span className="task-action-menu__prompt" role="presentation">
+                      {m.taskTable.deletePrompt}
+                    </span>
+                    <button type="button" role="menuitem" className="danger" onClick={() => { setMenuOpen(false); beginRemove(); }}>
+                      <Trash2 size={15} aria-hidden="true" />
+                      <span>{m.taskTable.confirmDelete}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => setConfirmingDelete(false)}>
+                      <X size={15} aria-hidden="true" />
+                      <span>{m.common.cancel}</span>
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
+                      <ArrowLeftToLine size={15} aria-hidden="true" />
+                      <span>{m.taskTable.copyToYesterday}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => copyTask(1)}>
+                      <ArrowRightToLine size={15} aria-hidden="true" />
+                      <span>{m.taskTable.copyToTomorrow}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
+                      <ArrowLeft size={15} aria-hidden="true" />
+                      <span>{m.taskTable.moveToYesterday}</span>
+                    </button>
+                    <button type="button" role="menuitem" onClick={() => moveTask(1)}>
+                      <ArrowRight size={15} aria-hidden="true" />
+                      <span>{m.taskTable.moveToTomorrow}</span>
+                    </button>
+                    <span className="task-action-menu__sep" role="separator" />
+                    <button type="button" role="menuitem" className="danger" onClick={() => setConfirmingDelete(true)}>
+                      <Trash2 size={15} aria-hidden="true" />
+                      <span>{m.taskTable.deleteTask}</span>
+                    </button>
+                  </>
+                )}
               </div>
             ) : null}
           </div>
@@ -387,7 +419,7 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
 const INITIAL_BATCH = 40;
 const BATCH_STEP = 40;
 
-export function TaskTable({ tasks, projects, showDate = true, onCreate, onUpdate, onDelete }: TaskTableProps) {
+export function TaskTable({ tasks, projects, showDate = true, focusTaskId, onCreate, onUpdate, onDelete }: TaskTableProps) {
   const { m } = useI18n();
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
 
@@ -443,6 +475,7 @@ export function TaskTable({ tasks, projects, showDate = true, onCreate, onUpdate
             task={task}
             projects={liveProjects}
             showDate={showDate}
+            autoFocusTitle={task.id === focusTaskId}
             onCreate={onCreate}
             onUpdate={onUpdate}
             onDelete={onDelete}

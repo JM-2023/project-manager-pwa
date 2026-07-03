@@ -1,5 +1,6 @@
 import { Check, ChevronRight, Plus, Trash2, X } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type TextareaHTMLAttributes } from "react";
+import { useI18n } from "../lib/i18n";
 import type { NextIdea, NextProject } from "../lib/types";
 import type { TaskPageProps } from "./pageProps";
 
@@ -32,6 +33,7 @@ function NextIdeaItem({
   onUpdate: (idea: NextIdea, changes: Partial<NextIdea>) => void;
   onDelete: (idea: NextIdea) => void;
 }) {
+  const { m } = useI18n();
   const [title, setTitle] = useState(idea.title);
 
   function commit() {
@@ -43,8 +45,8 @@ function NextIdeaItem({
 
   return (
     <article className="cache-item">
-      <AutoTextarea value={title} onChange={(event) => setTitle(event.target.value)} onBlur={commit} rows={1} aria-label="Next idea" />
-      <button type="button" className="icon-button danger" onClick={() => onDelete(idea)} aria-label="Delete next idea" title="Delete">
+      <AutoTextarea value={title} onChange={(event) => setTitle(event.target.value)} onBlur={commit} rows={1} aria-label={m.next.ideaAria} />
+      <button type="button" className="icon-button danger" onClick={() => onDelete(idea)} aria-label={m.next.deleteIdea} title={m.common.delete}>
         <Trash2 size={16} aria-hidden="true" />
       </button>
     </article>
@@ -68,6 +70,7 @@ function NextProjectSection({
   onUpdateProject: (project: NextProject, changes: Partial<NextProject>) => void;
   onDeleteProject: (project: NextProject) => void;
 }) {
+  const { m } = useI18n();
   const [title, setTitle] = useState("");
   const [name, setName] = useState(project.name);
   const [confirming, setConfirming] = useState(false);
@@ -100,7 +103,7 @@ function NextProjectSection({
         <span className="cache-section__name">{project.name}</span>
         <span className="cache-count">{ideas.length}</span>
         {confirming ? (
-          <span className="cache-confirm" role="group" aria-label="Confirm delete Next project">
+          <span className="cache-confirm" role="group" aria-label={m.next.confirmDeleteGroup}>
             <button
               type="button"
               className="icon-button danger"
@@ -108,8 +111,8 @@ function NextProjectSection({
                 stop(event);
                 onDeleteProject(project);
               }}
-              aria-label={`Confirm delete ${project.name}`}
-              title="Confirm"
+              aria-label={m.next.confirmDeleteFor(project.name)}
+              title={m.common.confirm}
             >
               <Check size={16} aria-hidden="true" />
             </button>
@@ -120,8 +123,8 @@ function NextProjectSection({
                 stop(event);
                 setConfirming(false);
               }}
-              aria-label="Cancel"
-              title="Cancel"
+              aria-label={m.common.cancel}
+              title={m.common.cancel}
             >
               <X size={16} aria-hidden="true" />
             </button>
@@ -134,8 +137,8 @@ function NextProjectSection({
               stop(event);
               setConfirming(true);
             }}
-            aria-label={`Delete ${project.name}`}
-            title="Delete Next project"
+            aria-label={m.next.deleteFor(project.name)}
+            title={m.next.deleteGroupTitle}
           >
             <Trash2 size={16} aria-hidden="true" />
           </button>
@@ -143,8 +146,8 @@ function NextProjectSection({
       </summary>
       <div className="cache-section__body">
         <label className="cache-rename">
-          <span>Project</span>
-          <input value={name} onChange={(event) => setName(event.target.value)} onBlur={renameProject} aria-label={`Rename ${project.name}`} />
+          <span>{m.next.projectLabel}</span>
+          <input value={name} onChange={(event) => setName(event.target.value)} onBlur={renameProject} aria-label={m.next.renameAria(project.name)} />
         </label>
         <div className="cache-add">
           <input
@@ -156,10 +159,10 @@ function NextProjectSection({
                 createIdea();
               }
             }}
-            placeholder="Add an idea"
-            aria-label={`New idea for ${project.name}`}
+            placeholder={m.next.addIdea}
+            aria-label={m.next.addIdeaFor(project.name)}
           />
-          <button type="button" onClick={createIdea} aria-label={`Add idea for ${project.name}`}>
+          <button type="button" onClick={createIdea} aria-label={m.next.addIdeaAction(project.name)}>
             <Plus size={18} aria-hidden="true" />
           </button>
         </div>
@@ -167,7 +170,7 @@ function NextProjectSection({
           {ideas.map((idea) => (
             <NextIdeaItem key={idea.id} idea={idea} onUpdate={onUpdateIdea} onDelete={onDeleteIdea} />
           ))}
-          {ideas.length === 0 ? <p className="empty-state">No saved ideas yet.</p> : null}
+          {ideas.length === 0 ? <p className="empty-state">{m.next.noIdeas}</p> : null}
         </div>
       </div>
     </details>
@@ -175,6 +178,7 @@ function NextProjectSection({
 }
 
 export function NextPage(props: TaskPageProps) {
+  const { m } = useI18n();
   const { nextProjects, nextIdeas, onCreateNextProject, onUpdateNextProject, onDeleteNextProject, onCreateNextIdea, onUpdateNextIdea, onDeleteNextIdea } = props;
   const [projectName, setProjectName] = useState("");
   const ideaCount = useMemo(() => nextIdeas.filter((idea) => !idea.deleted_at).length, [nextIdeas]);
@@ -197,10 +201,10 @@ export function NextPage(props: TaskPageProps) {
   return (
     <main className="page-content cache-page">
       <header className="page-header">
-        <h1>Next</h1>
-        <p>{ideaCount} saved ideas and future tasks</p>
+        <h1>{m.next.title}</h1>
+        <p>{m.next.subtitle(ideaCount)}</p>
       </header>
-      <section className="cache-add cache-project-add" aria-label="Create Next project">
+      <section className="cache-add cache-project-add" aria-label={m.next.createProject}>
         <input
           value={projectName}
           onChange={(event) => setProjectName(event.target.value)}
@@ -210,14 +214,14 @@ export function NextPage(props: TaskPageProps) {
               createProject();
             }
           }}
-          placeholder="New Next project"
-          aria-label="New Next project"
+          placeholder={m.next.newProject}
+          aria-label={m.next.newProject}
         />
-        <button type="button" onClick={createProject} aria-label="Create Next project">
+        <button type="button" onClick={createProject} aria-label={m.next.createProject}>
           <Plus size={18} aria-hidden="true" />
         </button>
       </section>
-      <section className="cache-board" aria-label="Next idea board">
+      <section className="cache-board" aria-label={m.next.boardAria}>
         {nextProjects.map((project) => (
           <NextProjectSection
             key={project.id}
@@ -230,7 +234,7 @@ export function NextPage(props: TaskPageProps) {
             onDeleteProject={onDeleteNextProject}
           />
         ))}
-        {nextProjects.length === 0 ? <p className="empty-state">No Next projects yet. Create one above to save future ideas.</p> : null}
+        {nextProjects.length === 0 ? <p className="empty-state">{m.next.noProjects}</p> : null}
       </section>
     </main>
   );

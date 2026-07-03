@@ -1,114 +1,108 @@
-import { Delete, LockKeyhole } from "lucide-react";
+import { LockKeyhole } from "lucide-react";
 import { useEffect, useState } from "react";
+import { PasscodePad } from "../components/PasscodePad";
+import { getAuthStatus } from "../lib/api";
+import { useI18n, type Messages } from "../lib/i18n";
 
 interface LoginPageProps {
   onLogin: (password: string) => Promise<void>;
+  onSetup: (password: string) => Promise<void>;
 }
 
-const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "delete"] as const;
-const PIN_LENGTH = 4;
+type Phase = "login" | "setup-enter" | "setup-confirm";
 
-export function LoginPage({ onLogin }: LoginPageProps) {
-  const [password, setPassword] = useState("");
+function phaseCopy(m: Messages, phase: Phase): { title: string; subtitle: string } {
+  const copy: Record<Phase, { title: string; subtitle: string }> = {
+    login: { title: m.login.welcome, subtitle: m.login.enterPasscode },
+    "setup-enter": { title: m.login.setTitle, subtitle: m.login.choosePasscode },
+    "setup-confirm": { title: m.login.confirmTitle, subtitle: m.login.reenterSame }
+  };
+  return copy[phase];
+}
+
+export function LoginPage({ onLogin, onSetup }: LoginPageProps) {
+  const { m } = useI18n();
+  const [phase, setPhase] = useState<Phase>("login");
+  const [firstPin, setFirstPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [entryKey, setEntryKey] = useState(0);
 
+  // A fresh deployment (no passcode configured yet) gets the first-run setup
+  // flow instead of the login pad. Existing installs resolve to `login`.
   useEffect(() => {
-    if (password.length !== PIN_LENGTH) return;
     let cancelled = false;
-    async function submit() {
-      setBusy(true);
-      setError(false);
-      try {
-        await onLogin(password);
-        if (!cancelled) setPassword("");
-      } catch {
-        if (!cancelled) {
-          setError(true);
-          window.setTimeout(() => setPassword(""), 420);
-        }
-      } finally {
-        if (!cancelled) setBusy(false);
-      }
-    }
-    void submit();
+    getAuthStatus()
+      .then((status) => {
+        if (!cancelled && status.needsSetup) setPhase("setup-enter");
+      })
+      .catch(() => {
+        // Offline or older backend — the classic login pad still works.
+      });
     return () => {
       cancelled = true;
     };
-  }, [onLogin, password]);
+  }, []);
 
-  function press(value: (typeof keys)[number]) {
-    if (busy) return;
-    setError(false);
-    if (value === "clear") {
-      setPassword("");
-      return;
-    }
-    if (value === "delete") {
-      setPassword((current) => current.slice(0, -1));
-      return;
-    }
-    setPassword((current) => (current.length < PIN_LENGTH ? `${current}${value}` : current));
+  function failEntry(message: string | null, nextPhase?: Phase) {
+    setError(true);
+    setNotice(message);
+    window.setTimeout(() => {
+      if (nextPhase) setPhase(nextPhase);
+      setEntryKey((key) => key + 1);
+    }, 420);
   }
 
-  useEffect(() => {
-    function onKey(event: KeyboardEvent) {
-      if (event.key >= "0" && event.key <= "9") {
-        press(event.key as (typeof keys)[number]);
-      } else if (event.key === "Backspace") {
-        press("delete");
-      } else if (event.key === "Escape") {
-        press("clear");
-      }
+  async function handleComplete(pin: string) {
+    if (phase === "setup-enter") {
+      setFirstPin(pin);
+      setPhase("setup-confirm");
+      setEntryKey((key) => key + 1);
+      return;
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy]);
+    if (phase === "setup-confirm") {
+      if (pin !== firstPin) {
+        failEntry(m.login.mismatch, "setup-enter");
+        return;
+      }
+      setBusy(true);
+      try {
+        await onSetup(pin);
+      } catch (err) {
+        setBusy(false);
+        failEntry(err instanceof Error && err.message ? err.message : m.login.couldNotSave, "setup-enter");
+      }
+      return;
+    }
+    setBusy(true);
+    try {
+      await onLogin(pin);
+    } catch {
+      setBusy(false);
+      failEntry(null);
+    }
+  }
+
+  const copy = phaseCopy(m, phase);
+  const subtitle = error ? (notice ?? m.login.wrongPasscode) : copy.subtitle;
 
   return (
-    <main className="login-screen" aria-label="Password keypad">
-      <input type="email" name="username" autoComplete="username" value="owner@project-manager.local" readOnly hidden />
-      <input type="password" name="password" value={password} readOnly autoComplete="current-password" hidden />
-      <section className={`pin-pad${error ? " shake" : ""}`} aria-label="Enter passcode">
-        <div className="pin-brand">
-          <div className="pin-logo">
-            <LockKeyhole size={26} aria-hidden="true" />
-          </div>
-          <h1>Welcome back</h1>
-          <p>{error ? "Wrong passcode — try again" : "Enter your 4-digit passcode"}</p>
-        </div>
-
-        <div className={`pin-dots${error ? " error" : ""}`} aria-hidden="true">
-          {Array.from({ length: PIN_LENGTH }).map((_, index) => (
-            <span key={index} className={index < password.length ? "filled" : ""} />
-          ))}
-        </div>
-
-        <div className="keypad">
-          {keys.map((key) => {
-            if (key === "clear") {
-              return (
-                <button key={key} type="button" className="keypad-action" onClick={() => press(key)} disabled={busy || !password} aria-label="Clear">
-                  C
-                </button>
-              );
-            }
-            if (key === "delete") {
-              return (
-                <button key={key} type="button" className="keypad-action" onClick={() => press(key)} disabled={busy || !password} aria-label="Delete">
-                  <Delete size={22} aria-hidden="true" />
-                </button>
-              );
-            }
-            return (
-              <button key={key} type="button" onClick={() => press(key)} disabled={busy} aria-label={key}>
-                {key}
-              </button>
-            );
-          })}
-        </div>
-      </section>
+    <main className="login-screen" aria-label={m.login.keypadAria}>
+      <PasscodePad
+        icon={<LockKeyhole size={26} aria-hidden="true" />}
+        title={copy.title}
+        subtitle={subtitle}
+        error={error}
+        busy={busy}
+        entryKey={entryKey}
+        onInput={() => {
+          setError(false);
+          setNotice(null);
+        }}
+        onComplete={handleComplete}
+        autofillEmail={phase === "login" ? "owner@project-manager.local" : undefined}
+      />
     </main>
   );
 }

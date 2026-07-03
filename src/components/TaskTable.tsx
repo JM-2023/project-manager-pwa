@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { Project, Task } from "../lib/types";
 import { addDays, todayDate, toDateInput } from "../lib/dates";
+import { useI18n } from "../lib/i18n";
 import {
   getTaskImportance,
   getTaskProgress,
@@ -61,6 +62,7 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 }
 
 function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: TaskRowProps) {
+  const { m } = useI18n();
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
   const [blocker, setBlocker] = useState(worklogBlocker(task));
@@ -246,12 +248,12 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
       onTransitionEnd={onTransitionEnd}
     >
       <label className="tt-cell tt-importance">
-        <span className="tt-label">重要程度</span>
+        <span className="tt-label">{m.taskTable.importance}</span>
         <select
           className={`task-table-importance imp-${importance}`}
           value={importance}
           onChange={(event) => updateImportance(Number(event.target.value) as TaskImportance)}
-          aria-label="Importance"
+          aria-label={m.taskTable.importance}
         >
           {importanceValues.map((value) => (
             <option key={value} value={value}>
@@ -262,13 +264,13 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
       </label>
 
       <label className="tt-cell tt-project">
-        <span className="tt-label">Project</span>
+        <span className="tt-label">{m.common.project}</span>
         <select
           value={task.project_id ?? ""}
           onChange={(event) => onUpdate(task, { project_id: event.target.value || null })}
-          aria-label="Project"
+          aria-label={m.common.project}
         >
-          <option value="">No project</option>
+          <option value="">{m.common.noProject}</option>
           {projects.map((project) => (
             <option key={project.id} value={project.id}>
               {project.name}
@@ -278,20 +280,20 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
       </label>
 
       <label className="tt-cell tt-task">
-        <span className="tt-label">Task</span>
+        <span className="tt-label">{m.taskTable.task}</span>
         <AutoTextarea
           className="task-table-title"
           value={title}
           onChange={(event) => setTitle(event.target.value)}
           onBlur={commitText}
           rows={1}
-          placeholder="New task…"
-          aria-label="Task"
+          placeholder={m.taskTable.newTask}
+          aria-label={m.taskTable.task}
         />
       </label>
 
       <div className="tt-cell tt-progress">
-        <span className="tt-label">Progress</span>
+        <span className="tt-label">{m.taskTable.progressHeader}</span>
         <div className={`task-table-progress tone-${progressTone(progress)}`} style={{ "--pct": `${progress}%` } as CSSProperties}>
           <span className="progress-badge">{progress}%</span>
           <input
@@ -304,7 +306,7 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
             onChange={(event) => setProgress(Number(event.target.value) as TaskProgress)}
             onPointerUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
             onKeyUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
-            aria-label="Progress"
+            aria-label={m.taskTable.progressHeader}
             aria-valuetext={`${progress}%`}
           />
         </div>
@@ -312,61 +314,61 @@ function TaskRow({ task, projects, showDate, onCreate, onUpdate, onDelete }: Tas
 
       {showDate ? (
         <label className="tt-cell tt-date">
-          <span className="tt-label">Date</span>
+          <span className="tt-label">{m.taskTable.date}</span>
           <input
             type="date"
             value={task.start_date ?? ""}
             onChange={(event) => onUpdate(task, { start_date: event.target.value || null })}
-            aria-label="Date"
+            aria-label={m.taskTable.date}
           />
         </label>
       ) : null}
 
       <label className="tt-cell tt-output">
-        <span className="tt-label">今日产出</span>
-        <AutoTextarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label="Output" />
+        <span className="tt-label">{m.taskTable.output}</span>
+        <AutoTextarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.output} />
       </label>
 
       <label className="tt-cell tt-blocker">
-        <span className="tt-label">卡住的地方</span>
-        <AutoTextarea value={blocker} onChange={(event) => setBlocker(event.target.value)} onBlur={commitText} rows={1} aria-label="Blocked" />
+        <span className="tt-label">{m.taskTable.blocker}</span>
+        <AutoTextarea value={blocker} onChange={(event) => setBlocker(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.blocker} />
       </label>
 
       <label className="tt-cell tt-next">
-        <span className="tt-label">明天第一步</span>
-        <AutoTextarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label="Tomorrow first step" />
+        <span className="tt-label">{m.taskTable.nextStep}</span>
+        <AutoTextarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.nextStep} />
       </label>
 
       <div className="tt-cell tt-notes">
-        <span className="tt-label">Notes</span>
+        <span className="tt-label">{m.common.notes}</span>
         <div className="task-table-note-cell">
-          <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label="Note" />
+          <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.noteAria} />
           <div className={`task-menu${menuOpen ? " is-open" : ""}`} ref={menuRef}>
-            <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label="Task actions" aria-haspopup="menu" aria-expanded={menuOpen}>
+            <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label={m.taskTable.taskActions} aria-haspopup="menu" aria-expanded={menuOpen}>
               <MoreHorizontal size={17} aria-hidden="true" />
             </button>
             {menuOpen ? (
-              <div className="task-action-menu" role="menu" aria-label="Task actions">
+              <div className="task-action-menu" role="menu" aria-label={m.taskTable.taskActions}>
                 <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
                   <ArrowLeftToLine size={15} aria-hidden="true" />
-                  <span>Copy to yesterday</span>
+                  <span>{m.taskTable.copyToYesterday}</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => copyTask(1)}>
                   <ArrowRightToLine size={15} aria-hidden="true" />
-                  <span>Copy to tomorrow</span>
+                  <span>{m.taskTable.copyToTomorrow}</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
                   <ArrowLeft size={15} aria-hidden="true" />
-                  <span>Move to yesterday</span>
+                  <span>{m.taskTable.moveToYesterday}</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => moveTask(1)}>
                   <ArrowRight size={15} aria-hidden="true" />
-                  <span>Move to tomorrow</span>
+                  <span>{m.taskTable.moveToTomorrow}</span>
                 </button>
                 <span className="task-action-menu__sep" role="separator" />
                 <button type="button" role="menuitem" className="danger" onClick={() => { setMenuOpen(false); beginRemove(); }}>
                   <Trash2 size={15} aria-hidden="true" />
-                  <span>Delete task</span>
+                  <span>{m.taskTable.deleteTask}</span>
                 </button>
               </div>
             ) : null}
@@ -386,6 +388,7 @@ const INITIAL_BATCH = 40;
 const BATCH_STEP = 40;
 
 export function TaskTable({ tasks, projects, showDate = true, onCreate, onUpdate, onDelete }: TaskTableProps) {
+  const { m } = useI18n();
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
 
   // Reset back to the first batch whenever the underlying result set changes
@@ -421,18 +424,18 @@ export function TaskTable({ tasks, projects, showDate = true, onCreate, onUpdate
   }, [remaining, tasks.length]);
 
   return (
-    <section className="task-table-wrap" aria-label="Task table">
+    <section className="task-table-wrap" aria-label={m.taskTable.tableAria}>
       <div className="task-table">
         <div className={`task-table-header${showDate ? " with-date" : ""}`} aria-hidden="true">
-          <span>重要程度</span>
-          <span>Project</span>
-          <span>Task</span>
-          <span>Progress</span>
-          {showDate ? <span>Date</span> : null}
-          <span>今日产出</span>
-          <span>卡住的地方</span>
-          <span>明天第一步</span>
-          <span>Notes</span>
+          <span>{m.taskTable.importance}</span>
+          <span>{m.common.project}</span>
+          <span>{m.taskTable.task}</span>
+          <span>{m.taskTable.progressHeader}</span>
+          {showDate ? <span>{m.taskTable.date}</span> : null}
+          <span>{m.taskTable.output}</span>
+          <span>{m.taskTable.blocker}</span>
+          <span>{m.taskTable.nextStep}</span>
+          <span>{m.common.notes}</span>
         </div>
         {visible.map((task) => (
           <TaskRow
@@ -449,7 +452,7 @@ export function TaskTable({ tasks, projects, showDate = true, onCreate, onUpdate
       {remaining > 0 ? (
         <>
           <div ref={sentinelRef} className="task-table-sentinel" aria-hidden="true" />
-          <p className="table-more">Showing {visible.length} of {tasks.length}. Scroll for more, or search to narrow down.</p>
+          <p className="table-more">{m.taskTable.showing(visible.length, tasks.length)}</p>
         </>
       ) : null}
     </section>

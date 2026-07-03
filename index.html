@@ -15,11 +15,16 @@
     <script>
       // Apply a pinned theme before first paint to avoid a flash of the wrong
       // theme. "system" (or unset) falls through to prefers-color-scheme.
+      // Same for the UI language ("en" is the default; i18n.tsx re-applies
+      // after hydration).
       (function () {
         try {
           var t = localStorage.getItem("pm:theme");
           if (t === "light" || t === "dark") {
             document.documentElement.setAttribute("data-theme", t);
+          }
+          if (localStorage.getItem("pm:lang") === "zh") {
+            document.documentElement.lang = "zh-CN";
           }
         } catch (e) {}
       })();

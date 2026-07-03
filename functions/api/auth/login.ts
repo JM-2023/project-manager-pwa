@@ -1,4 +1,4 @@
-import { authMode, createSessionCookie, ownerEmail, verifyPassword } from "../_utils/auth";
+import { authMode, createSessionCookie, ownerEmail, verifyLocalPassword } from "../_utils/auth";
 import { apiError, json, readJson, requireSameOrigin } from "../_utils/response";
 import type { AppContext } from "../_utils/types";
 
@@ -15,7 +15,7 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
 
   try {
     const body = await readJson<LoginBody>(context.request, 20_000);
-    const ok = await verifyPassword(String(body.password ?? ""), context.env.APP_PASSWORD_HASH);
+    const ok = await verifyLocalPassword(context.env, String(body.password ?? ""));
     if (!ok) {
       return apiError(401, "Invalid login");
     }

@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { HeroPulse } from "./HeroPulse";
+import { useI18n } from "../lib/i18n";
 import { progressLabel, progressTone, type ProgressSummary as ProgressSummaryValue } from "../lib/progress";
 
 interface ProgressSummaryProps {
@@ -8,19 +9,20 @@ interface ProgressSummaryProps {
 }
 
 export function ProgressSummary({ summary, label }: ProgressSummaryProps) {
+  const { m } = useI18n();
   return (
     <section className="progress-summary" aria-label={label}>
       <div
         className="summary-hero"
         role="img"
-        aria-label={`加权推进 ${summary.weightedPercent}%`}
+        aria-label={m.progress.heroAria(summary.weightedPercent)}
       >
         <HeroPulse pct={summary.weightedPercent} />
-        <span className="summary-hero__label">加权推进</span>
+        <span className="summary-hero__label">{m.progress.weighted}</span>
         <strong className="summary-hero__value">{progressLabel(summary.weightedPercent)}</strong>
       </div>
       <div className="summary-meter">
-        <span>核心任务进度</span>
+        <span>{m.progress.core}</span>
         <strong>{progressLabel(summary.corePercent)}</strong>
         <span
           className={`mini-bar tone-${progressTone(summary.corePercent)}`}
@@ -29,16 +31,16 @@ export function ProgressSummary({ summary, label }: ProgressSummaryProps) {
         />
       </div>
       <div>
-        <span>有产出任务数</span>
+        <span>{m.progress.outputTasks}</span>
         <strong>{summary.outputCount}</strong>
       </div>
       <div>
-        <span>Blocked 数</span>
+        <span>{m.progress.blockedTasks}</span>
         <strong>{summary.blockedCount}</strong>
       </div>
       <div>
-        <span>今日判断</span>
-        <strong>{summary.judgement}</strong>
+        <span>{m.progress.judgementLabel}</span>
+        <strong>{m.judgement[summary.judgement]}</strong>
       </div>
     </section>
   );

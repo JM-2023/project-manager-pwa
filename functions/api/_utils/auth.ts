@@ -1,9 +1,12 @@
 import { getOrCreateUser } from "./db";
 import { apiError } from "./response";
+import { nowIso } from "./time";
 import type { AppContext, AppEnv, AuthUser } from "./types";
 
 const encoder = new TextEncoder();
 const SESSION_COOKIE = "pm_session";
+const LOCAL_PASSWORD_HASH_SETTING_KEY = "local_password_hash";
+const HASH_ITERATIONS = 210_000;
 
 function base64UrlEncode(bytes: ArrayBuffer | Uint8Array): string {
   const array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
@@ -61,8 +64,55 @@ export function ownerEmail(env: AppEnv): string {
   return (env.OWNER_EMAIL ?? "").trim().toLowerCase();
 }
 
+function normalizePasswordHash(hashSetting: string | undefined | null): string | null {
+  const normalized = hashSetting?.trim().replace(/^['"]|['"]$/g, "");
+  return normalized || null;
+}
+
+async function readStoredPasswordHash(env: AppEnv): Promise<string | null> {
+  const email = ownerEmail(env);
+  if (!email) return null;
+  const user = await getOrCreateUser(env, email);
+  const row = await env.DB.prepare("SELECT value_json FROM app_settings WHERE user_id = ? AND key = ?")
+    .bind(user.id, LOCAL_PASSWORD_HASH_SETTING_KEY)
+    .first<{ value_json: string }>();
+  if (!row) return null;
+  try {
+    const parsed = JSON.parse(row.value_json) as { hash?: unknown };
+    return typeof parsed.hash === "string" ? normalizePasswordHash(parsed.hash) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function configuredPasswordHash(env: AppEnv): Promise<string | null> {
+  return (await readStoredPasswordHash(env)) ?? normalizePasswordHash(env.APP_PASSWORD_HASH);
+}
+
+export async function savePasswordHash(env: AppEnv, hash: string): Promise<void> {
+  const email = ownerEmail(env);
+  if (!email) {
+    throw new Error("OWNER_EMAIL is missing");
+  }
+  const user = await getOrCreateUser(env, email);
+  await env.DB.prepare(
+    `INSERT INTO app_settings (user_id, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
+  )
+    .bind(user.id, LOCAL_PASSWORD_HASH_SETTING_KEY, JSON.stringify({ hash }), nowIso())
+    .run();
+}
+
+export async function hashPassword(password: string): Promise<string> {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const derived = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: arrayBuffer(salt), iterations: HASH_ITERATIONS }, key, 256);
+  return `pbkdf2_sha256$${HASH_ITERATIONS}$${base64UrlEncode(salt)}$${base64UrlEncode(derived)}`;
+}
+
 export async function verifyPassword(password: string, hashSetting: string | undefined): Promise<boolean> {
-  const normalizedHash = hashSetting?.trim().replace(/^['"]|['"]$/g, "");
+  const normalizedHash = normalizePasswordHash(hashSetting);
   if (normalizedHash) {
     try {
       const [algorithm, iterationsText, saltText, expectedText] = normalizedHash.split("$");
@@ -80,6 +130,10 @@ export async function verifyPassword(password: string, hashSetting: string | und
     }
   }
   return false;
+}
+
+export async function verifyLocalPassword(env: AppEnv, password: string): Promise<boolean> {
+  return verifyPassword(password, (await readStoredPasswordHash(env)) ?? env.APP_PASSWORD_HASH);
 }
 
 export async function createSessionCookie(env: AppEnv, email: string): Promise<string> {

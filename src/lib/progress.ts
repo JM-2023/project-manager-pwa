@@ -5,6 +5,8 @@ export type TaskImportance = 1 | 2 | 3 | 4;
 
 const PROGRESS_VALUES: TaskProgress[] = [0, 25, 50, 75, 100];
 
+export type DailyJudgement = "blocked" | "coreStrong" | "hasOutput" | "low";
+
 export interface ProgressSummary {
   taskCount: number;
   totalWeight: number;
@@ -14,7 +16,7 @@ export interface ProgressSummary {
   corePercent: number;
   outputCount: number;
   blockedCount: number;
-  judgement: string;
+  judgement: DailyJudgement;
 }
 
 export interface WorklogOverview {
@@ -176,11 +178,26 @@ export function progressLabel(progress: number): string {
   return `${Math.round(progress)}%`;
 }
 
-export function dailyJudgement(corePercent: number, outputCount: number, blockedCount: number): string {
-  if (blockedCount > 0) return "有卡点";
-  if (corePercent >= 75) return "核心推进好";
-  if (outputCount > 0) return "有产出";
-  return "低推进";
+export function dailyJudgement(corePercent: number, outputCount: number, blockedCount: number): DailyJudgement {
+  if (blockedCount > 0) return "blocked";
+  if (corePercent >= 75) return "coreStrong";
+  if (outputCount > 0) return "hasOutput";
+  return "low";
+}
+
+/**
+ * Fixed Chinese labels for the Excel export's 今日判断 column. The worklog
+ * workbook is a data contract (Chinese headers/values matched on re-import),
+ * so these do NOT follow the UI language — translate via i18n `m.judgement`
+ * only when rendering.
+ */
+export function judgementExportLabel(judgement: DailyJudgement): string {
+  return {
+    blocked: "有卡点",
+    coreStrong: "核心推进好",
+    hasOutput: "有产出",
+    low: "低推进"
+  }[judgement];
 }
 
 export function summarizeProgress(tasks: Task[]): ProgressSummary {

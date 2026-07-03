@@ -1,6 +1,7 @@
 import { Download, UploadCloud } from "lucide-react";
 import { useState } from "react";
 import { getExportData, uploadCloudExcel } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import { visibleTasks } from "../lib/sync";
 
 interface ExportButtonProps {
@@ -9,6 +10,7 @@ interface ExportButtonProps {
 }
 
 export function ExportButton({ r2Enabled, onExported }: ExportButtonProps) {
+  const { m } = useI18n();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -22,13 +24,13 @@ export function ExportButton({ r2Enabled, onExported }: ExportButtonProps) {
       if (uploadToR2) {
         const blob = workbookBlob(data);
         await uploadCloudExcel(blob, "project-manager-latest.xlsx", visibleTasks(data.tasks).length);
-        setMessage("Export downloaded and uploaded.");
+        setMessage(m.exporter.downloadedUploaded);
       } else {
-        setMessage("Export downloaded.");
+        setMessage(m.exporter.downloaded);
       }
       onExported(data.exportedAt);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Export failed");
+      setMessage(error instanceof Error ? error.message : m.exporter.exportFailed);
     } finally {
       setBusy(false);
     }
@@ -38,12 +40,12 @@ export function ExportButton({ r2Enabled, onExported }: ExportButtonProps) {
     <div className="export-actions">
       <button type="button" className="primary-button" disabled={busy} onClick={() => exportExcel(false)}>
         <Download size={17} aria-hidden="true" />
-        <span>{busy ? "Working" : "Export Excel"}</span>
+        <span>{busy ? m.exporter.working : m.exporter.export}</span>
       </button>
       {r2Enabled ? (
         <button type="button" className="secondary-button" disabled={busy} onClick={() => exportExcel(true)}>
           <UploadCloud size={17} aria-hidden="true" />
-          <span>Export + R2</span>
+          <span>{m.exporter.exportR2}</span>
         </button>
       ) : null}
       {message ? <p className="inline-message">{message}</p> : null}

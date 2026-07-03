@@ -8,6 +8,11 @@ export interface UserSession {
   email: string;
 }
 
+export interface AuthStatusResponse {
+  authMode: string;
+  needsSetup: boolean;
+}
+
 export interface SessionResponse {
   user: UserSession;
   serverTime: string;

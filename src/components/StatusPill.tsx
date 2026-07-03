@@ -1,10 +1,11 @@
+import { useI18n } from "../lib/i18n";
 import type { TaskStatus } from "../lib/types";
-import { statusLabel } from "../lib/validation";
 
 interface StatusPillProps {
   status: TaskStatus;
 }
 
 export function StatusPill({ status }: StatusPillProps) {
-  return <span className={`status-pill status-${status}`}>{statusLabel(status)}</span>;
+  const { m } = useI18n();
+  return <span className={`status-pill status-${status}`}>{m.status[status]}</span>;
 }

@@ -1,4 +1,5 @@
 import type {
+  AuthStatusResponse,
   BackupLog,
   BootstrapResponse,
   CloudExcelUploadResponse,
@@ -44,10 +45,28 @@ export function getSession(): Promise<SessionResponse> {
   return apiFetch<SessionResponse>("/api/session");
 }
 
+export function getAuthStatus(): Promise<AuthStatusResponse> {
+  return apiFetch<AuthStatusResponse>("/api/auth/status");
+}
+
 export function login(password: string): Promise<{ ok: true }> {
   return apiFetch<{ ok: true }>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ password })
+  });
+}
+
+export function setupPassword(password: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>("/api/auth/setup", {
+    method: "POST",
+    body: JSON.stringify({ password })
+  });
+}
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>("/api/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword, newPassword })
   });
 }
 

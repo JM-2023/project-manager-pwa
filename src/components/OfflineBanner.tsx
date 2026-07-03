@@ -1,4 +1,5 @@
 import { CircleAlert, CloudOff, RefreshCcw, UploadCloud } from "lucide-react";
+import { useI18n } from "../lib/i18n";
 import type { SyncStatus } from "../state/appStore";
 
 interface OfflineBannerProps {
@@ -10,28 +11,24 @@ interface OfflineBannerProps {
 }
 
 export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync }: OfflineBannerProps) {
+  const { m } = useI18n();
   const visible = !online || pendingCount > 0 || syncStatus === "syncing" || syncStatus === "error";
   if (!visible) {
     return null;
   }
 
   const state = online ? syncStatus : "offline";
-  const countText = `${pendingCount} change${pendingCount === 1 ? "" : "s"}`;
   const message = !online
     ? pendingCount > 0
-      ? `${countText} saved offline`
-      : "Offline"
+      ? m.offline.savedOffline(pendingCount)
+      : m.offline.offline
     : syncStatus === "error"
-      ? error
-        ? `Sync issue: ${error}`
-        : "Sync issue"
+      ? m.offline.syncIssue(error)
       : syncStatus === "syncing"
-        ? pendingCount > 0
-          ? `Syncing ${countText}`
-          : "Syncing"
+        ? m.offline.syncing(pendingCount)
         : syncStatus === "queued"
-          ? `${countText} queued`
-          : `${countText} pending`;
+          ? m.offline.queued(pendingCount)
+          : m.offline.pending(pendingCount);
 
   const Icon = !online
     ? CloudOff
@@ -48,7 +45,7 @@ export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync 
       </span>
       <span className="offline-banner__text">{message}</span>
       {online ? (
-        <button type="button" onClick={onSync} disabled={syncStatus === "syncing"} aria-label="Sync now">
+        <button type="button" onClick={onSync} disabled={syncStatus === "syncing"} aria-label={m.offline.syncNow}>
           <RefreshCcw size={16} aria-hidden="true" />
         </button>
       ) : null}

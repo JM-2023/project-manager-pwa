@@ -5,6 +5,7 @@ import {
   getTaskImportance,
   getTaskProgress,
   isWorklogTask,
+  judgementExportLabel,
   summarizeProgress,
   summarizeWorklogOverview,
   worklogBlocker,
@@ -169,7 +170,7 @@ export function buildWorkbook(data: ExportDataResponse) {
     existing[13] = dateTasks.length > 0 ? summary.weightedPercent / 100 : "";
     existing[14] = summary.outputCount;
     existing[15] = summary.blockedCount;
-    existing[16] = summary.judgement;
+    existing[16] = judgementExportLabel(summary.judgement);
     existing[17] = nextActionText(dateTasks);
     existing[18] = "";
     existing[19] = "";

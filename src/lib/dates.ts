@@ -1,3 +1,5 @@
+import type { Language } from "./i18n";
+
 export function nowIso(): string {
   return new Date().toISOString();
 }
@@ -38,12 +40,15 @@ export function addDays(value: string, days: number): string {
   return formatDateInput(date);
 }
 
-export function formatShortDate(value?: string | null): string {
+export function formatShortDate(value?: string | null, lang: Language = "en"): string {
   const input = toDateInput(value);
   if (!input) {
-    return "No date";
+    return lang === "zh" ? "无日期" : "No date";
   }
   const [year, month, day] = input.split("-");
+  if (lang === "zh") {
+    return `${year}/${Number(month)}/${Number(day)}`;
+  }
   return `${month}/${day}/${year.slice(2)}`;
 }
 
@@ -97,6 +102,7 @@ export function parseLooseDate(value: unknown): string | null {
    ========================================================================= */
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAY_NAMES_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 const MONTH_NAMES = [
   "January",
   "February",
@@ -194,31 +200,43 @@ export function monthGridWeeks(value: string, weekStartsOn = 1): MonthGridDay[][
   return weeks;
 }
 
-export function weekdayLabels(weekStartsOn = 1): string[] {
-  return Array.from({ length: 7 }, (_, index) => WEEKDAY_NAMES[(weekStartsOn + index) % 7]);
+export function weekdayLabels(weekStartsOn = 1, lang: Language = "en"): string[] {
+  const names = lang === "zh" ? WEEKDAY_NAMES_ZH : WEEKDAY_NAMES;
+  return Array.from({ length: 7 }, (_, index) => names[(weekStartsOn + index) % 7]);
 }
 
-export function monthLabel(value: string): string {
+/** "Tue" / "周二" style weekday of a specific date. */
+export function weekdayShort(value: string, lang: Language = "en"): string {
+  const input = toDateInput(value) || todayDate();
+  const names = lang === "zh" ? WEEKDAY_NAMES_ZH : WEEKDAY_NAMES;
+  return names[new Date(`${input}T00:00:00`).getDay()];
+}
+
+export function monthLabel(value: string, lang: Language = "en"): string {
   const input = toDateInput(value) || todayDate();
   const [year, month] = input.split("-").map(Number);
+  if (lang === "zh") {
+    return `${year}年${month}月`;
+  }
   return `${MONTH_NAMES[month - 1]} ${year}`;
 }
 
-export function monthShort(value: string): string {
+export function monthShort(value: string, lang: Language = "en"): string {
   const input = toDateInput(value) || todayDate();
-  return MONTH_ABBR[Number(input.split("-")[1]) - 1];
+  const month = Number(input.split("-")[1]);
+  return lang === "zh" ? `${month}月` : MONTH_ABBR[month - 1];
 }
 
 export function yearOf(value: string): string {
   return (toDateInput(value) || todayDate()).slice(0, 4);
 }
 
-/** Short "Jun 23" style label, used in range headers. */
-export function formatMonthDay(value: string): string {
+/** Short "Jun 23" / "6月23日" style label, used in range headers. */
+export function formatMonthDay(value: string, lang: Language = "en"): string {
   const input = toDateInput(value);
   if (!input) {
     return "";
   }
   const [, month, day] = input.split("-").map(Number);
-  return `${MONTH_ABBR[month - 1]} ${day}`;
+  return lang === "zh" ? `${month}月${day}日` : `${MONTH_ABBR[month - 1]} ${day}`;
 }

@@ -7,32 +7,35 @@ import {
   type ImportField,
   type ParsedSheet
 } from "../lib/excelMapping";
+import { useI18n } from "../lib/i18n";
 import type { ImportResponse, ImportRow } from "../lib/types";
 
 interface ImportWizardProps {
   onImport: (filename: string, rows: ImportRow[]) => Promise<ImportResponse>;
 }
 
-const fieldOptions: Array<{ value: ImportField; label: string }> = [
-  { value: "skip", label: "Skip" },
-  { value: "id", label: "ID" },
-  { value: "external_key", label: "External key" },
-  { value: "project", label: "Project" },
-  { value: "title", label: "Title" },
-  { value: "status", label: "Status" },
-  { value: "priority", label: "Priority" },
-  { value: "due_date", label: "Due date" },
-  { value: "start_date", label: "Start date" },
-  { value: "next_action", label: "Next action" },
-  { value: "notes", label: "Notes" },
-  { value: "description", label: "Description" },
-  { value: "tags", label: "Tags" },
-  { value: "progress", label: "Progress" },
-  { value: "blocker", label: "Blocker" },
-  { value: "output", label: "Output" }
+const IMPORT_FIELDS: ImportField[] = [
+  "skip",
+  "id",
+  "external_key",
+  "project",
+  "title",
+  "status",
+  "priority",
+  "importance",
+  "due_date",
+  "start_date",
+  "next_action",
+  "notes",
+  "description",
+  "tags",
+  "progress",
+  "blocker",
+  "output"
 ];
 
 export function ImportWizard({ onImport }: ImportWizardProps) {
+  const { m } = useI18n();
   const [filename, setFilename] = useState("");
   const [sheets, setSheets] = useState<ParsedSheet[]>([]);
   const [sheetIndex, setSheetIndex] = useState(0);
@@ -53,7 +56,7 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
       const { parseWorkbook } = await import("../lib/excelImport");
       const parsed = await parseWorkbook(file);
       if (parsed.length === 0) {
-        throw new Error("Workbook does not contain any worksheets.");
+        throw new Error(m.importer.emptyWorkbook);
       }
       const scoredSheets = parsed.map((sheet) => {
         const nextMapping = defaultMapping(sheet.headers);
@@ -65,7 +68,7 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
       setSheetIndex(bestSheetIndex);
       setMapping(scoredSheets[bestSheetIndex]?.mapping ?? {});
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not read workbook");
+      setMessage(error instanceof Error ? error.message : m.importer.couldNotRead);
     } finally {
       setBusy(false);
     }
@@ -79,19 +82,19 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
 
   async function confirmImport() {
     if (!rows.length) {
-      setMessage("No mapped task rows found.");
+      setMessage(m.importer.noRows);
       return;
     }
     setBusy(true);
     setMessage("");
     try {
       const result = await onImport(filename, rows);
-      setMessage(`Imported ${rows.length} rows. Created ${result.created}, updated ${result.updated}, skipped ${result.skipped}.`);
+      setMessage(m.importer.importedSummary(rows.length, result.created, result.updated, result.skipped));
       setSheets([]);
       setFilename("");
       setMapping({});
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Import failed");
+      setMessage(error instanceof Error ? error.message : m.importer.importFailed);
     } finally {
       setBusy(false);
     }
@@ -101,14 +104,14 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
     <section className="import-wizard">
       <label className="file-picker">
         <FileSpreadsheet size={18} aria-hidden="true" />
-        <span>{busy ? "Reading" : "Import Excel"}</span>
+        <span>{busy ? m.importer.reading : m.importer.pick}</span>
         <input type="file" accept=".xlsx,.xls" onChange={(event) => loadFile(event.target.files?.[0] ?? null)} />
       </label>
 
       {selectedSheet ? (
         <div className="mapping-panel">
           <label className="field-label">
-            <span>Worksheet</span>
+            <span>{m.importer.worksheet}</span>
             <select value={sheetIndex} onChange={(event) => selectSheet(Number(event.target.value))}>
               {sheets.map((sheet, index) => (
                 <option key={sheet.name} value={index}>
@@ -119,8 +122,8 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
           </label>
 
           <div className="import-detection">
-            <span>{selectedSheet.headers.length} columns detected</span>
-            <span>Header row {selectedSheet.headerIndex + 1}</span>
+            <span>{m.importer.columnsDetected(selectedSheet.headers.length)}</span>
+            <span>{m.importer.headerRow(selectedSheet.headerIndex + 1)}</span>
           </div>
 
           <div className="mapping-grid">
@@ -128,9 +131,9 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
               <label key={header} className="mapping-row">
                 <span>{header}</span>
                 <select value={mapping[header] ?? "skip"} onChange={(event) => setMapping({ ...mapping, [header]: event.target.value as ImportField })}>
-                  {fieldOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
+                  {IMPORT_FIELDS.map((field) => (
+                    <option key={field} value={field}>
+                      {m.importer.fields[field]}
                     </option>
                   ))}
                 </select>
@@ -139,7 +142,7 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
           </div>
 
           <div className="import-preview">
-            <strong>{rows.length} task rows ready</strong>
+            <strong>{m.importer.rowsReady(rows.length)}</strong>
             {rows.slice(0, 3).map((row, index) => (
               <p key={`${row.title}-${index}`}>
                 {[row.start_date, row.project, row.title].filter(Boolean).join(" · ")}
@@ -149,7 +152,7 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
 
           <button type="button" className="primary-button" disabled={busy} onClick={confirmImport}>
             <Upload size={17} aria-hidden="true" />
-            <span>Confirm Import</span>
+            <span>{m.importer.confirmImport}</span>
           </button>
         </div>
       ) : null}

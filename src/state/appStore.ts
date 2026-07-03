@@ -14,6 +14,16 @@ export interface Filters {
   due: "all" | "today" | "overdue" | "none";
 }
 
+// Sentinel for Filters.projectId meaning "tasks without a project". Lives only
+// in filter state — never written to a task's project_id.
+export const NO_PROJECT_FILTER = "__no_project__";
+
+export function matchesProjectFilter(filterProjectId: string, taskProjectId: string | null | undefined): boolean {
+  if (!filterProjectId) return true;
+  if (filterProjectId === NO_PROJECT_FILTER) return !taskProjectId;
+  return taskProjectId === filterProjectId;
+}
+
 export interface AppState {
   projects: Project[];
   tasks: Task[];

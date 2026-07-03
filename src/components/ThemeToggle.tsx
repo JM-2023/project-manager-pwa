@@ -1,24 +1,22 @@
+import { useI18n } from "../lib/i18n";
 import { useTheme, type ThemePreference } from "../lib/theme";
 
-const OPTIONS: { id: ThemePreference; label: string }[] = [
-  { id: "light", label: "Light" },
-  { id: "dark", label: "Dark" },
-  { id: "system", label: "System" }
-];
+const OPTIONS: ThemePreference[] = ["light", "dark", "system"];
 
 export function ThemeToggle() {
+  const { m } = useI18n();
   const [theme, setTheme] = useTheme();
   return (
-    <div className="cal-seg" role="group" aria-label="Theme">
-      {OPTIONS.map((item) => (
+    <div className="cal-seg" role="group" aria-label={m.theme.label}>
+      {OPTIONS.map((option) => (
         <button
-          key={item.id}
+          key={option}
           type="button"
-          className={theme === item.id ? "active" : ""}
-          aria-pressed={theme === item.id}
-          onClick={() => setTheme(item.id)}
+          className={theme === option ? "active" : ""}
+          aria-pressed={theme === option}
+          onClick={() => setTheme(option)}
         >
-          {item.label}
+          {m.theme[option]}
         </button>
       ))}
     </div>

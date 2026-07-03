@@ -77,27 +77,6 @@ export function statusFromProgress(progress: unknown, blocker?: unknown): TaskSt
   return "todo";
 }
 
-export function priorityLabel(priority: TaskPriority): string {
-  return {
-    low: "Low",
-    medium: "Medium",
-    high: "High",
-    urgent: "Urgent"
-  }[priority];
-}
-
-export function statusLabel(status: TaskStatus): string {
-  return {
-    inbox: "Inbox",
-    todo: "To do",
-    doing: "Doing",
-    waiting: "Waiting",
-    blocked: "Blocked",
-    done: "Done",
-    cancelled: "Cancelled"
-  }[status];
-}
-
 export function priorityScore(priority: TaskPriority): number {
   return {
     urgent: 0,

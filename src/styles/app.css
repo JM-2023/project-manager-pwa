@@ -1892,6 +1892,17 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 @media (hover: hover) { .keypad button.keypad-action:hover:not(:disabled) { background: var(--wash); box-shadow: none; } }
 .keypad button:disabled { opacity: 0.4; }
 
+/* Passcode change (Settings → 安全) — a full-screen overlay reusing the login
+   pad, so the flow reads as the app's one passcode surface. Opaque app
+   background; sits above the bottom nav (40) and open row menus (70). */
+.passcode-overlay {
+  position: fixed; inset: 0; z-index: 120;
+  display: grid; justify-items: center; align-content: center; gap: 22px;
+  padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom));
+  background: var(--bg);
+  animation: fade-in var(--t-slow) var(--ease) both;
+}
+
 /* =========================================================================
    Task / project actions popover (Tier A floating glass; flat rows inside)
    ========================================================================= */
@@ -2017,7 +2028,15 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 }
 
 /* All calendar views share a centred max width */
-.cal-summary, .cal-week, .cal-month, .cal-year { width: 100%; max-width: 1000px; margin-inline: auto; }
+.cal-summary, .cal-week, .cal-month, .cal-year, .cal-insights { width: 100%; max-width: 1000px; margin-inline: auto; }
+
+/* Views rise in softly when the granularity switches; the year view staggers
+   its own blocks instead so nested cards don't double-animate. */
+.cal-week, .cal-month { animation: fade-up var(--t-slow) var(--ease) both; }
+.cal-year > * { animation: fade-up var(--t-slow) var(--ease) both; }
+.cal-year > *:nth-child(2) { animation-delay: 0.05s; }
+.cal-year > *:nth-child(3) { animation-delay: 0.1s; }
+.cal-year > *:nth-child(4) { animation-delay: 0.15s; }
 
 /* ---- Period summary hero ---- */
 .cal-summary {
@@ -2065,13 +2084,126 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 @media (hover: hover) { .cal-week__card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--line-strong); } }
 .cal-week__card:active { transform: scale(0.99); }
 .cal-week__card.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm); }
+.cal-week__card.is-future { opacity: 0.55; }
+@media (hover: hover) { .cal-week__card.is-future:hover { opacity: 1; } }
 .cal-week__weekday { color: var(--muted); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
 .cal-week__date { font-size: clamp(1.5rem, 2.4vw, 2.1rem); font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.cal-week__meta { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .cal-week__count { color: var(--ink-soft); font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Day completion figure, tinted by its progress tone but pulled toward ink for legibility. */
+.cal-week__pct { color: color-mix(in srgb, var(--prog-color, var(--muted)) 72%, var(--ink)); font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cal-week__pct.tone-empty { color: var(--muted); font-weight: 650; }
 .cal-week__dots { display: flex; gap: 4px; min-height: 8px; }
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
 .dot-output { background: var(--prog-done); }
 .dot-blocked { background: var(--danger); }
+
+/* ---- Week insights ---- */
+.cal-insights { display: grid; gap: 12px; margin-top: 16px; }
+.cal-insights > * { animation: fade-up var(--t-slow) var(--ease) both; }
+.cal-insights > *:nth-child(1) { animation-delay: 0.05s; }
+.cal-insights > *:nth-child(2) { animation-delay: 0.1s; }
+.cal-insights > *:nth-child(3) { animation-delay: 0.15s; }
+.cal-insights > *:nth-child(4) { animation-delay: 0.2s; }
+.cal-insights > *:nth-child(5) { animation-delay: 0.25s; }
+
+/* Liquid fills sweep in once the insight cards land. */
+@keyframes bar-sweep { from { width: 0; } }
+.cal-week .mini-bar::after, .cal-insights .mini-bar::after { animation: bar-sweep 0.55s var(--ease-out) 0.1s both; }
+
+.cal-insights__pulse { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cal-stat strong.trend-up { color: var(--sage); }
+.cal-stat strong.trend-down { color: var(--danger); }
+.cal-stat small { color: var(--muted); font-size: 0.7rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Month rhythm — weekly completion bars, centred inside a full-width card */
+.cal-rhythm .cal-series { max-width: 560px; margin-inline: auto; }
+.cal-rhythm .cal-series__track { height: clamp(64px, 9vh, 104px); }
+
+.cal-insights__duo { display: grid; gap: 12px; }
+@media (min-width: 720px) { .cal-insights__duo { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
+
+.cal-card { padding: 16px 18px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs); }
+.cal-card__head { display: flex; align-items: center; gap: 7px; margin-bottom: 13px; }
+.cal-card__head svg { flex: none; color: var(--muted); }
+.cal-card__title { color: var(--muted); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.01em; }
+.cal-card__badge {
+  margin-left: auto; padding: 2px 9px;
+  color: var(--ink-soft); font-size: 0.72rem; font-weight: 750; font-variant-numeric: tabular-nums;
+  background: var(--surface-3); border-radius: var(--r-pill);
+}
+
+.cal-insights__empty { display: flex; align-items: center; gap: 10px; }
+.cal-insights__empty svg { flex: none; color: var(--primary); }
+.cal-insights__empty p { margin: 0; color: var(--muted); font-size: 0.85rem; }
+
+/* Project focus rows */
+.cal-proj { display: grid; gap: 13px; }
+.cal-proj__row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; column-gap: 10px; row-gap: 6px; }
+.cal-proj__name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 0.85rem; font-weight: 650; }
+.cal-proj__name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-proj__meta { color: var(--muted); font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.cal-proj__value { min-width: 40px; font-size: 0.85rem; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.cal-proj__row .mini-bar { grid-column: 1 / -1; margin-top: 0; }
+.cal-proj__more { color: var(--muted); font-size: 0.74rem; font-weight: 650; }
+
+/* Focus mix (importance split) */
+.cal-mix__bar {
+  display: flex; gap: 2px; height: 14px; overflow: hidden;
+  background: var(--surface-3); border-radius: var(--r-pill);
+  transform-origin: left; animation: grow-x 0.5s var(--ease-out) 0.12s both;
+}
+@keyframes grow-x { from { transform: scaleX(0); } }
+.cal-mix__seg { height: 100%; min-width: 3px; }
+.cal-mix__seg.imp-1, .cal-mix__dot.imp-1 { background: var(--imp-1); }
+.cal-mix__seg.imp-2, .cal-mix__dot.imp-2 { background: var(--imp-2); }
+.cal-mix__seg.imp-3, .cal-mix__dot.imp-3 { background: var(--imp-3); }
+.cal-mix__seg.imp-4, .cal-mix__dot.imp-4 { background: var(--imp-4); }
+.cal-mix__legend { display: grid; gap: 9px; margin-top: 14px; }
+.cal-mix__item { display: grid; grid-template-columns: 10px auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+.cal-mix__item.is-empty { opacity: 0.45; }
+.cal-mix__dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); }
+.cal-mix__label { font-size: 0.78rem; font-weight: 750; }
+.cal-mix__count { color: var(--muted); font-size: 0.74rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.cal-mix__value { justify-self: end; font-size: 0.8rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* Worklog digests (weekly output / blockers) */
+.cal-log-card.is-blocker {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--danger) 7%, transparent), transparent 180px), var(--surface);
+  border-color: color-mix(in srgb, var(--danger) 22%, var(--line));
+}
+.cal-log-card.is-output .cal-card__head svg { color: var(--sage); }
+.cal-log-card.is-blocker .cal-card__head svg { color: var(--danger); }
+.cal-log { display: grid; gap: 8px; }
+.cal-log__row {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; text-align: left;
+  background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-sm); box-shadow: none;
+  animation: fade-up var(--t-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * 0.03s);
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), transform var(--t) var(--ease);
+}
+@media (hover: hover) { .cal-log__row:hover { background: var(--surface-3); border-color: var(--line); } }
+.cal-log__row:active { transform: scale(0.995); }
+.cal-log__row:focus-visible { background: var(--wash-strong); }
+.cal-log__chip {
+  flex: none; min-width: 56px; margin-top: 1px; padding: 3px 8px; text-align: center;
+  font-size: 0.7rem; font-weight: 750; font-variant-numeric: tabular-nums;
+  background: var(--st-done-bg); color: var(--st-done-fg); border-radius: var(--r-pill);
+}
+.cal-log-card.is-blocker .cal-log__chip { background: var(--st-blocked-bg); color: var(--st-blocked-fg); }
+.cal-log__chip.is-today { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent); }
+.cal-log__body { display: grid; gap: 3px; min-width: 0; }
+.cal-log__text { font-size: 0.85rem; font-weight: 600; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
+.cal-log__meta { color: var(--muted); font-size: 0.72rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-log__empty { margin: 2px 0 4px; color: var(--muted); font-size: 0.82rem; }
+.cal-log__more {
+  display: inline-flex; align-items: center; gap: 5px; justify-self: center; margin-top: 2px; padding: 7px 14px;
+  color: var(--muted); font-size: 0.78rem; font-weight: 700;
+  background: transparent; border: 0; border-radius: var(--r-pill);
+  transition: color var(--t) var(--ease), background var(--t) var(--ease);
+}
+@media (hover: hover) { .cal-log__more:hover { color: var(--ink); background: var(--surface-3); } }
+.cal-log__more svg { transition: transform var(--t) var(--ease); }
+.cal-log__more svg.is-open { transform: rotate(180deg); }
 
 /* ---- Heat tiles (month + year) ---- */
 .tone-empty { --prog-color: var(--line-strong); }
@@ -2097,14 +2229,17 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 
 /* ---- Year view ---- */
 .cal-year { display: grid; gap: 20px; }
-.cal-year__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cal-year__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .cal-stat {
   position: relative; display: grid; gap: 3px; justify-items: start; padding: 14px 16px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs);
 }
 .cal-stat span { color: var(--muted); font-size: 0.72rem; font-weight: 650; }
 .cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.cal-stat svg { color: var(--warning); }
+.cal-stat svg { color: var(--muted); }
+.cal-stat svg.is-flame { color: var(--warning); }
+.cal-stat svg.trend-up { color: var(--sage); }
+.cal-stat svg.trend-down { color: var(--danger); }
 
 .cal-heatmap {
   display: flex; gap: clamp(3px, 0.4vw, 5px); justify-content: center; overflow-x: auto; padding: 14px;
@@ -2203,6 +2338,76 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 @media (max-width: 640px) {
   .cal-summary { grid-template-columns: 1fr; gap: 14px; }
   .cal-summary__stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .cal-insights__pulse, .cal-year__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* =========================================================================
+   Theme switch — View Transition cross-fade
+   --------------------------------------------------------------------------
+   Light/dark is a whole-page token swap, so theme.ts wraps it in
+   document.startViewTransition(): the old frame is captured once and
+   dissolved into the new one as a compositor-only opacity animation — the
+   high-frame-rate path, vs. transitioning every element's colours per frame
+   (which also can't interpolate the gradient tokens at all).
+   ========================================================================= */
+/* While the fade runs, per-element transitions are frozen so the live page
+   under the snapshot jumps straight to its final state; the dissolve is the
+   only motion on screen. Animations (specular drift, hero pulse) keep running
+   so they don't visibly reset. */
+:root.theme-switching *,
+:root.theme-switching *::before,
+:root.theme-switching *::after {
+  transition: none !important;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.36s;
+  animation-timing-function: var(--ease);
+}
+
+/* =========================================================================
+   Language switch — View Transition refocus
+   --------------------------------------------------------------------------
+   中文/English swaps every label at once, so i18n.tsx wraps the swap in
+   document.startViewTransition() like the theme toggle. On top of the plain
+   dissolve, both snapshots share one symmetric-opacity cross-fade (the
+   plus-lighter pair sums to constant brightness — no mid-fade dim) while the
+   outgoing frame softly defocuses and the incoming one settles from a slight
+   blur + scale: a lens refocusing between languages.
+   ========================================================================= */
+:root.lang-switching *,
+:root.lang-switching *::before,
+:root.lang-switching *::after {
+  transition: none !important;
+}
+
+:root.lang-switching::view-transition-old(root) {
+  animation: lang-refocus-out 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+:root.lang-switching::view-transition-new(root) {
+  animation: lang-refocus-in 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes lang-refocus-out {
+  to {
+    opacity: 0;
+    filter: blur(9px);
+    transform: scale(0.988);
+  }
+}
+
+@keyframes lang-refocus-in {
+  from {
+    opacity: 0;
+    filter: blur(9px);
+    transform: scale(1.012);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
 }
 
 /* =========================================================================
@@ -2214,5 +2419,11 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+  /* The * rules above don't reach view-transition pseudos; theme.ts already
+     skips the transition, this is the CSS-side belt-and-braces. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
   }
 }

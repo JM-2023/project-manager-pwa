@@ -10,6 +10,7 @@ import {
   login,
   logout,
   sendMutations,
+  setupPassword,
   uploadCloudExcel
 } from "./lib/api";
 import { nowIso } from "./lib/dates";
@@ -584,6 +585,16 @@ export function App() {
 
   async function handleLogin(password: string) {
     await login(password);
+    await completeAuth();
+  }
+
+  // First-run setup: /api/auth/setup stores the new passcode and signs in.
+  async function handleSetup(password: string) {
+    await setupPassword(password);
+    await completeAuth();
+  }
+
+  async function completeAuth() {
     engine.markFullBootstrapPending();
     const session = await getSession();
     const local = await loadLocalSnapshot();
@@ -663,7 +674,7 @@ export function App() {
   };
 
   if (state.authRequired) {
-    return <LoginPage onLogin={handleLogin} />;
+    return <LoginPage onLogin={handleLogin} onSetup={handleSetup} />;
   }
 
   return (

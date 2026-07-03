@@ -1,8 +1,11 @@
 import { TaskTable } from "../components/TaskTable";
+import { useI18n } from "../lib/i18n";
 import { getTaskImportance, getTaskProgress, isProjectCacheTask, worklogBlocker, worklogOutput } from "../lib/progress";
+import { NO_PROJECT_FILTER, matchesProjectFilter } from "../state/appStore";
 import type { TaskPageProps } from "./pageProps";
 
 export function SearchPage(props: TaskPageProps) {
+  const { m } = useI18n();
   const { projects, tasks, nextProjects, nextIdeas, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask } = props;
   const projectMap = new Map(projects.map((project) => [project.id, project.name]));
   const nextProjectMap = new Map(nextProjects.map((project) => [project.id, project.name]));
@@ -17,7 +20,7 @@ export function SearchPage(props: TaskPageProps) {
         .toLowerCase();
       if (!haystack.includes(query)) return false;
     }
-    if (filters.projectId && task.project_id !== filters.projectId) return false;
+    if (!matchesProjectFilter(filters.projectId, task.project_id)) return false;
     if (filters.status && String(getTaskProgress(task)) !== filters.status) return false;
     if (filters.priority && String(getTaskImportance(task)) !== filters.priority) return false;
     return true;
@@ -34,32 +37,31 @@ export function SearchPage(props: TaskPageProps) {
   return (
     <main className="page-content">
       <header className="page-header">
-        <h1>Search</h1>
-        <p>
-          {filtered.length} matching tasks · {filteredNextIdeas.length} Next ideas
-        </p>
+        <h1>{m.search.title}</h1>
+        <p>{m.search.subtitle(filtered.length, filteredNextIdeas.length)}</p>
       </header>
       <section className="search-filters">
-        <input value={filters.search} onChange={(event) => onFiltersChange({ search: event.target.value })} placeholder="Search projects, tasks, output, blockers" aria-label="Search tasks" />
+        <input value={filters.search} onChange={(event) => onFiltersChange({ search: event.target.value })} placeholder={m.search.placeholder} aria-label={m.search.searchAria} />
         <div className="filter-grid">
-          <select value={filters.projectId} onChange={(event) => onFiltersChange({ projectId: event.target.value })} aria-label="Filter project">
-            <option value="">All projects</option>
+          <select value={filters.projectId} onChange={(event) => onFiltersChange({ projectId: event.target.value })} aria-label={m.search.filterProject}>
+            <option value="">{m.common.allProjects}</option>
+            <option value={NO_PROJECT_FILTER}>{m.common.noProject}</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}
               </option>
             ))}
           </select>
-          <select value={filters.status} onChange={(event) => onFiltersChange({ status: event.target.value })} aria-label="Filter status">
-            <option value="">Any progress</option>
+          <select value={filters.status} onChange={(event) => onFiltersChange({ status: event.target.value })} aria-label={m.search.filterStatus}>
+            <option value="">{m.search.anyProgress}</option>
             {[0, 25, 50, 75, 100].map((progress) => (
               <option key={progress} value={progress}>
                 {progress}%
               </option>
             ))}
           </select>
-          <select value={filters.priority} onChange={(event) => onFiltersChange({ priority: event.target.value })} aria-label="Filter priority">
-            <option value="">Any importance</option>
+          <select value={filters.priority} onChange={(event) => onFiltersChange({ priority: event.target.value })} aria-label={m.search.filterPriority}>
+            <option value="">{m.search.anyImportance}</option>
             {[1, 2, 3, 4].map((importance) => (
               <option key={importance} value={importance}>
                 {importance}
@@ -69,19 +71,19 @@ export function SearchPage(props: TaskPageProps) {
         </div>
       </section>
       <TaskTable tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
-      <section className="search-next-results" aria-label="Next ideas results">
-        <h2>Next ideas</h2>
+      <section className="search-next-results" aria-label={m.search.nextResultsAria}>
+        <h2>{m.search.nextIdeas}</h2>
         {filteredNextIdeas.length > 0 ? (
           <div className="cache-items">
             {filteredNextIdeas.map((idea) => (
               <article key={idea.id} className="cache-item search-next-item">
-                <span>{nextProjectMap.get(idea.next_project_id) ?? "Next"}</span>
-                <strong>{idea.title || "Untitled idea"}</strong>
+                <span>{nextProjectMap.get(idea.next_project_id) ?? m.search.nextFallback}</span>
+                <strong>{idea.title || m.search.untitledIdea}</strong>
               </article>
             ))}
           </div>
         ) : (
-          <p className="empty-state">No Next ideas match this search.</p>
+          <p className="empty-state">{m.search.noNextMatch}</p>
         )}
       </section>
     </main>

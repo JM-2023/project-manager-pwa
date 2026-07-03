@@ -4,7 +4,7 @@ import { DatePicker } from "./DatePicker";
 import { StatusPill } from "./StatusPill";
 import type { Tag, Task, TaskPriority, TaskStatus, TaskTag } from "../lib/types";
 import { formatShortDate } from "../lib/dates";
-import { priorityLabel, statusLabel } from "../lib/validation";
+import { useI18n } from "../lib/i18n";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
 
 interface TaskCardProps {
@@ -27,6 +27,7 @@ const quickStatuses: Array<{ status: TaskStatus; Icon: typeof Circle }> = [
 ];
 
 export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchive, onDelete, onAddTag }: TaskCardProps) {
+  const { m, lang } = useI18n();
   const [title, setTitle] = useState(task.title);
   const [nextAction, setNextAction] = useState(task.next_action ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
@@ -95,52 +96,52 @@ export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchiv
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             onBlur={commitText}
-            aria-label="Task title"
+            aria-label={m.taskCard.titleAria}
           />
           <div className="task-meta">
-            <span>{projectName || "No project"}</span>
-            <span>{formatShortDate(task.due_date || task.start_date)}</span>
+            <span>{projectName || m.common.noProject}</span>
+            <span>{formatShortDate(task.due_date || task.start_date, lang)}</span>
           </div>
         </div>
         <StatusPill status={task.status} />
       </div>
 
-      <div className="quick-status" aria-label="Quick status">
+      <div className="quick-status" aria-label={m.taskCard.quickStatus}>
         {quickStatuses.map(({ status, Icon }) => (
           <button
             key={status}
             type="button"
             className={task.status === status ? "active" : ""}
             onClick={() => onUpdate(task, { status, completed_at: status === "done" ? new Date().toISOString() : null })}
-            title={statusLabel(status)}
-            aria-label={`Set status to ${statusLabel(status)}`}
+            title={m.status[status]}
+            aria-label={m.taskCard.setStatus(m.status[status])}
           >
             <Icon size={17} aria-hidden="true" />
-            <span>{statusLabel(status)}</span>
+            <span>{m.status[status]}</span>
           </button>
         ))}
       </div>
 
       <div className="task-controls">
         <label className="field-label">
-          <span>Priority</span>
+          <span>{m.taskCard.priorityLabel}</span>
           <select value={task.priority} onChange={(event) => onUpdate(task, { priority: event.target.value as TaskPriority })}>
-            <option value="low">{priorityLabel("low")}</option>
-            <option value="medium">{priorityLabel("medium")}</option>
-            <option value="high">{priorityLabel("high")}</option>
-            <option value="urgent">{priorityLabel("urgent")}</option>
+            <option value="low">{m.priority.low}</option>
+            <option value="medium">{m.priority.medium}</option>
+            <option value="high">{m.priority.high}</option>
+            <option value="urgent">{m.priority.urgent}</option>
           </select>
         </label>
-        <DatePicker label="Due" value={task.due_date ?? ""} onChange={(due_date) => onUpdate(task, { due_date })} />
+        <DatePicker label={m.taskCard.due} value={task.due_date ?? ""} onChange={(due_date) => onUpdate(task, { due_date })} />
       </div>
 
       <label className="field-label full">
-        <span>Next action</span>
+        <span>{m.taskCard.nextAction}</span>
         <textarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={2} />
       </label>
 
       <details className="task-notes">
-        <summary>Notes</summary>
+        <summary>{m.common.notes}</summary>
         <textarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={4} />
       </details>
 
@@ -151,8 +152,8 @@ export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchiv
           </span>
         ))}
         <div className="tag-input">
-          <input value={tagName} onChange={(event) => setTagName(event.target.value)} placeholder="Tag" aria-label="Tag name" />
-          <button type="button" onClick={addTag} aria-label="Add tag">
+          <input value={tagName} onChange={(event) => setTagName(event.target.value)} placeholder={m.taskCard.tagPlaceholder} aria-label={m.taskCard.tagNameAria} />
+          <button type="button" onClick={addTag} aria-label={m.taskCard.addTag}>
             <Plus size={15} aria-hidden="true" />
           </button>
         </div>
@@ -161,11 +162,11 @@ export function TaskCard({ task, projectName, tags, taskTags, onUpdate, onArchiv
       <div className="task-actions">
         <button type="button" className="ghost-button" onClick={() => removeWith(onArchive)}>
           <Archive size={16} aria-hidden="true" />
-          <span>Archive</span>
+          <span>{m.common.archive}</span>
         </button>
         <button type="button" className="ghost-button danger" onClick={() => removeWith(onDelete)}>
           <Trash2 size={16} aria-hidden="true" />
-          <span>Delete</span>
+          <span>{m.common.delete}</span>
         </button>
       </div>
     </article>

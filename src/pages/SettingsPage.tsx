@@ -1,14 +1,21 @@
-import { LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
+import { KeyRound, LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
+import { useState } from "react";
+import { ChangePasscode } from "../components/ChangePasscode";
 import { ExportButton } from "../components/ExportButton";
 import { ImportWizard } from "../components/ImportWizard";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useHeroAnimation, type HeroAnimation } from "../lib/heroAnimation";
+import { useI18n, type Language } from "../lib/i18n";
 import type { ImportResponse, ImportRow, SessionResponse } from "../lib/types";
 import type { WorklogOverview } from "../lib/progress";
 
-const HERO_ANIM_OPTIONS: { id: HeroAnimation; label: string }[] = [
-  { id: "flow", label: "游动" },
-  { id: "shimmer", label: "闪烁" }
+const HERO_ANIM_OPTIONS: HeroAnimation[] = ["flow", "shimmer"];
+
+// The language names are proper nouns: each option always shows in its own
+// language, whatever the current UI language is.
+const LANGUAGE_OPTIONS: Array<{ id: Language; label: string }> = [
+  { id: "en", label: "English" },
+  { id: "zh", label: "中文" }
 ];
 
 interface SettingsPageProps {
@@ -40,13 +47,17 @@ export function SettingsPage({
   onForceResync,
   onLogout
 }: SettingsPageProps) {
+  const { m, lang, setLang } = useI18n();
   const r2Enabled = Boolean(session?.features.r2Backups);
+  const passcodeEnabled = session?.features.authMode === "local_password";
   const [heroAnim, setHeroAnim] = useHeroAnimation();
+  const [changingPasscode, setChangingPasscode] = useState(false);
+
+  const locale = lang === "zh" ? "zh-CN" : "en-US";
+  const heroAnimLabels: Record<HeroAnimation, string> = { flow: m.settings.heroFlow, shimmer: m.settings.heroShimmer };
 
   function handleForceResync() {
-    const confirmed = window.confirm(
-      "强制全量同步会清空本机缓存并从云端重新拉取全部数据。仅在云端数据被清空重导、本机出现重复/残留任务时使用。继续？"
-    );
+    const confirmed = window.confirm(m.settings.forceResyncConfirm);
     if (confirmed) {
       onForceResync();
     }
@@ -56,99 +67,134 @@ export function SettingsPage({
     <main className="page-content">
       <header className="page-header">
         <div className="page-header__title">
-          <h1>Settings</h1>
-          <p>{session?.user.email ?? "Signed in"}</p>
+          <h1>{m.settings.title}</h1>
+          <p>{session?.user.email ?? m.settings.signedIn}</p>
         </div>
         <ThemeToggle />
       </header>
 
       <section className="settings-grid">
         <div className="metric">
-          <span>记录天数</span>
+          <span>{m.settings.recordDays}</span>
           <strong>{worklogOverview.recordDays}</strong>
         </div>
         <div className="metric">
-          <span>任务数</span>
+          <span>{m.settings.taskCount}</span>
           <strong>{worklogOverview.taskCount}</strong>
         </div>
         <div className="metric">
-          <span>平均推进</span>
+          <span>{m.settings.avgProgress}</span>
           <strong>{worklogOverview.averageProgress}%</strong>
         </div>
         <div className="metric">
-          <span>明确产出天数</span>
+          <span>{m.settings.outputDays}</span>
           <strong>{worklogOverview.outputDays}</strong>
         </div>
         <div className="metric">
-          <span>Projects</span>
+          <span>{m.settings.projects}</span>
           <strong>{projectCount}</strong>
         </div>
         <div className="metric">
-          <span>Pending</span>
+          <span>{m.settings.pending}</span>
           <strong>{pendingCount}</strong>
         </div>
         <div className="metric wide">
-          <span>Last sync</span>
-          <strong>{lastSync ? new Date(lastSync).toLocaleString() : "Never"}</strong>
+          <span>{m.settings.lastSync}</span>
+          <strong>{lastSync ? new Date(lastSync).toLocaleString(locale) : m.settings.never}</strong>
         </div>
         <div className="metric wide">
-          <span>Last export</span>
-          <strong>{lastExport ? new Date(lastExport).toLocaleString() : "Never"}</strong>
+          <span>{m.settings.lastExport}</span>
+          <strong>{lastExport ? new Date(lastExport).toLocaleString(locale) : m.settings.never}</strong>
         </div>
       </section>
 
       <section className="settings-section">
-        <h2>外观</h2>
+        <h2>{m.settings.appearance}</h2>
         <div className="settings-row">
-          <span>加权推进动画</span>
-          <div className="cal-seg" role="group" aria-label="加权推进动画">
-            {HERO_ANIM_OPTIONS.map((item) => (
+          <span>{m.settings.heroAnim}</span>
+          <div className="cal-seg" role="group" aria-label={m.settings.heroAnim}>
+            {HERO_ANIM_OPTIONS.map((option) => (
               <button
-                key={item.id}
+                key={option}
                 type="button"
-                className={heroAnim === item.id ? "active" : ""}
-                aria-pressed={heroAnim === item.id}
-                onClick={() => setHeroAnim(item.id)}
+                className={heroAnim === option ? "active" : ""}
+                aria-pressed={heroAnim === option}
+                onClick={() => setHeroAnim(option)}
               >
-                {item.label}
+                {heroAnimLabels[option]}
               </button>
             ))}
           </div>
         </div>
-        <p className="settings-hint">今日页「加权推进」的像素动画：游动让像素顺着填充方向游出并消散，闪烁则原地明暗闪烁。</p>
+        <p className="settings-hint">{m.settings.heroHint}</p>
       </section>
 
       <section className="settings-section">
-        <h2>Excel</h2>
+        <h2>{m.settings.language}</h2>
+        <div className="settings-row">
+          <span>{m.settings.appLanguage}</span>
+          <div className="cal-seg" role="group" aria-label={m.settings.appLanguage}>
+            {LANGUAGE_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                lang={option.id === "zh" ? "zh-CN" : "en"}
+                className={lang === option.id ? "active" : ""}
+                aria-pressed={lang === option.id}
+                onClick={() => setLang(option.id)}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <p className="settings-hint">{m.settings.languageHint}</p>
+      </section>
+
+      <section className="settings-section">
+        <h2>{m.settings.excel}</h2>
         <ImportWizard onImport={onImport} />
         <ExportButton r2Enabled={r2Enabled} onExported={onExported} />
       </section>
 
       <section className="settings-section">
-        <h2>Sync</h2>
+        <h2>{m.settings.sync}</h2>
         <button type="button" className="secondary-button" onClick={onSync}>
           <RefreshCcw size={17} aria-hidden="true" />
-          <span>Sync now</span>
+          <span>{m.settings.syncNow}</span>
         </button>
         <button type="button" className="ghost-button" onClick={handleForceResync}>
           <RotateCcw size={16} aria-hidden="true" />
-          <span>Force full resync</span>
+          <span>{m.settings.forceResync}</span>
         </button>
-        <p className="settings-hint">清空本机缓存并从云端重新拉取全部数据。仅在云端被清空重导后用于消除重复任务。</p>
+        <p className="settings-hint">{m.settings.forceResyncHint}</p>
       </section>
 
+      {passcodeEnabled ? (
+        <section className="settings-section">
+          <h2>{m.settings.security}</h2>
+          <button type="button" className="secondary-button" onClick={() => setChangingPasscode(true)}>
+            <KeyRound size={17} aria-hidden="true" />
+            <span>{m.settings.changePasscode}</span>
+          </button>
+          <p className="settings-hint">{m.settings.passcodeHint}</p>
+        </section>
+      ) : null}
+
       <section className="settings-section">
-        <h2>iPhone</h2>
+        <h2>{m.settings.iphone}</h2>
         <div className="install-note">
           <Smartphone size={20} aria-hidden="true" />
-          <p>In Safari, open Share, choose Add to Home Screen, then launch Projects from the Home Screen icon.</p>
+          <p>{m.settings.installNote}</p>
         </div>
       </section>
 
       <button type="button" className="ghost-button danger" onClick={onLogout}>
         <LogOut size={16} aria-hidden="true" />
-        <span>Sign out</span>
+        <span>{m.settings.signOut}</span>
       </button>
+
+      {changingPasscode ? <ChangePasscode onClose={() => setChangingPasscode(false)} /> : null}
     </main>
   );
 }

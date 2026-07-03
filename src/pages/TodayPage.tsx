@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { ProgressSummary } from "../components/ProgressSummary";
 import { TaskTable } from "../components/TaskTable";
 import { addDays, formatShortDate, todayDate, toDateInput } from "../lib/dates";
+import { useI18n } from "../lib/i18n";
 import { importancePriority, isProjectCacheTask, summarizeProgress } from "../lib/progress";
 import type { Task } from "../lib/types";
 import type { TaskPageProps } from "./pageProps";
@@ -12,6 +13,7 @@ function taskRecordDate(task: Task): string {
 }
 
 export function TodayPage(props: TaskPageProps & { initialDate?: string | null }) {
+  const { m, lang } = useI18n();
   const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask, initialDate } = props;
   const today = todayDate();
   const [viewDate, setViewDate] = useState(initialDate || today);
@@ -46,36 +48,34 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
     <main className="page-content">
       <header className="page-header today-page-header">
         <div className="today-date-switcher">
-          <button type="button" className="icon-button date-nav-button" onClick={() => setViewDate((date) => addDays(date, -1))} aria-label="Previous day">
+          <button type="button" className="icon-button date-nav-button" onClick={() => setViewDate((date) => addDays(date, -1))} aria-label={m.today.prevDay}>
             <ChevronLeft size={18} aria-hidden="true" />
           </button>
           <button
             type="button"
             className={`today-title-button${viewDate === today ? " active" : ""}`}
             onClick={() => setViewDate(today)}
-            aria-label="Return to today"
+            aria-label={m.today.backToToday}
             aria-current={viewDate === today ? "date" : undefined}
           >
-            <h1>Today</h1>
-            <span>{formatShortDate(viewDate)}</span>
+            <h1>{m.today.title}</h1>
+            <span>{formatShortDate(viewDate, lang)}</span>
           </button>
-          <button type="button" className="icon-button date-nav-button" onClick={() => setViewDate((date) => addDays(date, 1))} aria-label="Next day">
+          <button type="button" className="icon-button date-nav-button" onClick={() => setViewDate((date) => addDays(date, 1))} aria-label={m.today.nextDay}>
             <ChevronRight size={18} aria-hidden="true" />
           </button>
         </div>
-        <p>
-          {displayTasks.length} tasks · 加权推进 {summary.weightedPercent}%
-        </p>
+        <p>{m.today.subtitle(displayTasks.length, summary.weightedPercent)}</p>
       </header>
-      <ProgressSummary label="Daily Summary" summary={summary} />
+      <ProgressSummary label={m.today.dailySummary} summary={summary} />
       <button type="button" className="add-row-button" onClick={addTask}>
         <Plus size={18} aria-hidden="true" />
-        <span>Add task</span>
+        <span>{m.today.addTask}</span>
       </button>
       {displayTasks.length > 0 ? (
         <TaskTable tasks={displayTasks} projects={projects} showDate={false} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
       ) : (
-        <p className="empty-state">No tasks for {formatShortDate(viewDate)} yet. Tap “Add task” to start.</p>
+        <p className="empty-state">{m.today.empty(formatShortDate(viewDate, lang))}</p>
       )}
     </main>
   );

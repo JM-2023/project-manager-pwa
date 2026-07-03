@@ -19,7 +19,7 @@ export function CompletionBar({ value, label }: CompletionBarProps) {
 }
 
 interface MiniBarSeriesProps {
-  data: Array<{ key: string; value: number; label: string; active?: boolean }>;
+  data: Array<{ key: string; value: number; label: string; active?: boolean; hint?: string }>;
   onSelect?: (key: string) => void;
 }
 
@@ -35,7 +35,7 @@ export function MiniBarSeries({ data, onSelect }: MiniBarSeriesProps) {
             type={onSelect ? "button" : undefined}
             className={`cal-series__col${item.active ? " active" : ""}`}
             onClick={onSelect ? () => onSelect(item.key) : undefined}
-            title={`${item.label}: ${Math.round(item.value)}%`}
+            title={`${item.hint ?? item.label}: ${Math.round(item.value)}%`}
           >
             <span className="cal-series__track" aria-hidden="true">
               <span

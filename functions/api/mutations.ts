@@ -1,4 +1,5 @@
 import { authenticate, isResponse } from "./_utils/auth";
+import { INTERNAL_SETTING_KEYS } from "./_utils/db";
 import { apiError, json, readJson, requireSameOrigin } from "./_utils/response";
 import { nowIso } from "./_utils/time";
 import type { AppContext, AuthUser } from "./_utils/types";
@@ -15,7 +16,7 @@ import {
 type Entity = "project" | "task" | "setting" | "next_project" | "next_idea";
 type Operation = "upsert" | "delete" | "purge";
 
-interface IncomingMutation {
+export interface IncomingMutation {
   id: string;
   entity: Entity;
   operation: Operation;
@@ -416,7 +417,8 @@ function planPurge(context: AppContext, user: AuthUser, mutation: IncomingMutati
   return { result: { id: mutation.id, entity: mutation.entity, recordId: id, updated_at: timestamp }, statements: [] };
 }
 
-async function planMutation(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): Promise<MutationPlan> {
+/** Exported for tests. */
+export async function planMutation(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): Promise<MutationPlan> {
   // "tag" / "task_tag" are gone (feature removed); a stale client still sending
   // them gets a permanent conflict so its queue drains cleanly.
   if (
@@ -431,6 +433,16 @@ async function planMutation(context: AppContext, user: AuthUser, mutation: Incom
   // re-sent on every sync.
   if (mutation.entity === "setting" && !mutation.data.key && !mutation.data.id) {
     return { result: { id: mutation.id, entity: mutation.entity, reason: "Setting key is required", permanent: true }, statements: [] };
+  }
+  // Server-owned settings (passcode hash, session generation, cloud Excel
+  // pointer) are invisible to clients — readSettings never returns them — so a
+  // mutation naming one is crafted, not organic sync traffic. Check both `key`
+  // and `id`: planSetting resolves the row from either, planDelete from `id`.
+  if (
+    mutation.entity === "setting" &&
+    [mutation.data.key, mutation.data.id].some((value) => INTERNAL_SETTING_KEYS.has(String(value ?? "")))
+  ) {
+    return { result: { id: mutation.id, entity: mutation.entity, reason: "Reserved setting key", permanent: true }, statements: [] };
   }
   if (mutation.entity === "next_idea" && mutation.operation === "upsert" && !mutation.data.next_project_id) {
     return { result: { id: mutation.id, entity: mutation.entity, reason: "Next idea requires next_project_id", permanent: true }, statements: [] };

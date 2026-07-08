@@ -1,7 +1,9 @@
 import { nowIso } from "./time";
 import type { AppEnv, AuthUser } from "./types";
 
-const INTERNAL_SETTING_KEYS = new Set(["cloud_excel_latest", "local_password_hash", "session_generation"]);
+// Server-owned settings rows: never exposed by readSettings and never
+// writable through the sync mutations endpoint.
+export const INTERNAL_SETTING_KEYS = new Set(["cloud_excel_latest", "local_password_hash", "session_generation"]);
 
 export async function getOrCreateUser(env: AppEnv, email: string): Promise<AuthUser> {
   const existing = await env.DB.prepare("SELECT id, email, display_name FROM users WHERE email = ?").bind(email).first<AuthUser>();

@@ -11,7 +11,10 @@ function base64Url(bytes) {
   return Buffer.from(bytes).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
 }
 
-const iterations = 210000;
+// Keep in sync with HASH_ITERATIONS in functions/api/_utils/auth.ts: the
+// deployed Workers runtime rejects PBKDF2 above 100k iterations, so a stronger
+// pre-seeded hash could never be verified in production.
+const iterations = 100000;
 const salt = webcrypto.getRandomValues(new Uint8Array(16));
 const key = await webcrypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
 const derived = await webcrypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations }, key, 256);

@@ -10,7 +10,13 @@ const LOCAL_PASSWORD_HASH_SETTING_KEY = "local_password_hash";
 // minted with; a mismatch invalidates them, so changing the passcode signs
 // every other device out even though the HMAC secret stays the same.
 const SESSION_GENERATION_SETTING_KEY = "session_generation";
-const HASH_ITERATIONS = 210_000;
+// The deployed Workers runtime rejects PBKDF2 above 100k iterations
+// ("Pbkdf2 failed: iteration counts above 100000 are not supported").
+// 100k is therefore the strongest hash production can mint or verify; local
+// `wrangler pages dev` does not enforce the cap, so only production catches
+// violations. Must stay within [100k, runtime cap] — verifyPassword rejects
+// anything weaker than 100k.
+const HASH_ITERATIONS = 100_000;
 
 function base64UrlEncode(bytes: ArrayBuffer | Uint8Array): string {
   const array = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);

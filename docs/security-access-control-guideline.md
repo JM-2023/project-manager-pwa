@@ -28,10 +28,11 @@ below.
   `nonce`; it is verified with a timing-safe comparison
   (`functions/api/_utils/auth.ts:191`). A token cannot be forged or altered
   without the secret.
-- Passcodes are stored only as PBKDF2-SHA256 hashes (210k iterations, per-hash
-  salt) in D1, never in code or the bundle. Verification is timing-safe and
-  rejects hashes weaker than 100k iterations
-  (`functions/api/_utils/auth.ts:118`).
+- Passcodes are stored only as PBKDF2-SHA256 hashes (100k iterations — the
+  deployed Workers runtime rejects PBKDF2 above 100k, so this is the strongest
+  hash production can mint or verify — per-hash salt) in D1, never in code or
+  the bundle. Verification is timing-safe and rejects hashes weaker than 100k
+  iterations (`functions/api/_utils/auth.ts:118`).
 - Single-owner is enforced: `authenticate` rejects any identity whose email is
   not `OWNER_EMAIL` with 403 (`functions/api/_utils/auth.ts:253`).
 - If `SESSION_SECRET` is missing the code fails closed (throws), never

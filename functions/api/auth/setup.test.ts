@@ -66,11 +66,11 @@ describe("first-run passcode setup", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Set-Cookie")).toContain("pm_session=");
     const stored = JSON.parse(settings.get("local_password_hash") ?? "null") as { hash?: string };
-    expect(stored?.hash).toMatch(/^pbkdf2_sha256\$/);
+    expect(stored?.hash).toMatch(/^pbkdf2_sha256\$100000\$/);
   });
 
   it("refuses to overwrite an already configured passcode", async () => {
-    const storedSettings = new Map([["local_password_hash", JSON.stringify({ hash: "pbkdf2_sha256$210000$salt$digest" })]]);
+    const storedSettings = new Map([["local_password_hash", JSON.stringify({ hash: "pbkdf2_sha256$100000$salt$digest" })]]);
     const { context } = stubContext({ sessionSecret: "test-secret", storedSettings });
     const response = await onRequestPost(context);
     expect(response.status).toBe(409);

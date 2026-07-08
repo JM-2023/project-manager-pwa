@@ -152,8 +152,14 @@ async function readSessionGeneration(env: AppEnv): Promise<number> {
     .bind(user.id, SESSION_GENERATION_SETTING_KEY)
     .first<{ value_json: string }>();
   if (!row) return 0;
-  const parsed = Number(JSON.parse(row.value_json));
-  return Number.isFinite(parsed) ? parsed : 0;
+  // Tolerate a hand-edited or corrupted row: a malformed value must degrade to
+  // generation 0 (cookies just get invalidated), not crash login and setup.
+  try {
+    const parsed = Number(JSON.parse(row.value_json));
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch {
+    return 0;
+  }
 }
 
 /** Invalidate every outstanding session cookie (called on passcode change). */

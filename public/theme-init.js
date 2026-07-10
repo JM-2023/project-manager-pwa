@@ -18,5 +18,9 @@
     if (localStorage.getItem("pm:lang") === "zh") {
       document.documentElement.lang = "zh-CN";
     }
+    // Meter material (progress bars / heat tiles): glass unless flat is
+    // pinned. Applied pre-paint so the bars never flash the other skin.
+    var meters = localStorage.getItem("pm:meterStyle");
+    document.documentElement.setAttribute("data-meters", meters === "flat" ? "flat" : "glass");
   } catch (e) {}
 })();

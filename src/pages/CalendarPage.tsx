@@ -4,8 +4,6 @@ import {
   Award,
   CalendarPlus,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   FileText,
   Flame,
   Minus,
@@ -16,6 +14,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { CompletionBar, MiniBarSeries } from "../components/calendar/CalendarCharts";
+import { DateNav, type NavDirection } from "../components/DateNav";
 import { SegControl } from "../components/SegControl";
 import {
   addDays,
@@ -80,6 +79,7 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
   const [granularity, setGranularity] = useState<Granularity>("month");
   const [metric, setMetric] = useState<CompletionMetric>("weighted");
   const [anchor, setAnchor] = useState(initialDate || today);
+  const [navDir, setNavDir] = useState<NavDirection>(1);
 
   const buckets = useMemo(() => bucketTasksByDay(tasks), [tasks]);
   const allProjects = useMemo(() => [...projects, ...archivedProjects], [projects, archivedProjects]);
@@ -119,7 +119,8 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
           ? `${yearOf(anchor)}年`
           : yearOf(anchor);
 
-  function shift(direction: 1 | -1) {
+  function shift(direction: NavDirection) {
+    setNavDir(direction);
     setAnchor((current) =>
       granularity === "week"
         ? addDays(current, direction * 7)
@@ -130,26 +131,31 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
   }
 
   const isThisPeriod = today >= range.start && today <= range.end;
+  const homeLabel =
+    granularity === "week" ? m.calendar.thisWeek : granularity === "month" ? m.calendar.thisMonth : m.calendar.thisYear;
+
+  function jumpToCurrent() {
+    setNavDir(today > range.end ? 1 : -1);
+    setAnchor(today);
+  }
 
   return (
     <main className="page-content calendar-page">
       <header className="page-header calendar-header">
-        <div className="cal-nav">
-          <button type="button" className="icon-button date-nav-button" onClick={() => shift(-1)} aria-label={m.calendar.prevPeriod}>
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`today-title-button${isThisPeriod ? " active" : ""}`}
-            onClick={() => setAnchor(today)}
-            aria-label={m.calendar.jumpCurrent}
-          >
-            <h1>{m.calendar.title}</h1>
-            <span>{periodLabel}</span>
-          </button>
-          <button type="button" className="icon-button date-nav-button" onClick={() => shift(1)} aria-label={m.calendar.nextPeriod}>
-            <ChevronRight size={18} aria-hidden="true" />
-          </button>
+        <div className="page-head-nav">
+          <h1>{m.calendar.title}</h1>
+          <DateNav
+            label={String(periodLabel)}
+            dir={navDir}
+            onPrev={() => shift(-1)}
+            onNext={() => shift(1)}
+            onHome={jumpToCurrent}
+            isHome={isThisPeriod}
+            homeLabel={homeLabel}
+            prevAria={m.calendar.prevPeriod}
+            nextAria={m.calendar.nextPeriod}
+            homeAria={m.calendar.jumpCurrent}
+          />
         </div>
         <div className="cal-controls">
           <SegControl
@@ -496,7 +502,7 @@ function ProjectFocusCard({ focus, metric, noun }: { focus: ProjectFocus[]; metr
           return (
             <div key={row.id} className="cal-proj__row" title={m.calendar.weightShareTitle(row.name, Math.round(row.weightShare), noun)}>
               <span className="cal-proj__name">
-                <span className="project-color" style={{ backgroundColor: row.color ?? "var(--primary)" }} />
+                <span className="project-color" style={{ backgroundColor: row.color ?? "var(--chip-accent)" }} />
                 <span>{row.name}</span>
               </span>
               <span className="cal-proj__meta">

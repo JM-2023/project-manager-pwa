@@ -112,7 +112,10 @@ const en = {
     empty: (date: string) => `No tasks for ${date} yet. Tap “Add task” to start.`,
     prevDay: "Previous day",
     nextDay: "Next day",
-    backToToday: "Return to today"
+    backToToday: "Return to today",
+    yesterday: "Yesterday",
+    tomorrow: "Tomorrow",
+    todayChip: "Today"
   },
   progress: {
     heroAria: (pct: number) => `Weighted progress ${pct}%`,
@@ -220,6 +223,9 @@ const en = {
     prevPeriod: "Previous period",
     nextPeriod: "Next period",
     jumpCurrent: "Jump to current period",
+    thisWeek: "This week",
+    thisMonth: "This month",
+    thisYear: "This year",
     summaryAria: "Period summary",
     weightedCompletion: "Weighted completion",
     completionAria: (v: number) => `Completion ${v}%`,
@@ -296,6 +302,11 @@ const en = {
     heroShimmer: "Shimmer",
     heroHint:
       "Pixel animation for the Today page's weighted-progress hero: Flow drifts pixels out along the fill and fades them; Shimmer twinkles in place.",
+    meterStyle: "Progress bar style",
+    meterGlass: "Liquid glass",
+    meterFlat: "Minimal",
+    meterHint:
+      "Applies to the Today core-progress bar, the project list's completion meters, the calendar's bars, and the heatmap tiles. Liquid glass is the classic v2 material; Minimal is the flat solid one.",
     language: "Language",
     appLanguage: "App language",
     languageHint: "Applies to the entire interface. Task data and Excel headers stay unchanged.",
@@ -473,7 +484,10 @@ const zh: Messages = {
     empty: (date) => `${date} 还没有任务，点「添加任务」开始记录。`,
     prevDay: "前一天",
     nextDay: "后一天",
-    backToToday: "回到今天"
+    backToToday: "回到今天",
+    yesterday: "昨天",
+    tomorrow: "明天",
+    todayChip: "今天"
   },
   progress: {
     heroAria: (pct) => `加权推进 ${pct}%`,
@@ -581,6 +595,9 @@ const zh: Messages = {
     prevPeriod: "上一时段",
     nextPeriod: "下一时段",
     jumpCurrent: "回到当前时段",
+    thisWeek: "本周",
+    thisMonth: "本月",
+    thisYear: "今年",
     summaryAria: "时段总览",
     weightedCompletion: "加权完成度",
     completionAria: (v) => `完成度 ${v}%`,
@@ -656,6 +673,10 @@ const zh: Messages = {
     heroFlow: "游动",
     heroShimmer: "闪烁",
     heroHint: "今日页「加权推进」的像素动画：游动让像素顺着填充方向游出并消散，闪烁则原地明暗闪烁。",
+    meterStyle: "进度条样式",
+    meterGlass: "液态玻璃",
+    meterFlat: "极简",
+    meterHint: "作用于今日页核心任务进度条、项目列表的完成度条、日历页的进度条与热力图色块：液态玻璃为 v2 经典质感，极简为纯色平面。",
     language: "语言",
     appLanguage: "界面语言",
     languageHint: "作用于整个界面。任务数据与 Excel 表头不受影响。",

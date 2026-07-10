@@ -1,5 +1,5 @@
 /* =========================================================================
-   Project Manager PWA — solid-surface design system (v3.1)
+   Project Manager PWA — solid-surface design system (v3.2)
    --------------------------------------------------------------------------
    One solid background per theme, held everywhere. Depth comes from solid
    surfaces separated by hairline borders; shadows are a four-stop elevation
@@ -9,8 +9,11 @@
    TWO exceptions keep their original liquid-glass material: the Tier-A
    action buttons (Add task, Export, form "+" buttons…) with their ported
    download-button spring, and the project-list chips (--chip-*) with their
-   radius swell + breathing completion meter. Both are deliberate accents;
-   nothing else samples the backdrop.
+   radius swell + breathing completion meter and their original v2 indigo
+   accent (--chip-accent). Both are deliberate; nothing else samples the
+   backdrop. Completion meters additionally have a user-switchable skin
+   (html[data-meters], see the Meter material section): "glass" restores the
+   v2.1.29 liquid tubes/sheens, "flat" is the solid treatment.
 
    Accent is a premium emerald family — the same green the weighted-progress
    hero liquid is painted in (#10b981 at the crest). Radii are one small
@@ -123,10 +126,10 @@
   --dl-sampling: saturate(200%) blur(20px);
   --dl-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 12px 35px rgba(0, 0, 0, 0.25),
-    0 2px 8px rgba(0, 0, 0, 0.15);
-  --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
-  --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    0 6px 16px -6px rgba(0, 0, 0, 0.22),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+  --dl-hover-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  --dl-active-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.2);
   --dl-danger-rim: rgba(255, 90, 90, 0.35);
   --dl-danger-fill:
     radial-gradient(160px 200px at 50% 0%, rgba(255, 120, 120, 0.35), rgba(255, 255, 255, 0) 60%),
@@ -160,6 +163,19 @@
     inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
     0 2px 4px rgba(20, 27, 45, 0.07),
     0 16px 30px -10px rgba(20, 27, 45, 0.28);
+
+  /* Chip accent — the project chips keep their original v2 indigo identity
+     (colour dots, % figures, active ring) beside the app's emerald. Part of
+     the preserved chip material, not a second app accent. */
+  --chip-accent: #4f46e5;
+  --chip-accent-dark: #4338ca;
+  --chip-ring: rgba(79, 70, 229, 0.25);
+
+  /* Meter material (the liquid-glass mode of the progress bars / heat tiles;
+     see the Meter material section) */
+  --meter-rim: rgba(20, 27, 45, 0.1);
+  --meter-sheen: rgba(255, 255, 255, 0.36);
+  --meter-sheen-soft: rgba(255, 255, 255, 0.04);
 
   /* Tier C wash (hover for transparent controls) */
   --wash: rgba(20, 27, 45, 0.05);
@@ -229,10 +245,10 @@
     --dl-sampling: none;
     --dl-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 12px 35px rgba(0, 0, 0, 0.25),
-      0 2px 8px rgba(0, 0, 0, 0.15);
-    --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
-    --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+      0 6px 16px -6px rgba(0, 0, 0, 0.22),
+      0 1px 3px rgba(0, 0, 0, 0.12);
+    --dl-hover-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+    --dl-active-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.2);
     --dl-danger-rim: rgba(255, 90, 90, 0.35);
 
     /* Dark chips: no white specular hotspot — translucent body + iris only. */
@@ -253,6 +269,14 @@
       inset 0 -1px 1px rgba(0, 0, 0, 0.3),
       0 2px 4px rgba(0, 0, 0, 0.45),
       0 14px 26px -10px rgba(0, 0, 0, 0.66);
+
+    --chip-accent: #818cf8;
+    --chip-accent-dark: #aab2fc;
+    --chip-ring: rgba(129, 140, 248, 0.3);
+
+    --meter-rim: rgba(255, 255, 255, 0.1);
+    --meter-sheen: rgba(255, 255, 255, 0.12);
+    --meter-sheen-soft: rgba(255, 255, 255, 0.02);
 
     --wash: rgba(255, 255, 255, 0.06);
     --wash-strong: rgba(255, 255, 255, 0.1);
@@ -317,10 +341,10 @@
   --dl-sampling: none;
   --dl-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 12px 35px rgba(0, 0, 0, 0.25),
-    0 2px 8px rgba(0, 0, 0, 0.15);
-  --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
-  --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    0 6px 16px -6px rgba(0, 0, 0, 0.22),
+    0 1px 3px rgba(0, 0, 0, 0.12);
+  --dl-hover-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  --dl-active-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.2);
   --dl-danger-rim: rgba(255, 90, 90, 0.35);
 
   /* Dark chips: no white specular hotspot — translucent body + iris only. */
@@ -341,6 +365,14 @@
     inset 0 -1px 1px rgba(0, 0, 0, 0.3),
     0 2px 4px rgba(0, 0, 0, 0.45),
     0 14px 26px -10px rgba(0, 0, 0, 0.66);
+
+  --chip-accent: #818cf8;
+  --chip-accent-dark: #aab2fc;
+  --chip-ring: rgba(129, 140, 248, 0.3);
+
+  --meter-rim: rgba(255, 255, 255, 0.1);
+  --meter-sheen: rgba(255, 255, 255, 0.12);
+  --meter-sheen-soft: rgba(255, 255, 255, 0.02);
 
   --wash: rgba(255, 255, 255, 0.06);
   --wash-strong: rgba(255, 255, 255, 0.1);
@@ -412,11 +444,16 @@ button.project-row:focus-visible {
 
 .icon-button:focus-visible,
 .bottom-nav button:focus-visible,
-.today-title-button:focus-visible,
+.date-nav__group button:focus-visible,
 .cal-seg button:focus-visible,
 .archived-toggle:focus-visible,
 .cache-section__head:focus-visible,
 .task-action-menu button:focus-visible { background: var(--wash-strong); }
+
+.date-nav__home:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
 
 select {
   appearance: none;
@@ -435,6 +472,8 @@ select {
 @keyframes scale-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes pop-in { 0% { opacity: 0; transform: scale(0.85); } 60% { transform: scale(1.03); } 100% { opacity: 1; transform: scale(1); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(-8px) scale(0.96); } }
+@keyframes overlay-fade-out { to { opacity: 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -526,28 +565,147 @@ select {
 
 .today-page-header { align-items: center; }
 
-.today-date-switcher {
+/* =========================================================================
+   Date navigator — the page-head cluster on Today and Calendar: the page
+   title (which on Today names the day being viewed and rolls with it), a
+   solid segmented capsule of ‹ date ›, and a tinted "return" chip that
+   springs in whenever the view leaves today / the current period.
+   ========================================================================= */
+.page-head-nav {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+}
+.page-head-nav h1 { min-width: 0; }
+
+.date-nav {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 6px;
+  gap: 10px;
 }
 
-.today-title-button {
-  display: grid;
-  min-width: 0;
-  gap: 1px;
-  justify-items: start;
-  text-align: left;
+.date-nav__group {
+  display: flex;
+  align-items: stretch;
+  height: 42px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
 }
-.today-title-button h1 { line-height: 1; }
-.today-title-button span {
+
+.date-nav__group button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  transition: background var(--t) var(--ease), color var(--t) var(--ease);
+}
+/* The label keeps its hairline dividers against the border-reset above. */
+.date-nav__group button.date-nav__label {
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+}
+
+.date-nav__arrow {
+  display: grid;
+  place-items: center;
+  width: 40px;
   color: var(--muted);
-  font-size: 0.78rem;
+}
+.date-nav__arrow svg { transition: transform 0.34s var(--ease-pop); }
+@media (hover: hover) {
+  .date-nav__arrow:hover { background: var(--wash); color: var(--ink); }
+  .date-nav__arrow:first-child:hover svg { transform: translateX(-1.5px); }
+  .date-nav__arrow:last-child:hover svg { transform: translateX(1.5px); }
+}
+/* Press: the chevron kicks further along its direction — feedback lives in
+   the icon so the capsule itself never jumps. */
+.date-nav__arrow:first-child:active svg { transform: translateX(-4px); transition-duration: 0.1s; }
+.date-nav__arrow:last-child:active svg { transform: translateX(4px); transition-duration: 0.1s; }
+
+.date-nav__label {
+  display: grid;
+  place-items: center;
+  min-width: 138px;
+  padding: 0 14px;
+  color: var(--ink);
+  font-size: 0.9rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.date-nav-button { flex: none; }
+@media (hover: hover) { .date-nav__label:hover { background: var(--wash); } }
+.date-nav__label:active .roll-text { transform: scale(0.96); }
+.date-nav__label .roll-text { transition: transform 0.14s var(--ease); }
+/* Viewing home already: the label is quietly authoritative, not a control. */
+.date-nav__label[aria-current] { color: var(--ink); }
+
+/* Return chip — appears only while away from home, springing in from the
+   capsule's edge and folding back out when the view returns. */
+.date-nav__home {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 13px;
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--primary-tint);
+  border: 1px solid var(--primary-tint-strong);
+  border-radius: 999px;
+  box-shadow: var(--shadow-xs);
+  transform-origin: left center;
+  animation: home-pill-in 0.42s var(--ease-spring) both;
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), transform 0.14s var(--ease);
+}
+.date-nav__home svg { flex: none; }
+@media (hover: hover) {
+  .date-nav__home:hover { background: var(--primary-tint-strong); border-color: color-mix(in srgb, var(--primary) 32%, var(--primary-tint-strong)); }
+}
+.date-nav__home:active { transform: scale(0.94); }
+.date-nav__home.is-leaving { animation: home-pill-out 0.22s var(--ease) both; pointer-events: none; }
+
+@keyframes home-pill-in {
+  0% { opacity: 0; transform: translateX(-8px) scale(0.85); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes home-pill-out {
+  to { opacity: 0; transform: translateX(-6px) scale(0.9); }
+}
+
+/* Directionally rolling label (used by the capsule and the Today h1): the
+   outgoing text slides along the travel direction while the incoming text
+   arrives from the other side. Transform/opacity only.  */
+.roll-text {
+  position: relative;
+  display: inline-grid;
+  overflow: hidden;
+  /* Breathing room so ascenders/descenders survive the overflow clip. */
+  padding: 0.08em 0.06em;
+  margin: -0.08em -0.06em;
+}
+.roll-text > span {
+  grid-area: 1 / 1;
+  white-space: nowrap;
+  min-width: 0;
+}
+.roll-text__ghost { pointer-events: none; }
+.roll-text__in.roll-fwd { animation: roll-in-fwd 0.32s var(--ease-out) both; }
+.roll-text__ghost.roll-fwd { animation: roll-out-fwd 0.32s var(--ease-out) both; }
+.roll-text__in.roll-back { animation: roll-in-back 0.32s var(--ease-out) both; }
+.roll-text__ghost.roll-back { animation: roll-out-back 0.32s var(--ease-out) both; }
+
+@keyframes roll-in-fwd { from { opacity: 0; transform: translateX(0.9em); } }
+@keyframes roll-out-fwd { to { opacity: 0; transform: translateX(-0.9em); } }
+@keyframes roll-in-back { from { opacity: 0; transform: translateX(-0.9em); } }
+@keyframes roll-out-back { to { opacity: 0; transform: translateX(0.9em); } }
 
 /* =========================================================================
    Navigation — a solid fixed bar; the hairline does the separating. Items
@@ -630,6 +788,7 @@ select {
 .offline-banner.syncing { --accent: var(--primary); }
 .offline-banner.queued,
 .offline-banner.loading { --accent: var(--warning); }
+.offline-banner.is-leaving { animation: toast-out 0.26s var(--ease) both; pointer-events: none; }
 
 .offline-banner__icon {
   display: inline-grid;
@@ -865,23 +1024,6 @@ select {
 .icon-button:active { transform: scale(0.92); }
 .icon-button.danger { color: var(--danger); }
 @media (hover: hover) { .icon-button.danger:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); } }
-
-/* today title button — flat, hover wash; active = quiet accent chip */
-.today-title-button {
-  padding: 7px 12px;
-  color: var(--ink);
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--r-md);
-  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), transform 0.14s var(--ease);
-}
-@media (hover: hover) { .today-title-button:hover { background: var(--wash); } }
-.today-title-button:active { transform: scale(0.97); }
-.today-title-button.active {
-  background: var(--primary-tint);
-  border-color: var(--primary-tint-strong);
-}
-.today-title-button.active span { color: var(--primary-dark); }
 
 /* =========================================================================
    Inputs / fields
@@ -1128,7 +1270,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border-radius: var(--r-md);
   transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
-.tt-cell > textarea, .task-table-note-cell textarea { overflow: hidden; resize: vertical; }
+/* Auto-sizing textareas (AutoTextarea): height follows content and re-fits on
+   width changes, so rows grow with what's typed — no manual resize handle. */
+.tt-cell > textarea, .task-table-note-cell textarea { overflow: hidden; resize: none; }
 .tt-task .task-table-title { font-weight: 700; font-size: 1rem; }
 
 /* Importance shown as a self-contained colour chip. Lives entirely inside
@@ -1178,7 +1322,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   background-repeat: no-repeat;
   background-size: var(--pct, 0%) 100%;
   cursor: pointer;
-  transition: background-size var(--t) var(--ease);
+  /* No background-size transition: the damped rAF loop in TaskTable animates
+     --pct itself, giving the drag its weight. */
 }
 .task-table-row .progress-slider:focus { box-shadow: none; background-color: var(--surface-3); }
 .progress-slider::-webkit-slider-thumb {
@@ -1208,7 +1353,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table-note-cell .icon-button.danger { color: var(--danger); }
 
 /* Wide spreadsheet layout */
-@container tasktable (min-width: 1040px) {
+@container tasktable (min-width: 1080px) {
   .task-table {
     gap: 0;
     overflow: visible;
@@ -1220,7 +1365,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .task-table-header {
     display: grid;
     position: sticky; top: 0; z-index: 1;
-    grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
+    grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
     color: var(--muted);
     background: var(--table-head-bg);
     border-bottom: 1px solid var(--line);
@@ -1228,13 +1373,15 @@ input:focus, select:focus, textarea:focus { outline: none; }
     border-radius: calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0;
     font-size: 0.7rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
   }
-  .task-table-header.with-date { grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
-  .task-table-header span { min-height: 38px; padding: 12px 9px; border-right: 1px solid var(--line); white-space: nowrap; }
+  .task-table-header.with-date { grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
+  /* Labels stay inside their own cell at any width: long ones ("Tomorrow's
+     first step") ellipsize instead of running into the next column. */
+  .task-table-header span { min-height: 38px; min-width: 0; padding: 12px 9px; border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .task-table-header span:last-child { border-right: 0; }
 
   .task-table-row {
     display: grid;
-    grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
+    grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
     gap: 0; min-height: 56px; padding: 0;
     overflow: visible;
     background: color-mix(in srgb, var(--importance-color) 4%, transparent);
@@ -1248,7 +1395,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
       box-shadow: none;
     }
   }
-  .task-table-row.with-date { grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
+  .task-table-row.with-date { grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
   .task-table-row:last-child { border-bottom: 0; border-bottom-left-radius: calc(var(--r-lg) - 1px); border-bottom-right-radius: calc(var(--r-lg) - 1px); }
   .tt-label { display: none; }
   /* Importance chip stays a centred, contained chip in the table view. */
@@ -1270,7 +1417,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .tt-notes { border-right: 0; }
   .tt-cell > select, .tt-cell > input, .tt-cell > textarea {
     min-height: 56px; padding: 10px 9px;
-    background-color: transparent; border: 0; border-radius: 0; overflow: hidden; resize: vertical;
+    background-color: transparent; border: 0; border-radius: 0; overflow: hidden; resize: none;
   }
   .tt-date > input[type="date"] { padding-left: 7px; padding-right: 4px; font-size: 0.82rem; }
   .tt-date > input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 1px; padding: 2px 0; }
@@ -1282,7 +1429,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .tt-notes .task-table-note-cell .task-menu { padding-right: 4px; }
   .task-table-note-cell textarea {
     min-height: 56px; padding: 10px 9px; background-color: transparent; border: 0; border-right: 1px solid var(--line);
-    border-radius: 0; overflow: hidden; resize: vertical;
+    border-radius: 0; overflow: hidden; resize: none;
   }
 }
 
@@ -1291,7 +1438,20 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .field-label.full { grid-column: 1 / -1; }
 .field-label textarea { resize: vertical; }
 
-.export-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+/* Rows of Tier-A glass buttons (Excel / Backup / Sync sections). The gap
+   leaves room for the hover swell (+3px padding per side, -3px margin-left)
+   so neighbours never collide mid-animation, and flex-start keeps the
+   file-picker label from being stretched to the row height — stretching is
+   what used to swallow its vertical swell. */
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px 20px;
+  margin-bottom: 10px;
+}
+.export-actions:last-child { margin-bottom: 0; }
+.export-actions .inline-message { flex-basis: 100%; margin: 0; }
 
 /* =========================================================================
    Projects
@@ -1322,7 +1482,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 @media (hover: hover) {
   .project-row:hover { background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
-  .project-row:hover > button:first-child { color: var(--primary-dark); }
+  .project-row:hover > button:first-child { color: var(--chip-accent-dark); }
 }
 .project-row:active { transform: scale(0.99); }
 .project-row .icon-button { min-width: 36px; min-height: 36px; justify-self: center; }
@@ -1330,8 +1490,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 .project-rename {
   width: 100%; min-width: 0; min-height: 40px; padding: 8px 10px;
-  color: var(--ink); background: var(--field-bg); border: 1px solid var(--primary); border-radius: var(--r-md);
-  box-shadow: 0 0 0 3px var(--ring);
+  color: var(--ink); background: var(--field-bg); border: 1px solid var(--chip-accent); border-radius: var(--r-md);
+  box-shadow: 0 0 0 3px var(--chip-ring);
 }
 .project-rename:focus { outline: none; }
 
@@ -1415,18 +1575,18 @@ button.project-row {
 button.project-row .row-progress { right: 13px; left: 13px; bottom: 7px; }
 button.project-row:hover .row-progress { right: 15px; left: 15px; bottom: 8px; }
 @media (hover: hover) {
-  button.project-row:hover { color: var(--primary-dark); background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
+  button.project-row:hover { color: var(--chip-accent-dark); background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
 }
 button.project-row:active { transform: scale(0.99); }
 
 .project-row > button:first-child > span:not(.project-color),
 button.project-row > span { flex: 1; min-width: 0; }
-.project-row strong, button.project-row strong { font-weight: 800; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
+.project-row strong, button.project-row strong { font-weight: 800; color: var(--chip-accent-dark); font-variant-numeric: tabular-nums; }
 .project-row span:not(.project-color), button.project-row span:not(.project-color) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-color { width: 11px; height: 11px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
 
-.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%, var(--chip-rim)); box-shadow: var(--chip-shadow), inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent); }
-button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%, var(--chip-rim)); box-shadow: var(--chip-shadow), inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent); color: var(--primary-dark); }
+.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 55%, var(--chip-rim)); box-shadow: var(--chip-shadow), inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 30%, transparent); }
+button.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 55%, var(--chip-rim)); box-shadow: var(--chip-shadow), inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 30%, transparent); color: var(--chip-accent-dark); }
 
 /* =========================================================================
    Next / cache board
@@ -1509,8 +1669,10 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .metric strong { overflow-wrap: anywhere; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
 .settings-section h2 { margin: 0 0 12px; font-size: 1.05rem; font-weight: 750; letter-spacing: -0.01em; }
-.settings-section .secondary-button,
-.settings-section .ghost-button { margin-bottom: 10px; }
+.settings-section > .secondary-button,
+.settings-section > .ghost-button { margin-bottom: 10px; }
+/* The import wizard's file picker sits directly in the section. */
+.settings-section > .file-picker { margin-bottom: 12px; }
 .settings-hint { margin: 8px 2px 0; font-size: 0.82rem; line-height: 1.55; color: var(--muted); }
 
 /* A label + control pair inside a settings section (e.g. the hero-animation
@@ -1607,6 +1769,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
   background: var(--bg);
   animation: fade-in var(--t-slow) var(--ease) both;
 }
+.passcode-overlay.is-closing { animation: overlay-fade-out 0.24s var(--ease) both; pointer-events: none; }
 
 /* =========================================================================
    Task / project actions popover — a floating solid layer (elevation earned)
@@ -1636,6 +1799,15 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 @keyframes task-menu-morph { from { opacity: 0; transform: translate(3px, 5px) scale(0.92); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
 @keyframes task-menu-item { from { opacity: 0; } to { opacity: 1; } }
 
+/* Exit: the panel morphs back toward its trigger corner (usePresence keeps it
+   mounted until this finishes). */
+.task-action-menu.is-closing {
+  pointer-events: none;
+  animation: task-menu-morph-out 0.18s var(--ease) both;
+}
+.task-action-menu.is-closing button { animation: none; }
+@keyframes task-menu-morph-out { to { opacity: 0; transform: translate(2px, 4px) scale(0.94); } }
+
 .task-action-menu button {
   display: flex; width: 100%; min-height: 38px; align-items: center; justify-content: flex-start; gap: 10px;
   padding: 9px 12px; color: var(--ink-soft); font-weight: 600; text-align: left; white-space: nowrap;
@@ -1662,7 +1834,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 
 .project-row .task-menu { justify-self: center; }
 .project-row .task-menu-trigger { width: 36px; min-width: 36px; min-height: 36px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; border-radius: var(--r-sm); box-shadow: none; }
-@media (hover: hover) { .project-row .task-menu-trigger:hover { color: var(--primary-dark); background: var(--wash); } }
+@media (hover: hover) { .project-row .task-menu-trigger:hover { color: var(--chip-accent-dark); background: var(--wash); } }
 
 /* =========================================================================
    Archived projects panel
@@ -1677,9 +1849,38 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .archived-toggle svg { color: var(--muted); }
 @media (hover: hover) { .archived-toggle:hover { background: var(--wash); color: var(--ink); } }
 .archived-toggle__count { min-width: 22px; padding: 1px 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; text-align: center; background: var(--surface-3); border-radius: var(--r-xs); }
-.archived-toggle__chevron { transition: transform var(--t) var(--ease); }
+.archived-toggle__chevron { transition: transform 0.34s var(--ease-spring); }
 .archived-panel.is-open .archived-toggle__chevron { transform: rotate(180deg); }
-.archived-list { display: grid; gap: 6px; margin-top: 6px; animation: fade-up var(--t) var(--ease) both; }
+/* The list stays mounted; the wrapper's grid row tweens 0fr <-> 1fr so the
+   panel unfolds and refolds smoothly. Visibility flips off after the fold so
+   collapsed rows can't be tabbed into; content fades slightly behind the
+   height so opening reads as unfold-then-ink. */
+.archived-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  transition: grid-template-rows 0.38s var(--ease-out), margin-top 0.38s var(--ease-out);
+}
+.archived-panel.is-open .archived-collapse { grid-template-rows: 1fr; margin-top: 6px; }
+.archived-list {
+  display: grid; gap: 6px; min-height: 0; overflow: hidden;
+  opacity: 0;
+  transform: translateY(-4px);
+  visibility: hidden;
+  transition:
+    opacity 0.22s var(--ease),
+    transform 0.22s var(--ease),
+    visibility 0s 0.38s;
+}
+.archived-panel.is-open .archived-list {
+  opacity: 1;
+  transform: none;
+  visibility: visible;
+  transition:
+    opacity 0.26s var(--ease) 0.1s,
+    transform 0.3s var(--ease-out) 0.1s,
+    visibility 0s;
+}
 .archived-empty { margin: 4px 0; padding: 0 10px; color: var(--muted); font-size: 0.85rem; }
 .archived-row {
   display: grid; grid-template-columns: 13px minmax(0, 1fr) 40px; align-items: center; gap: 10px; padding: 9px 11px;
@@ -1794,10 +1995,10 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
   display: grid; gap: 9px; align-content: start; justify-items: stretch;
   min-height: clamp(124px, 15vw, 172px); padding: clamp(11px, 1.4vw, 16px); text-align: left;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
-  transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease);
+  transition: transform 0.34s var(--ease-pop), box-shadow 0.34s var(--ease-pop), border-color var(--t) var(--ease);
 }
-@media (hover: hover) { .cal-week__card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--line-strong); } }
-.cal-week__card:active { transform: scale(0.99); }
+@media (hover: hover) { .cal-week__card:hover { transform: scale(1.015); box-shadow: var(--shadow-sm); border-color: var(--line-strong); } }
+.cal-week__card:active { transform: scale(0.985); transition-duration: 0.1s; }
 .cal-week__card.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-xs); }
 .cal-week__card.is-future { opacity: 0.55; }
 @media (hover: hover) { .cal-week__card.is-future:hover { opacity: 1; } }
@@ -1923,11 +2124,19 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 
 /* ---- Heat tiles (month + year) ---- */
 .tone-empty { --prog-color: var(--line-strong); }
+/* Hover: the tile comes forward in place — a springy scale with the border
+   warming toward the day's tone — instead of the old translateY hop. The pop
+   curve overshoots slightly on the way in and the same curve eases it back;
+   transform/box-shadow only, so it stays compositor-smooth. */
 .cal-cell, .cal-heatmap__cell {
   --heat-pct: calc(var(--heat, 0) * 1%);
   background: color-mix(in srgb, var(--prog-color) max(7%, var(--heat-pct)), var(--surface-2));
   border: 1px solid var(--line);
-  transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
+  transition:
+    transform 0.34s var(--ease-pop),
+    box-shadow 0.34s var(--ease-pop),
+    border-color var(--t) var(--ease),
+    background var(--t) var(--ease);
 }
 
 /* ---- Month view ---- */
@@ -1937,9 +2146,20 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-cell {
   position: relative; display: block; min-height: clamp(52px, 6.5vw, 78px); padding: 7px 8px; text-align: left; border-radius: var(--r-md);
 }
-@media (hover: hover) { .cal-cell:hover { transform: translateY(-2px); box-shadow: var(--shadow-xs); z-index: 1; } }
+@media (hover: hover) {
+  .cal-cell:hover {
+    transform: scale(1.045);
+    border-color: color-mix(in srgb, var(--prog-color) 42%, var(--line-strong));
+    box-shadow: var(--shadow-sm);
+    z-index: 1;
+  }
+}
+.cal-cell:active { transform: scale(0.97); transition-duration: 0.1s; z-index: 1; }
 .cal-cell.is-outside { opacity: 0.4; }
 .cal-cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
+@media (hover: hover) {
+  .cal-cell.is-today:hover { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm); }
+}
 .cal-cell__num { font-size: 0.84rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cal-cell__count { position: absolute; right: 7px; bottom: 6px; font-size: 0.68rem; font-weight: 800; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
@@ -1963,9 +2183,20 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 }
 .cal-heatmap__col { display: grid; grid-auto-rows: clamp(13px, 1.6vw, 18px); gap: clamp(3px, 0.4vw, 5px); }
 .cal-heatmap__cell { width: clamp(13px, 1.6vw, 18px); height: clamp(13px, 1.6vw, 18px); border-radius: var(--r-xs); padding: 0; }
-@media (hover: hover) { .cal-heatmap__cell:hover { transform: scale(1.35); box-shadow: var(--shadow-xs); z-index: 1; } }
+@media (hover: hover) {
+  .cal-heatmap__cell:hover {
+    transform: scale(1.3);
+    border-color: color-mix(in srgb, var(--prog-color) 55%, var(--line-strong));
+    box-shadow: var(--shadow-sm);
+    z-index: 2;
+  }
+}
+.cal-heatmap__cell:active { transform: scale(1.08); transition-duration: 0.1s; z-index: 2; }
 .cal-heatmap__cell.is-outside { visibility: hidden; }
 .cal-heatmap__cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
+@media (hover: hover) {
+  .cal-heatmap__cell.is-today:hover { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm); }
+}
 
 .cal-year__months {
   padding: 18px 18px 16px;
@@ -1987,6 +2218,84 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 @media (hover: hover) { .cal-series__col[type="button"]:hover .cal-series__track { box-shadow: inset 0 0 0 1px var(--primary); } }
 .cal-series__col.active .cal-series__track { box-shadow: inset 0 0 0 2px var(--primary); }
 .cal-series__label { color: var(--muted); font-size: 0.66rem; font-weight: 700; }
+
+/* =========================================================================
+   ████  METER MATERIAL  ████
+   --------------------------------------------------------------------------
+   Settings › Appearance › Progress bar style. html[data-meters] skins every
+   completion meter — the Today core bar (.mini-bar everywhere), the
+   calendar's series columns, the heat tiles, and the project chips' capsule:
+   - "glass": the v2.1.29 liquid material. The .mini-bar recipe is v2.1.29's
+     "mini liquid tube" verbatim; the heat tiles wear the same sheen; the
+     chips' capsule keeps its default glass.
+   - "flat":  the solid de-slop treatment — flat tracks and tone fills; the
+     chip capsule flattens to match. Base rules above ARE the flat skin for
+     everything except the chip capsule, whose default is glass.
+   theme-init.js sets the attribute pre-paint; meterStyle.ts swaps it inside
+   a View Transition. Positions and motion never change with the skin.
+   ========================================================================= */
+
+/* ---- Glass: mini bars become the v2 mini liquid tube ---- */
+:root[data-meters="glass"] .mini-bar {
+  height: 9px;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.04)),
+    color-mix(in srgb, var(--ink) 9%, transparent);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.5),
+    inset 0 -1px 2px rgba(20, 27, 45, 0.08),
+    inset 0 0 0 1px var(--meter-rim);
+}
+:root[data-meters="glass"] .mini-bar::after {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.15) 45%, rgba(255, 255, 255, 0) 72%),
+    linear-gradient(90deg, color-mix(in srgb, var(--prog-color, var(--prog-done)) 65%, transparent) 0%, var(--prog-color, var(--prog-done)) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+:root[data-meters="glass"] .cal-summary__hero .mini-bar { height: 11px; }
+
+/* ---- Glass: series columns get the v2 gradient + top highlight ---- */
+:root[data-meters="glass"] .cal-series__fill {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--prog-color) 78%, transparent), var(--prog-color));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+/* ---- Glass: heat tiles wear the same sheen over their heat colour.
+   These override the base tiles' box-shadow, so the hover / today rings are
+   re-composed here with the sheen kept underneath. ---- */
+:root[data-meters="glass"] .cal-cell,
+:root[data-meters="glass"] .cal-heatmap__cell {
+  background:
+    linear-gradient(180deg, var(--meter-sheen), var(--meter-sheen-soft) 60%),
+    color-mix(in srgb, var(--prog-color) max(7%, var(--heat-pct)), var(--surface-2));
+  box-shadow: inset 0 1px 0 var(--meter-sheen), inset 0 -1px 1px rgba(20, 27, 45, 0.05);
+}
+:root[data-meters="glass"] .cal-cell.is-today,
+:root[data-meters="glass"] .cal-heatmap__cell.is-today {
+  box-shadow: 0 0 0 2px var(--primary-tint-strong), inset 0 1px 0 var(--meter-sheen);
+}
+@media (hover: hover) {
+  :root[data-meters="glass"] .cal-cell:hover,
+  :root[data-meters="glass"] .cal-heatmap__cell:hover {
+    box-shadow: var(--shadow-sm), inset 0 1px 0 var(--meter-sheen);
+  }
+  :root[data-meters="glass"] .cal-cell.is-today:hover,
+  :root[data-meters="glass"] .cal-heatmap__cell.is-today:hover {
+    box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm), inset 0 1px 0 var(--meter-sheen);
+  }
+}
+
+/* ---- Flat: the project chips' capsule meter flattens to match ---- */
+:root[data-meters="flat"] .row-progress {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  border-radius: var(--r-xs);
+  box-shadow: none;
+}
+:root[data-meters="flat"] .row-progress::after {
+  background: var(--prog-color, var(--prog-done));
+  box-shadow: none;
+}
 
 /* =========================================================================
    Responsive layout

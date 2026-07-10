@@ -5,6 +5,7 @@ import { useI18n } from "../lib/i18n";
 import { isWorklogTask, progressTone, summarizeWorklogOverview, type WorklogOverview } from "../lib/progress";
 import { NO_PROJECT_FILTER } from "../state/appStore";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
+import { usePresence } from "../lib/usePresence";
 
 function ProgressMeter({ value }: { value: number }) {
   return (
@@ -49,6 +50,7 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(project.name);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menu = usePresence(menuOpen, 300);
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const exitActionRef = useRef<(project: Project) => void>(onDelete);
@@ -148,7 +150,7 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
       onTransitionEnd={onTransitionEnd}
     >
       <button type="button" onClick={() => onSelect(project.id)}>
-        <span className="project-color" style={{ backgroundColor: project.color ?? "var(--primary)" }} />
+        <span className="project-color" style={{ backgroundColor: project.color ?? "var(--chip-accent)" }} />
         <span>{project.name}</span>
         <strong>{summary.averageProgress}%</strong>
         <ProgressMeter value={summary.averageProgress} />
@@ -165,8 +167,15 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
         >
           <MoreHorizontal size={17} aria-hidden="true" />
         </button>
-        {menuOpen ? (
-          <div className="task-action-menu" role="menu" aria-label={m.projectList.optionsFor(project.name)}>
+        {menu.mounted ? (
+          <div
+            className={`task-action-menu${menu.closing ? " is-closing" : ""}`}
+            role="menu"
+            aria-label={m.projectList.optionsFor(project.name)}
+            onAnimationEnd={(event) => {
+              if (event.target === event.currentTarget) menu.onExited();
+            }}
+          >
             {confirm ? (
               <>
                 <span className="task-action-menu__prompt" role="presentation">
@@ -228,7 +237,7 @@ function ArchivedRow({ project, onUnarchive }: ArchivedRowProps) {
       className={`archived-row${removing ? " is-removing" : ""}`}
       onTransitionEnd={onTransitionEnd}
     >
-      <span className="project-color" style={{ backgroundColor: project.color ?? "var(--primary)" }} />
+      <span className="project-color" style={{ backgroundColor: project.color ?? "var(--chip-accent)" }} />
       <span className="archived-row__name">{project.name}</span>
       <button
         type="button"
@@ -334,15 +343,17 @@ export function ProjectList({
           <span className="archived-toggle__count">{archivedProjects.length}</span>
           <ChevronDown className="archived-toggle__chevron" size={16} aria-hidden="true" />
         </button>
-        {showArchived ? (
-          <div className="archived-list">
+        {/* Always mounted: the wrapper's grid-row tweens 0fr -> 1fr so the
+            panel unfolds/refolds instead of popping; visibility gates focus. */}
+        <div className="archived-collapse">
+          <div className="archived-list" aria-hidden={!showArchived}>
             {archivedProjects.length === 0 ? (
               <p className="archived-empty">{m.projectList.noArchived}</p>
             ) : (
               archivedProjects.map((project) => <ArchivedRow key={project.id} project={project} onUnarchive={onUnarchive} />)
             )}
           </div>
-        ) : null}
+        </div>
       </div>
     </section>
   );

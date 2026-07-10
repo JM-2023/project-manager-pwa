@@ -2,7 +2,12 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
 import { I18nProvider } from "./lib/i18n";
+import { initMeterStyle } from "./lib/meterStyle";
 import "./styles/app.css";
+
+// Re-assert the meter material in case the boot script was skipped (e.g. a
+// stale service-worker HTML without it).
+initMeterStyle();
 
 // First-entry ink reveal. When it finishes, keep a completion class on the
 // root so the base page animation does not restart and flash the UI.

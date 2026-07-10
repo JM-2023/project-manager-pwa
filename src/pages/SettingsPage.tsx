@@ -7,11 +7,14 @@ import { ImportWizard } from "../components/ImportWizard";
 import { SegControl } from "../components/SegControl";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useHeroAnimation, type HeroAnimation } from "../lib/heroAnimation";
+import { useMeterStyle, type MeterStyle } from "../lib/meterStyle";
 import { useI18n, type Language } from "../lib/i18n";
+import { usePresence } from "../lib/usePresence";
 import type { ImportResponse, ImportRow, SessionResponse } from "../lib/types";
 import type { WorklogOverview } from "../lib/progress";
 
 const HERO_ANIM_OPTIONS: HeroAnimation[] = ["flow", "shimmer"];
+const METER_STYLE_OPTIONS: MeterStyle[] = ["glass", "flat"];
 
 // The language names are proper nouns: each option always shows in its own
 // language, whatever the current UI language is.
@@ -57,10 +60,13 @@ export function SettingsPage({
   const r2Enabled = Boolean(session?.features.r2Backups);
   const passcodeEnabled = session?.features.authMode === "local_password";
   const [heroAnim, setHeroAnim] = useHeroAnimation();
+  const [meterStyle, setMeterStyle] = useMeterStyle();
   const [changingPasscode, setChangingPasscode] = useState(false);
+  const passcodeOverlay = usePresence(changingPasscode, 360);
 
   const locale = lang === "zh" ? "zh-CN" : "en-US";
   const heroAnimLabels: Record<HeroAnimation, string> = { flow: m.settings.heroFlow, shimmer: m.settings.heroShimmer };
+  const meterStyleLabels: Record<MeterStyle, string> = { glass: m.settings.meterGlass, flat: m.settings.meterFlat };
 
   function handleForceResync() {
     const confirmed = window.confirm(m.settings.forceResyncConfirm);
@@ -138,6 +144,16 @@ export function SettingsPage({
           />
         </div>
         <p className="settings-hint">{m.settings.heroHint}</p>
+        <div className="settings-row">
+          <span>{m.settings.meterStyle}</span>
+          <SegControl
+            ariaLabel={m.settings.meterStyle}
+            value={meterStyle}
+            onChange={setMeterStyle}
+            options={METER_STYLE_OPTIONS.map((option) => ({ id: option, label: meterStyleLabels[option] }))}
+          />
+        </div>
+        <p className="settings-hint">{m.settings.meterHint}</p>
       </section>
 
       <section className="settings-section">
@@ -172,14 +188,16 @@ export function SettingsPage({
 
       <section className="settings-section">
         <h2>{m.settings.sync}</h2>
-        <button type="button" className="secondary-button" onClick={onSync}>
-          <RefreshCcw size={17} aria-hidden="true" />
-          <span>{m.settings.syncNow}</span>
-        </button>
-        <button type="button" className="ghost-button" onClick={handleForceResync}>
-          <RotateCcw size={16} aria-hidden="true" />
-          <span>{m.settings.forceResync}</span>
-        </button>
+        <div className="export-actions">
+          <button type="button" className="secondary-button" onClick={onSync}>
+            <RefreshCcw size={17} aria-hidden="true" />
+            <span>{m.settings.syncNow}</span>
+          </button>
+          <button type="button" className="ghost-button" onClick={handleForceResync}>
+            <RotateCcw size={16} aria-hidden="true" />
+            <span>{m.settings.forceResync}</span>
+          </button>
+        </div>
         <p className="settings-hint">{m.settings.forceResyncHint}</p>
       </section>
 
@@ -207,7 +225,13 @@ export function SettingsPage({
         <span>{m.settings.signOut}</span>
       </button>
 
-      {changingPasscode ? <ChangePasscode onClose={() => setChangingPasscode(false)} /> : null}
+      {passcodeOverlay.mounted ? (
+        <ChangePasscode
+          onClose={() => setChangingPasscode(false)}
+          closing={passcodeOverlay.closing}
+          onExited={passcodeOverlay.onExited}
+        />
+      ) : null}
     </main>
   );
 }

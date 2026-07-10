@@ -6,6 +6,9 @@ import { PasscodePad } from "./PasscodePad";
 
 interface ChangePasscodeProps {
   onClose: () => void;
+  /** Presence-driven exit: the overlay fades out, then onExited unmounts it. */
+  closing?: boolean;
+  onExited?: () => void;
 }
 
 type Step = "current" | "next" | "confirm" | "done";
@@ -24,7 +27,7 @@ function stepCopy(m: Messages, step: Step): { title: string; subtitle: string } 
  * Full-screen change-passcode flow (Settings → 安全), styled as the login pad:
  * verify the current passcode, enter the new one twice, brief success state.
  */
-export function ChangePasscode({ onClose }: ChangePasscodeProps) {
+export function ChangePasscode({ onClose, closing, onExited }: ChangePasscodeProps) {
   const { m } = useI18n();
   const [step, setStep] = useState<Step>("current");
   const [currentPin, setCurrentPin] = useState("");
@@ -90,7 +93,15 @@ export function ChangePasscode({ onClose }: ChangePasscodeProps) {
   const subtitle = error && notice ? notice : copy.subtitle;
 
   return (
-    <div className="passcode-overlay" role="dialog" aria-modal="true" aria-label={m.passcode.dialogAria}>
+    <div
+      className={`passcode-overlay${closing ? " is-closing" : ""}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label={m.passcode.dialogAria}
+      onAnimationEnd={(event) => {
+        if (closing && event.target === event.currentTarget) onExited?.();
+      }}
+    >
       <PasscodePad
         icon={<KeyRound size={26} aria-hidden="true" />}
         title={copy.title}

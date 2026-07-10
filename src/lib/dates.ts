@@ -212,6 +212,15 @@ export function weekdayShort(value: string, lang: Language = "en"): string {
   return names[new Date(`${input}T00:00:00`).getDay()];
 }
 
+const WEEKDAY_NAMES_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+/** "Wednesday" / "周三" style weekday, used as the Today page title off-today. */
+export function weekdayLong(value: string, lang: Language = "en"): string {
+  const input = toDateInput(value) || todayDate();
+  const day = new Date(`${input}T00:00:00`).getDay();
+  return lang === "zh" ? WEEKDAY_NAMES_ZH[day] : WEEKDAY_NAMES_LONG[day];
+}
+
 export function monthLabel(value: string, lang: Language = "en"): string {
   const input = toDateInput(value) || todayDate();
   const [year, month] = input.split("-").map(Number);

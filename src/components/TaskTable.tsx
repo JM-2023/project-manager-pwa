@@ -26,6 +26,7 @@ import {
   type TaskProgress
 } from "../lib/progress";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
+import { usePresence } from "../lib/usePresence";
 
 interface TaskTableProps {
   tasks: Task[];
@@ -55,12 +56,32 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const value = typeof props.value === "string" ? props.value : String(props.value ?? "");
 
-  useLayoutEffect(() => {
+  const fit = useCallback(() => {
     const element = ref.current;
     if (!element) return;
     element.style.height = "0px";
-    element.style.height = `${element.scrollHeight}px`;
-  }, [value]);
+    // + border height: style.height is border-box, scrollHeight content-box.
+    element.style.height = `${element.scrollHeight + element.offsetHeight - element.clientHeight}px`;
+  }, []);
+
+  useLayoutEffect(fit, [value, fit]);
+
+  // Re-measure when the column narrows/widens (window resize, card <-> table
+  // layout switch): wrapping changes the needed height without a value change.
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    let lastWidth = element.clientWidth;
+    const observer = new ResizeObserver(() => {
+      const width = element.clientWidth;
+      if (width !== lastWidth) {
+        lastWidth = width;
+        fit();
+      }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [fit]);
 
   return <textarea {...props} ref={ref} />;
 }
@@ -74,8 +95,18 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
   const [notes, setNotes] = useState(task.notes ?? "");
   const [progress, setProgress] = useState<TaskProgress>(getTaskProgress(task));
   const [menuOpen, setMenuOpen] = useState(false);
+  const menu = usePresence(menuOpen, 300);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  // Damped slider: the input is uncontrolled and the visible fill/thumb/badge
+  // chase the target on a critically-damped ease each frame, so dragging has
+  // weight instead of snapping between the 25% detents.
+  const progressWrapRef = useRef<HTMLDivElement | null>(null);
+  const progressSliderRef = useRef<HTMLInputElement | null>(null);
+  const progressBadgeRef = useRef<HTMLSpanElement | null>(null);
+  const progressTargetRef = useRef<TaskProgress>(progress);
+  const progressDisplayRef = useRef<number>(progress);
+  const progressRafRef = useRef(0);
   const previousTaskRef = useRef(task);
   const { ref: rowRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLDivElement>(
     () => onDelete(task)
@@ -198,6 +229,38 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
     }
   }, [menuOpen]);
 
+  // Chase the target each frame. `1 - exp(-k·dt)` is a frame-rate-independent
+  // damped approach: fast off the mark, easing to rest without overshoot.
+  useEffect(() => {
+    progressTargetRef.current = progress;
+    const paint = (value: number) => {
+      progressDisplayRef.current = value;
+      progressWrapRef.current?.style.setProperty("--pct", `${value}%`);
+      if (progressSliderRef.current) progressSliderRef.current.value = String(value);
+      if (progressBadgeRef.current) progressBadgeRef.current.textContent = `${Math.round(value)}%`;
+    };
+    cancelAnimationFrame(progressRafRef.current);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      paint(progress);
+      return;
+    }
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      const current = progressDisplayRef.current;
+      const next = current + (progress - current) * (1 - Math.exp(-14 * dt));
+      if (Math.abs(progress - next) < 0.35) {
+        paint(progress);
+        return;
+      }
+      paint(next);
+      progressRafRef.current = requestAnimationFrame(step);
+    };
+    progressRafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(progressRafRef.current);
+  }, [progress]);
+
   function updateImportance(value: TaskImportance) {
     const extra = parseTaskExtra(task);
     extra.importance = value;
@@ -308,18 +371,49 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
 
       <div className="tt-cell tt-progress">
         <span className="tt-label">{m.taskTable.progressHeader}</span>
-        <div className={`task-table-progress tone-${progressTone(progress)}`} style={{ "--pct": `${progress}%` } as CSSProperties}>
-          <span className="progress-badge">{progress}%</span>
+        <div
+          ref={progressWrapRef}
+          className={`task-table-progress tone-${progressTone(progress)}`}
+          style={{ "--pct": `${progressDisplayRef.current}%` } as CSSProperties}
+        >
+          <span ref={progressBadgeRef} className="progress-badge">
+            {Math.round(progressDisplayRef.current)}%
+          </span>
+          {/* No step attribute: a stepped input quantizes programmatic writes,
+              which would snap the thumb out of the damped glide. The drag is
+              free and the target snaps to the 25% detents; keys step manually. */}
           <input
+            ref={progressSliderRef}
             type="range"
             className="progress-slider"
             min={0}
             max={100}
-            step={25}
-            value={progress}
-            onChange={(event) => setProgress(Number(event.target.value) as TaskProgress)}
-            onPointerUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
-            onKeyUp={(event) => commitProgress(Number((event.target as HTMLInputElement).value) as TaskProgress)}
+            defaultValue={progress}
+            onChange={(event) => {
+              const raw = Number(event.target.value);
+              const snapped = (Math.round(raw / 25) * 25) as TaskProgress;
+              progressTargetRef.current = snapped;
+              setProgress(snapped);
+            }}
+            onKeyDown={(event) => {
+              const delta =
+                event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "PageUp"
+                  ? 25
+                  : event.key === "ArrowLeft" || event.key === "ArrowDown" || event.key === "PageDown"
+                    ? -25
+                    : event.key === "Home"
+                      ? -100
+                      : event.key === "End"
+                        ? 100
+                        : 0;
+              if (delta === 0) return;
+              event.preventDefault();
+              const next = Math.max(0, Math.min(100, progressTargetRef.current + delta)) as TaskProgress;
+              progressTargetRef.current = next;
+              setProgress(next);
+            }}
+            onPointerUp={() => commitProgress(progressTargetRef.current)}
+            onKeyUp={() => commitProgress(progressTargetRef.current)}
             aria-label={m.taskTable.progressHeader}
             aria-valuetext={`${progress}%`}
           />
@@ -361,8 +455,15 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
             <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label={m.taskTable.taskActions} aria-haspopup="menu" aria-expanded={menuOpen}>
               <MoreHorizontal size={17} aria-hidden="true" />
             </button>
-            {menuOpen ? (
-              <div className="task-action-menu" role="menu" aria-label={m.taskTable.taskActions}>
+            {menu.mounted ? (
+              <div
+                className={`task-action-menu${menu.closing ? " is-closing" : ""}`}
+                role="menu"
+                aria-label={m.taskTable.taskActions}
+                onAnimationEnd={(event) => {
+                  if (event.target === event.currentTarget) menu.onExited();
+                }}
+              >
                 {confirmingDelete ? (
                   <>
                     <span className="task-action-menu__prompt" role="presentation">

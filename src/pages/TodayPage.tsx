@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight, ChevronsRight, Plus } from "lucide-react";
+import { ChevronsRight, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
+import { DateNav, RollText, type NavDirection } from "../components/DateNav";
 import { ProgressSummary } from "../components/ProgressSummary";
 import { TaskTable } from "../components/TaskTable";
-import { addDays, formatShortDate, toDateInput } from "../lib/dates";
+import { addDays, formatShortDate, toDateInput, weekdayLong } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { getTaskProgress, importancePriority, isProjectCacheTask, summarizeProgress } from "../lib/progress";
 import { useToday } from "../lib/useToday";
@@ -18,6 +19,7 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
   const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask, initialDate } = props;
   const today = useToday();
   const [viewDate, setViewDate] = useState(initialDate || today);
+  const [navDir, setNavDir] = useState<NavDirection>(1);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
 
   // Follow day selections made from the Calendar view.
@@ -61,26 +63,41 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
     }
   }
 
+  function goTo(date: string, dir: NavDirection) {
+    setNavDir(dir);
+    setViewDate(date);
+  }
+
+  // The page title names the day being viewed instead of always claiming
+  // "Today": today / yesterday / tomorrow by name, anything further by weekday.
+  const dayTitle =
+    viewDate === today
+      ? m.today.title
+      : viewDate === addDays(today, -1)
+        ? m.today.yesterday
+        : viewDate === addDays(today, 1)
+          ? m.today.tomorrow
+          : weekdayLong(viewDate, lang);
+
   return (
     <main className="page-content">
       <header className="page-header today-page-header">
-        <div className="today-date-switcher">
-          <button type="button" className="icon-button date-nav-button" onClick={() => setViewDate((date) => addDays(date, -1))} aria-label={m.today.prevDay}>
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            className={`today-title-button${viewDate === today ? " active" : ""}`}
-            onClick={() => setViewDate(today)}
-            aria-label={m.today.backToToday}
-            aria-current={viewDate === today ? "date" : undefined}
-          >
-            <h1>{m.today.title}</h1>
-            <span>{formatShortDate(viewDate, lang)}</span>
-          </button>
-          <button type="button" className="icon-button date-nav-button" onClick={() => setViewDate((date) => addDays(date, 1))} aria-label={m.today.nextDay}>
-            <ChevronRight size={18} aria-hidden="true" />
-          </button>
+        <div className="page-head-nav">
+          <h1>
+            <RollText text={dayTitle} dir={navDir} />
+          </h1>
+          <DateNav
+            label={formatShortDate(viewDate, lang)}
+            dir={navDir}
+            onPrev={() => goTo(addDays(viewDate, -1), -1)}
+            onNext={() => goTo(addDays(viewDate, 1), 1)}
+            onHome={() => goTo(today, viewDate > today ? -1 : 1)}
+            isHome={viewDate === today}
+            homeLabel={m.today.todayChip}
+            prevAria={m.today.prevDay}
+            nextAria={m.today.nextDay}
+            homeAria={m.today.backToToday}
+          />
         </div>
         <p>{m.today.subtitle(displayTasks.length, summary.weightedPercent)}</p>
       </header>

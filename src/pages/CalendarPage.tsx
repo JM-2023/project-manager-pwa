@@ -2,12 +2,13 @@ import {
   Activity,
   AlertTriangle,
   Award,
+  CalendarPlus,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  FileText,
   Flame,
   Minus,
-  Sparkles,
   Target,
   TrendingDown,
   TrendingUp,
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { CompletionBar, MiniBarSeries } from "../components/calendar/CalendarCharts";
+import { SegControl } from "../components/SegControl";
 import {
   addDays,
   addMonths,
@@ -150,25 +152,18 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
           </button>
         </div>
         <div className="cal-controls">
-          <div className="cal-seg" role="group" aria-label={m.calendar.viewAria}>
-            {GRANULARITIES.map((id) => (
-              <button
-                key={id}
-                type="button"
-                className={granularity === id ? "active" : ""}
-                onClick={() => setGranularity(id)}
-              >
-                {m.calendar[id]}
-              </button>
-            ))}
-          </div>
-          <div className="cal-seg" role="group" aria-label={m.calendar.metricAria}>
-            {METRICS.map((id) => (
-              <button key={id} type="button" className={metric === id ? "active" : ""} onClick={() => setMetric(id)}>
-                {id === "weighted" ? m.calendar.weighted : m.calendar.doneRate}
-              </button>
-            ))}
-          </div>
+          <SegControl
+            ariaLabel={m.calendar.viewAria}
+            value={granularity}
+            onChange={setGranularity}
+            options={GRANULARITIES.map((id) => ({ id, label: m.calendar[id] }))}
+          />
+          <SegControl
+            ariaLabel={m.calendar.metricAria}
+            value={metric}
+            onChange={setMetric}
+            options={METRICS.map((id) => ({ id, label: id === "weighted" ? m.calendar.weighted : m.calendar.doneRate }))}
+          />
         </div>
       </header>
 
@@ -346,7 +341,7 @@ function EmptyInsights({ noun }: { noun: PeriodNoun }) {
   return (
     <section className="cal-insights" aria-label={m.calendar.insightsAria(noun)}>
       <div className="cal-card cal-insights__empty">
-        <Sparkles size={16} aria-hidden="true" />
+        <CalendarPlus size={16} aria-hidden="true" />
         <p>{m.calendar.emptyInsights(noun)}</p>
       </div>
     </section>
@@ -461,7 +456,7 @@ function WeekInsights({ days, today, metric, stats, buckets, projects, dayStats,
       <WorklogCard
         kind="output"
         title={m.calendar.weeklyOutput}
-        icon={<Sparkles size={14} aria-hidden="true" />}
+        icon={<FileText size={14} aria-hidden="true" />}
         entries={outputs}
         emptyHint={m.calendar.outputEmptyWeek}
         today={today}
@@ -774,7 +769,7 @@ function MonthInsights({
       <WorklogCard
         kind="output"
         title={m.calendar.monthlyOutput}
-        icon={<Sparkles size={14} aria-hidden="true" />}
+        icon={<FileText size={14} aria-hidden="true" />}
         entries={outputs}
         emptyHint={m.calendar.outputEmptyMonth}
         today={today}

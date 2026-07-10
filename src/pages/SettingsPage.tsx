@@ -4,6 +4,7 @@ import { BackupControls } from "../components/BackupControls";
 import { ChangePasscode } from "../components/ChangePasscode";
 import { ExportButton } from "../components/ExportButton";
 import { ImportWizard } from "../components/ImportWizard";
+import { SegControl } from "../components/SegControl";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { useHeroAnimation, type HeroAnimation } from "../lib/heroAnimation";
 import { useI18n, type Language } from "../lib/i18n";
@@ -129,19 +130,12 @@ export function SettingsPage({
         <h2>{m.settings.appearance}</h2>
         <div className="settings-row">
           <span>{m.settings.heroAnim}</span>
-          <div className="cal-seg" role="group" aria-label={m.settings.heroAnim}>
-            {HERO_ANIM_OPTIONS.map((option) => (
-              <button
-                key={option}
-                type="button"
-                className={heroAnim === option ? "active" : ""}
-                aria-pressed={heroAnim === option}
-                onClick={() => setHeroAnim(option)}
-              >
-                {heroAnimLabels[option]}
-              </button>
-            ))}
-          </div>
+          <SegControl
+            ariaLabel={m.settings.heroAnim}
+            value={heroAnim}
+            onChange={setHeroAnim}
+            options={HERO_ANIM_OPTIONS.map((option) => ({ id: option, label: heroAnimLabels[option] }))}
+          />
         </div>
         <p className="settings-hint">{m.settings.heroHint}</p>
       </section>
@@ -150,20 +144,16 @@ export function SettingsPage({
         <h2>{m.settings.language}</h2>
         <div className="settings-row">
           <span>{m.settings.appLanguage}</span>
-          <div className="cal-seg" role="group" aria-label={m.settings.appLanguage}>
-            {LANGUAGE_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                lang={option.id === "zh" ? "zh-CN" : "en"}
-                className={lang === option.id ? "active" : ""}
-                aria-pressed={lang === option.id}
-                onClick={() => setLang(option.id)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          <SegControl
+            ariaLabel={m.settings.appLanguage}
+            value={lang}
+            onChange={setLang}
+            options={LANGUAGE_OPTIONS.map((option) => ({
+              id: option.id,
+              label: option.label,
+              lang: option.id === "zh" ? "zh-CN" : "en"
+            }))}
+          />
         </div>
         <p className="settings-hint">{m.settings.languageHint}</p>
       </section>

@@ -1,45 +1,51 @@
 /* =========================================================================
-   Project Manager PWA — Liquid Glass design system (v2)
+   Project Manager PWA — solid-surface design system (v3.1)
    --------------------------------------------------------------------------
-   A tiered glass language. Glass is a FLOATING-LAYER material, never a base:
-     · Tier A — Liquid glass + signature spring: the one primary action per
-       context (Add task, row "+" buttons, primary CTAs) and floating chrome
-       (nav bar, popovers, hero progress).
-     · Tier B — Quiet glass, gentle motion: secondary buttons, keypad,
-       segmented-control active chip.
-     · Tier C — Flat / transparent: icon buttons, nav at rest, list rows,
-       table cells, inputs. Hairline + soft shadow, hover wash, no spring.
+   One solid background per theme, held everywhere. Depth comes from solid
+   surfaces separated by hairline borders; shadows are a four-stop elevation
+   scale (contact line + tight low-alpha ambient, never larger than what casts
+   it, never tinted). No backdrop blur, no gradient surfaces, no glows.
 
-   Very low backdrop sampling on glass layers — enough to make the material read
-   as glass over the static page background without turning ordinary controls
-   into expensive frosted slabs. All colour flows through tokens, so the dark
-   theme is a token swap. Manual override via [data-theme] is layered on top of
-   prefers-color-scheme.
+   TWO exceptions keep their original liquid-glass material: the Tier-A
+   action buttons (Add task, Export, form "+" buttons…) with their ported
+   download-button spring, and the project-list chips (--chip-*) with their
+   radius swell + breathing completion meter. Both are deliberate accents;
+   nothing else samples the backdrop.
+
+   Accent is a premium emerald family — the same green the weighted-progress
+   hero liquid is painted in (#10b981 at the crest). Radii are one small
+   scale (4/6/8/12/16) kept concentric: an inner corner is its parent minus
+   the padding between them (seg thumb, menu rows, table header), or simply
+   the next stop down. True circles (dots, ×-buttons, slider thumbs) may be
+   full capsules. The glass buttons ride the same scale: rest at --r-xl,
+   swelling +4px on hover; the project chips morph --r-md → --r-lg.
+
+   All colour flows through tokens; dark theme is a token swap layered on
+   prefers-color-scheme with a manual [data-theme] override on top.
    ========================================================================= */
 
 :root {
   color-scheme: light;
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui,
-    "Helvetica Neue", Arial, sans-serif;
+    "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 
-  /* Brand accent — indigo */
-  --primary: #4f46e5;
-  --primary-dark: #4338ca;
-  --primary-strong: #4338ca;
+  /* Brand accent — premium emerald, one family app-wide (the family the
+     weighted-progress hero liquid is painted in) */
+  --primary: #059669;
+  --primary-dark: #047857;
   --primary-ink: #ffffff;
-  --primary-tint: #eef2ff;
-  --primary-tint-strong: #e0e7ff;
+  --primary-tint: #ecfdf5;
+  --primary-tint-strong: #d1fae5;
 
-  /* Neutrals / surfaces — a barely-there cool-gray page so white glass reads */
+  /* Neutrals / surfaces — a barely-there cool-gray page under white cards */
   --bg: #f3f4f7;
   --surface: #ffffff;
   --surface-2: #f8f9fb;
   --surface-3: #eef0f4;
-  --surface-soft: #eef2ff;
   --field-bg: #ffffff;
   --table-head-bg: #f6f7fa;
 
@@ -49,23 +55,15 @@
   --line: #e6e8ee;
   --line-strong: #d3d7e0;
 
-  /* Accent hues */
-  --rust: #d97706;
-  --sage: #16a34a;
-  --blue: #2563eb;
   --warning: #d97706;
-  --danger: #dc2626;
-  --danger-tint: #fef2f2;
+  --danger: #b5483f;
 
-  /* Status pills (bg / fg) */
-  --st-todo-bg: #eef0f4;       --st-todo-fg: #4a5160;
-  --st-doing-bg: #eef4ff;      --st-doing-fg: #2563eb;
-  --st-waiting-bg: #fff7ea;    --st-waiting-fg: #b45309;
-  --st-blocked-bg: #fdecec;    --st-blocked-fg: #dc2626;
-  --st-done-bg: #ecfcef;       --st-done-fg: #16a34a;
-  --st-cancelled-bg: #eef0f4;  --st-cancelled-fg: #717a8a;
+  /* Worklog chips (done / blocked are the only states the calendar colours) */
+  --st-done-bg: #ecfdf5;    --st-done-fg: #047857;
+  --st-blocked-bg: #f8eeec; --st-blocked-fg: #b5483f;
 
-  /* Progress tone scale */
+  /* Progress tone scale — warm while under way, finishing in the original
+     completion greens (kept from v2; they sit beside the emerald accent). */
   --prog-none: #c8cdd8;
   --prog-low: #f97316;
   --prog-mid: #d97706;
@@ -80,21 +78,22 @@
   --imp-4: #93c5fd;
 
   /* Focus ring */
-  --ring: rgba(79, 70, 229, 0.32);
+  --ring: rgba(16, 185, 129, 0.25);
 
-  /* Elevation — soft, layered */
+  /* Elevation — four stops, each a contact line plus a tight, low-alpha
+     ambient that stays smaller than what casts it. Hairline borders do the
+     separating; xs/sm sit on the page, shadow/lg are for floating layers. */
   --shadow-xs: 0 1px 2px rgba(20, 27, 45, 0.05);
   --shadow-sm: 0 1px 2px rgba(20, 27, 45, 0.05), 0 2px 6px -2px rgba(20, 27, 45, 0.07);
-  --shadow: 0 2px 4px rgba(20, 27, 45, 0.05), 0 8px 20px -8px rgba(20, 27, 45, 0.14);
-  --shadow-lg: 0 4px 8px rgba(20, 27, 45, 0.06), 0 18px 42px -14px rgba(20, 27, 45, 0.24);
+  --shadow: 0 1px 2px rgba(20, 27, 45, 0.05), 0 6px 14px -6px rgba(20, 27, 45, 0.12);
+  --shadow-lg: 0 2px 6px rgba(20, 27, 45, 0.06), 0 14px 30px -10px rgba(20, 27, 45, 0.18);
 
-  /* Radii */
-  --r-xs: 8px;
-  --r-sm: 10px;
-  --r-md: 14px;
-  --r-lg: 18px;
-  --r-xl: 24px;
-  --r-pill: 999px;
+  /* Radii — one small scale, kept concentric (see header note). */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
 
   /* Motion */
   --t-fast: 0.12s;
@@ -103,93 +102,21 @@
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
-  /* Signature liquid swell — overshoots then settles. Tier A only. */
+  /* Micro overshoot for small pops — the curve provides the bounce, so the
+     motion stays continuous (no keyframed mid-flight jumps). */
+  --ease-pop: cubic-bezier(0.3, 1.42, 0.52, 1);
+  /* Signature liquid swell — overshoots then settles. Glass buttons only. */
   --spring: cubic-bezier(0.175, 0.885, 0.32, 2.2);
 
-  /* ----- Liquid glass material (very low backdrop sampling) -----
-     Real liquid glass = a translucent body + a faint IRIS (a chromatic conic
-     shimmer) + a SPECULAR highlight + a bright rim. --lx/--ly place the
-     specular; --spin rotates the iris band (animated only on the primary CTA). */
-  --lx: 26%;
-  --ly: -8%;
-  /* Very low sampling for every glass surface. The static white page only needs
-     a slight frost pass, while the layered fills and rim lights carry the glass
-     read. */
-  --glass-sampling: blur(2px) saturate(1.03);
-  --lg-iris: conic-gradient(from var(--spin, 130deg) at 50% 50%,
-      rgba(124, 122, 255, 0.10), rgba(155, 138, 232, 0.085) 22%,
-      rgba(232, 155, 155, 0.07) 44%, rgba(253, 183, 119, 0.07) 66%,
-      rgba(255, 212, 163, 0.06) 84%, rgba(124, 122, 255, 0.10) 100%);
-  --lg-specular: radial-gradient(130px 160px at var(--lx) var(--ly),
-      rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 62%);
+  /* Segmented control — inset solid track, floating solid thumb. */
+  --seg-track: var(--surface-3);
+  --seg-thumb: var(--surface);
 
-  /* Floating-chrome glass: nav bar, popovers, hero, segmented track */
-  --glass-fill:
-    var(--lg-specular),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.44)),
-    var(--lg-iris);
-  --glass-rim: rgba(20, 27, 45, 0.1);
-  --glass-rim-strong: rgba(20, 27, 45, 0.14);
-  --glass-highlight:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -1px 1px rgba(20, 27, 45, 0.04);
-
-  /* Flattened glass (calendar segmented track): keeps the lit glass in light
-     mode but drops the specular hotspot + top rim-light in dark mode. */
-  --glass-fill-flat: var(--glass-fill);
-  --glass-highlight-flat: var(--glass-highlight);
-  /* Action-menu popover: a floating glass layer with translucent fill, low
-     sampling, and rim-light. */
-  --menu-fill: linear-gradient(180deg, rgba(255, 255, 255, 0.86), rgba(248, 249, 251, 0.8));
-  --menu-highlight: var(--glass-highlight);
-
-  /* Glass chip — buttons, active states, keypad, segmented active segment */
-  --chip-fill:
-    var(--lg-specular),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.48)),
-    var(--lg-iris);
-  --chip-hover-fill:
-    var(--lg-specular),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6)),
-    var(--lg-iris);
-  --chip-rim: rgba(20, 27, 45, 0.12);
-  --chip-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
-    0 1px 2px rgba(20, 27, 45, 0.06),
-    0 10px 24px -10px rgba(20, 27, 45, 0.24);
-  --chip-hover-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
-    0 2px 4px rgba(20, 27, 45, 0.07),
-    0 16px 30px -10px rgba(20, 27, 45, 0.28);
-
-  /* PRIMARY (Add task): the richest, clearest liquid glass — TRANSPARENT, not
-     tinted. Hierarchy comes from elevation + the signature swell, not colour. */
-  --primary-fill: var(--chip-fill);
-  --primary-hover-fill: var(--chip-hover-fill);
-  --primary-rim: rgba(20, 27, 45, 0.14);
-  --primary-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    inset 0 -8px 18px -8px rgba(20, 27, 45, 0.07),
-    0 2px 6px rgba(20, 27, 45, 0.08),
-    0 16px 34px -10px rgba(20, 27, 45, 0.3);
-  --primary-hover-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -8px 18px -8px rgba(20, 27, 45, 0.07),
-    0 4px 10px rgba(20, 27, 45, 0.1),
-    0 24px 46px -12px rgba(20, 27, 45, 0.36);
-
-  /* Download-button glass (ported from the Liquid Glass reference page).
-     Dark mode = the reference's final rendered state: a transparent chip
-     (its dark page shows through) + white rim + the exact shadows.
-     Light mode = clear glass: the reference button's base recipe minus the
-     iris band — specular highlight + translucent white tint + real frost
-     (saturate(200%) blur(20px)) + the same shadows. */
+  /* Glass action buttons (the one preserved glass material, ported from the
+     Liquid Glass reference page). Light = clear glass: specular highlight +
+     translucent white tint + real frost. Dark = the reference's final render:
+     transparent body + white rim, no frost pass. */
   --dl-rim: rgba(10, 16, 28, 0.12);
-  /* No iris band: the reference has one in its base rule but it never renders
-     (killed by the final overlay, and --lg-iris: none in its
-     reduced-transparency mode). Clear glass only: specular + white tint. */
   --dl-fill:
     radial-gradient(180px 260px at 50% 0%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 60%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
@@ -205,11 +132,40 @@
     radial-gradient(160px 200px at 50% 0%, rgba(255, 120, 120, 0.35), rgba(255, 255, 255, 0) 60%),
     linear-gradient(180deg, rgba(255, 120, 120, 0.18), rgba(255, 120, 120, 0.1));
 
+  /* Liquid-glass chip — the project rows' original material (the second and
+     last glass exception, kept alongside the dl buttons). A static specular
+     + translucent white body + a faint chromatic iris; dark drops the
+     specular. The frost pass is the chip's own, very low sampling. */
+  --chip-iris: conic-gradient(from 130deg at 50% 50%,
+    rgba(124, 122, 255, 0.1), rgba(155, 138, 232, 0.085) 22%,
+    rgba(232, 155, 155, 0.07) 44%, rgba(253, 183, 119, 0.07) 66%,
+    rgba(255, 212, 163, 0.06) 84%, rgba(124, 122, 255, 0.1) 100%);
+  --chip-sampling: blur(2px) saturate(1.03);
+  --chip-fill:
+    radial-gradient(130px 160px at 26% -8%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.48)),
+    var(--chip-iris);
+  --chip-hover-fill:
+    radial-gradient(130px 160px at 26% -8%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6)),
+    var(--chip-iris);
+  --chip-rim: rgba(20, 27, 45, 0.12);
+  --chip-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
+    0 1px 2px rgba(20, 27, 45, 0.06),
+    0 10px 24px -10px rgba(20, 27, 45, 0.24);
+  --chip-hover-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
+    0 2px 4px rgba(20, 27, 45, 0.07),
+    0 16px 30px -10px rgba(20, 27, 45, 0.28);
+
   /* Tier C wash (hover for transparent controls) */
   --wash: rgba(20, 27, 45, 0.05);
   --wash-strong: rgba(20, 27, 45, 0.08);
 
-  /* Hero progress liquid */
+  /* Legibility shadow for the text sitting on the hero's liquid canvas */
   --hero-text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
 
   background: var(--bg);
@@ -221,18 +177,16 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --primary: #818cf8;
-    --primary-dark: #aab2fc;
-    --primary-strong: #aab2fc;
-    --primary-ink: #14152b;
-    --primary-tint: #1e2138;
-    --primary-tint-strong: #2a2e4d;
+    --primary: #34d399;
+    --primary-dark: #6ee7b7;
+    --primary-ink: #022c22;
+    --primary-tint: #143229;
+    --primary-tint-strong: #1d4a3a;
 
     --bg: #0c0e13;
     --surface: #16191f;
     --surface-2: #1b1e26;
     --surface-3: #222633;
-    --surface-soft: #1e2138;
     --field-bg: #11141a;
     --table-head-bg: #1b1e26;
 
@@ -242,19 +196,11 @@
     --line: #272c38;
     --line-strong: #39404f;
 
-    --rust: #fbbf24;
-    --sage: #4ade80;
-    --blue: #60a5fa;
     --warning: #fbbf24;
-    --danger: #f87171;
-    --danger-tint: #2a1717;
+    --danger: #e2837a;
 
-    --st-todo-bg: #222633;     --st-todo-fg: #b3bacb;
-    --st-doing-bg: #15203a;    --st-doing-fg: #6fb0ff;
-    --st-waiting-bg: #2a2310;  --st-waiting-fg: #fbbf24;
-    --st-blocked-bg: #2a1717;  --st-blocked-fg: #f87171;
-    --st-done-bg: #13241a;     --st-done-fg: #4ade80;
-    --st-cancelled-bg: #222633; --st-cancelled-fg: #818aa0;
+    --st-done-bg: #143229;    --st-done-fg: #6ee7b7;
+    --st-blocked-bg: #2c1a17; --st-blocked-fg: #e2837a;
 
     --prog-none: #46505f;
     --prog-low: #fb923c;
@@ -267,46 +213,35 @@
     --imp-3: #93c5fd;
     --imp-4: #bcd8fb;
 
-    --ring: rgba(129, 140, 248, 0.4);
+    --ring: rgba(52, 211, 153, 0.32);
 
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.5);
-    --shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.5), 0 20px 46px -14px rgba(0, 0, 0, 0.72);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 14px -6px rgba(0, 0, 0, 0.55);
+    --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.5), 0 14px 30px -10px rgba(0, 0, 0, 0.62);
 
-    /* Dark mode: the specular is a soft diffuse glow, not a hot hotspot. Far
-       lower peak white + broader falloff so the "lit glass" reads as a gentle
-       sheen. Its --lx/--ly slowly drift (see glass-sheen-drift) for a living,
-       premium feel. */
-    --lg-specular: radial-gradient(220px 240px at var(--lx) var(--ly),
-        rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 46%, rgba(255, 255, 255, 0) 72%);
-    --glass-fill:
-      var(--lg-specular),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
-      var(--lg-iris);
-    --glass-rim: rgba(255, 255, 255, 0.1);
-    --glass-rim-strong: rgba(255, 255, 255, 0.16);
-    --glass-highlight:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+    --seg-track: var(--field-bg);
+    --seg-thumb: var(--surface-3);
 
-    /* Flat glass: no specular hotspot, no top white rim-light. */
-    --glass-fill-flat:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
-      var(--lg-iris);
-    --glass-highlight-flat: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
-    --menu-fill: linear-gradient(180deg, rgba(27, 30, 38, 0.82), rgba(22, 25, 31, 0.78));
-    --menu-highlight: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+    --dl-rim: rgba(255, 255, 255, 0.35);
+    --dl-fill: none;
+    --dl-danger-fill: none;
+    --dl-sampling: none;
+    --dl-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      0 12px 35px rgba(0, 0, 0, 0.25),
+      0 2px 8px rgba(0, 0, 0, 0.15);
+    --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
+    --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    --dl-danger-rim: rgba(255, 90, 90, 0.35);
 
-    /* Buttons in dark mode: NO white specular hotspot, NO top inset highlight —
-       a uniform faint translucent glass body + iris only. (Non-button --glass-*
-       chrome keeps its highlight.) */
+    /* Dark chips: no white specular hotspot — translucent body + iris only. */
     --chip-fill:
       linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05)),
-      var(--lg-iris);
+      var(--chip-iris);
     --chip-hover-fill:
       linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08)),
-      var(--lg-iris);
+      var(--chip-iris);
     --chip-rim: rgba(255, 255, 255, 0.14);
     --chip-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.05),
@@ -319,38 +254,10 @@
       0 2px 4px rgba(0, 0, 0, 0.45),
       0 14px 26px -10px rgba(0, 0, 0, 0.66);
 
-    --primary-fill: var(--chip-fill);
-    --primary-hover-fill: var(--chip-hover-fill);
-    --primary-rim: rgba(255, 255, 255, 0.2);
-    --primary-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-      inset 0 -2px 4px rgba(30, 27, 75, 0.5),
-      0 2px 4px rgba(0, 0, 0, 0.4),
-      0 12px 26px -8px rgba(79, 70, 229, 0.45);
-    --primary-hover-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.07),
-      inset 0 -2px 4px rgba(30, 27, 75, 0.5),
-      0 4px 8px rgba(0, 0, 0, 0.45),
-      0 18px 34px -8px rgba(79, 70, 229, 0.5);
-
     --wash: rgba(255, 255, 255, 0.06);
     --wash-strong: rgba(255, 255, 255, 0.1);
 
     --hero-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-
-    /* Download-button glass: the reference page's exact final dark render —
-       transparent body, white rim, no frost pass. */
-    --dl-rim: rgba(255, 255, 255, 0.35);
-    --dl-fill: none;
-    --dl-danger-fill: none;
-    --dl-sampling: none;
-    --dl-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 12px 35px rgba(0, 0, 0, 0.25),
-      0 2px 8px rgba(0, 0, 0, 0.15);
-    --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
-    --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
-    --dl-danger-rim: rgba(255, 90, 90, 0.35);
   }
 }
 
@@ -358,18 +265,16 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --primary: #818cf8;
-  --primary-dark: #aab2fc;
-  --primary-strong: #aab2fc;
-  --primary-ink: #14152b;
-  --primary-tint: #1e2138;
-  --primary-tint-strong: #2a2e4d;
+  --primary: #34d399;
+  --primary-dark: #6ee7b7;
+  --primary-ink: #022c22;
+  --primary-tint: #143229;
+  --primary-tint-strong: #1d4a3a;
 
   --bg: #0c0e13;
   --surface: #16191f;
   --surface-2: #1b1e26;
   --surface-3: #222633;
-  --surface-soft: #1e2138;
   --field-bg: #11141a;
   --table-head-bg: #1b1e26;
 
@@ -379,19 +284,11 @@
   --line: #272c38;
   --line-strong: #39404f;
 
-  --rust: #fbbf24;
-  --sage: #4ade80;
-  --blue: #60a5fa;
   --warning: #fbbf24;
-  --danger: #f87171;
-  --danger-tint: #2a1717;
+  --danger: #e2837a;
 
-  --st-todo-bg: #222633;     --st-todo-fg: #b3bacb;
-  --st-doing-bg: #15203a;    --st-doing-fg: #6fb0ff;
-  --st-waiting-bg: #2a2310;  --st-waiting-fg: #fbbf24;
-  --st-blocked-bg: #2a1717;  --st-blocked-fg: #f87171;
-  --st-done-bg: #13241a;     --st-done-fg: #4ade80;
-  --st-cancelled-bg: #222633; --st-cancelled-fg: #818aa0;
+  --st-done-bg: #143229;    --st-done-fg: #6ee7b7;
+  --st-blocked-bg: #2c1a17; --st-blocked-fg: #e2837a;
 
   --prog-none: #46505f;
   --prog-low: #fb923c;
@@ -404,41 +301,35 @@
   --imp-3: #93c5fd;
   --imp-4: #c7ddfb;
 
-  --ring: rgba(129, 140, 248, 0.4);
+  --ring: rgba(52, 211, 153, 0.32);
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.5);
-  --shadow: 0 2px 4px rgba(0, 0, 0, 0.5), 0 10px 24px -8px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.5), 0 20px 46px -14px rgba(0, 0, 0, 0.72);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 14px -6px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, 0.5), 0 14px 30px -10px rgba(0, 0, 0, 0.62);
 
-  /* Dark mode: soft diffuse specular glow (mirrors the auto-dark block). */
-  --lg-specular: radial-gradient(220px 240px at var(--lx) var(--ly),
-      rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05) 46%, rgba(255, 255, 255, 0) 72%);
-  --glass-fill:
-    var(--lg-specular),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
-    var(--lg-iris);
-  --glass-rim: rgba(255, 255, 255, 0.1);
-  --glass-rim-strong: rgba(255, 255, 255, 0.16);
-  --glass-highlight:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+  --seg-track: var(--field-bg);
+  --seg-thumb: var(--surface-3);
 
-  /* Flat glass: no specular hotspot, no top white rim-light. */
-  --glass-fill-flat:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
-    var(--lg-iris);
-  --glass-highlight-flat: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
-  --menu-fill: linear-gradient(180deg, rgba(27, 30, 38, 0.82), rgba(22, 25, 31, 0.78));
-  --menu-highlight: inset 0 -1px 1px rgba(0, 0, 0, 0.3);
+  --dl-rim: rgba(255, 255, 255, 0.35);
+  --dl-fill: none;
+  --dl-danger-fill: none;
+  --dl-sampling: none;
+  --dl-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 12px 35px rgba(0, 0, 0, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
+  --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  --dl-danger-rim: rgba(255, 90, 90, 0.35);
 
-  /* Buttons in dark mode: NO white specular hotspot, NO top inset highlight. */
+  /* Dark chips: no white specular hotspot — translucent body + iris only. */
   --chip-fill:
     linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.05)),
-    var(--lg-iris);
+    var(--chip-iris);
   --chip-hover-fill:
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.08)),
-    var(--lg-iris);
+    var(--chip-iris);
   --chip-rim: rgba(255, 255, 255, 0.14);
   --chip-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.05),
@@ -451,51 +342,10 @@
     0 2px 4px rgba(0, 0, 0, 0.45),
     0 14px 26px -10px rgba(0, 0, 0, 0.66);
 
-  --primary-fill: var(--chip-fill);
-  --primary-hover-fill: var(--chip-hover-fill);
-  --primary-rim: rgba(255, 255, 255, 0.2);
-  --primary-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    inset 0 -2px 4px rgba(30, 27, 75, 0.5),
-    0 2px 4px rgba(0, 0, 0, 0.4),
-    0 12px 26px -8px rgba(79, 70, 229, 0.45);
-  --primary-hover-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.07),
-    inset 0 -2px 4px rgba(30, 27, 75, 0.5),
-    0 4px 8px rgba(0, 0, 0, 0.45),
-    0 18px 34px -8px rgba(79, 70, 229, 0.5);
-
   --wash: rgba(255, 255, 255, 0.06);
   --wash-strong: rgba(255, 255, 255, 0.1);
 
   --hero-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
-
-  /* Download-button glass: the reference page's exact final dark render —
-     transparent body, white rim, no frost pass. */
-  --dl-rim: rgba(255, 255, 255, 0.35);
-  --dl-fill: none;
-  --dl-danger-fill: none;
-  --dl-sampling: none;
-  --dl-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 12px 35px rgba(0, 0, 0, 0.25),
-    0 2px 8px rgba(0, 0, 0, 0.15);
-  --dl-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22);
-  --dl-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
-  --dl-danger-rim: rgba(255, 90, 90, 0.35);
-}
-
-/* Slow, premium drift of the specular glow — dark mode only. Driven on :root so
-   the inherited --lx/--ly animate; only --glass-fill surfaces read the specular
-   in dark mode, so this is the only place the moving light shows. Reduced-motion
-   users get the static (soft) glow via the global reduce rule below. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    animation: glass-sheen-drift 22s ease-in-out infinite;
-  }
-}
-:root[data-theme="dark"] {
-  animation: glass-sheen-drift 22s ease-in-out infinite;
 }
 
 * { box-sizing: border-box; }
@@ -537,25 +387,22 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   outline-offset: 2px;
 }
 
-/* Buttons never show a blue focus box in any state. Keyboard focus instead
-   brightens the glass (glass buttons) or washes the surface (flat buttons). */
+/* Buttons carry their own focus treatment instead of the global outline box:
+   glass buttons get an accent outline, flat buttons a surface wash. */
 button:focus-visible,
 .file-picker:focus-within,
 .file-picker input:focus-visible { outline: none; }
 
-/* Keyboard focus on glass buttons — the reference's .is-selected treatment. */
+/* Keyboard focus on the glass action buttons — accent outline, no glow. */
 .add-row-button:focus-visible,
 .primary-button:focus-visible,
 .secondary-button:focus-visible,
 .file-picker:focus-within,
 .ghost-button:focus-visible,
-.composer-row button:focus-visible,
-.composer-project-row button:focus-visible,
 .cache-add button:focus-visible,
 .project-create button:focus-visible {
-  outline: 2px solid rgba(124, 122, 255, 0.55);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
-  box-shadow: 0 16px 44px rgba(124, 122, 255, 0.28);
 }
 button.project-row:focus-visible {
   background: var(--chip-hover-fill);
@@ -567,7 +414,6 @@ button.project-row:focus-visible {
 .bottom-nav button:focus-visible,
 .today-title-button:focus-visible,
 .cal-seg button:focus-visible,
-.quick-status button:focus-visible,
 .archived-toggle:focus-visible,
 .cache-section__head:focus-visible,
 .task-action-menu button:focus-visible { background: var(--wash-strong); }
@@ -579,44 +425,6 @@ select {
   background-repeat: no-repeat;
   background-position: right 11px center;
   padding-right: 32px !important;
-}
-
-/* One shared low-cost sampling pass for every actual glass surface. */
-.bottom-nav,
-.bottom-nav button.active,
-.offline-banner,
-.offline-banner button,
-.today-title-button.active,
-.quick-status button.active,
-.project-row,
-button.project-row,
-.progress-summary > div:first-child,
-.pin-pad,
-.pin-logo,
-.keypad button:not(.keypad-action),
-.task-action-menu,
-.cal-seg,
-.cal-seg button.active,
-.cal-summary {
-  -webkit-backdrop-filter: var(--glass-sampling);
-  backdrop-filter: var(--glass-sampling);
-}
-
-/* @property lets the iris band's start-angle animate smoothly (the living
-   shimmer on the primary CTA). Falls back to a static band where unsupported. */
-@property --spin { syntax: "<angle>"; inherits: false; initial-value: 130deg; }
-@keyframes iris-spin { to { --spin: 490deg; } }
-
-/* Registering --lx/--ly as typed, inheritable percentages lets the specular
-   hotspot drift smoothly. The drift is applied to :root in dark mode only, so
-   it animates exactly the glass surfaces that carry a specular there
-   (nav, hero panels, pin-pad) and nothing else. */
-@property --lx { syntax: "<percentage>"; inherits: true; initial-value: 26%; }
-@property --ly { syntax: "<percentage>"; inherits: true; initial-value: -8%; }
-@keyframes glass-sheen-drift {
-  0%   { --lx: 18%; --ly: -12%; }
-  50%  { --lx: 76%; --ly: 6%; }
-  100% { --lx: 18%; --ly: -12%; }
 }
 
 /* =========================================================================
@@ -742,9 +550,8 @@ button.project-row,
 .date-nav-button { flex: none; }
 
 /* =========================================================================
-   Navigation — floating liquid-glass bar (Tier A chrome).
-   Items are flat at rest (Tier C); the active item lifts into a quiet glass
-   pill. No spring on the items.
+   Navigation — a solid fixed bar; the hairline does the separating. Items
+   are flat at rest; the active item lifts into a quiet accent chip.
    ========================================================================= */
 .bottom-nav {
   position: fixed;
@@ -754,9 +561,8 @@ button.project-row,
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 4px;
   padding: 9px 10px calc(10px + env(safe-area-inset-bottom));
-  background: var(--glass-fill);
-  border-top: 1px solid var(--glass-rim);
-  box-shadow: var(--glass-highlight), 0 -8px 24px -12px rgba(20, 27, 45, 0.18);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
 }
 
 .bottom-nav button {
@@ -780,9 +586,8 @@ button.project-row,
 
 .bottom-nav button.active {
   color: var(--primary-dark);
-  background: var(--chip-fill);
-  border-color: var(--chip-rim);
-  box-shadow: var(--chip-shadow);
+  background: var(--primary-tint);
+  border-color: var(--primary-tint-strong);
 }
 .bottom-nav button.active svg { transform: translateY(-1px) scale(1.04); }
 
@@ -797,9 +602,9 @@ button.project-row,
 }
 
 /* =========================================================================
-   Sync pill — a floating frosted-glass status chip (Tier A chrome).
-   Light glass body + dark ink, matching the nav and popovers; state is carried
-   by a single tinted icon chip, not a loud full-bleed fill. --accent drives it.
+   Sync pill — a floating solid status chip. Elevation (shadow-lg) is earned:
+   it overlays scrolling content. State is carried by a single tinted icon
+   chip, not a loud full-bleed fill. --accent drives it.
    ========================================================================= */
 .offline-banner {
   position: fixed;
@@ -813,10 +618,10 @@ button.project-row,
   max-width: min(340px, calc(100vw - 24px));
   padding: 6px 7px 6px 8px;
   color: var(--ink);
-  background: var(--menu-fill);
-  border: 1px solid var(--glass-rim);
-  border-radius: var(--r-pill);
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
   animation: toast-in var(--t) var(--ease) both;
   transform-origin: top right;
 }
@@ -833,7 +638,7 @@ button.project-row,
   width: 30px; height: 30px;
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 15%, transparent);
-  border-radius: var(--r-pill);
+  border-radius: 50%;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
 }
 .offline-banner__icon svg { flex: none; }
@@ -859,7 +664,7 @@ button.project-row,
   color: var(--ink-soft);
   background: transparent;
   border: 0;
-  border-radius: var(--r-pill);
+  border-radius: 50%;
   transition: background var(--t) var(--ease), color var(--t) var(--ease), transform var(--t-fast) var(--ease);
 }
 @media (hover: hover) { .offline-banner button:hover { background: var(--wash); color: var(--ink); } }
@@ -872,7 +677,7 @@ button.project-row,
 }
 
 /* =========================================================================
-   ████  BUTTON SYSTEM — the tiered glass language  ████
+   ████  BUTTON SYSTEM  ████
    ========================================================================= */
 
 /* ---- Shared resets for every button role below ---- */
@@ -881,11 +686,8 @@ button.project-row,
 .ghost-button,
 .file-picker,
 .add-row-button,
-.composer-row button,
-.composer-project-row button,
 .cache-add button,
 .project-create button,
-.tag-input button,
 .icon-button {
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
@@ -894,8 +696,10 @@ button.project-row,
 /* -------------------------------------------------------------------------
    TIER A — the Liquid Glass "download button", ported from the reference
    page. The motion is the reference's exact surviving spring: padding
-   12px 22px → 14px 25px and radius 20px → 24px on
-   cubic-bezier(.175,.885,.32,2.2), icon easing to .95. The chip REALLY grows
+   12px 22px → 14px 25px and radius 16px → 20px (rest pinned to the app's
+   --r-xl stop, +4px mid-swell — the reference's swell delta on the app's
+   radius scale) on cubic-bezier(.175,.885,.32,2.2), icon easing to .95.
+   The chip REALLY grows
    in flow — neighbouring UI gets pushed aside, that physical inflation is
    the point. A hover margin-left of -3px lets the left edge swell outwards
    too (these buttons are left-anchored, unlike the reference's centered
@@ -905,20 +709,19 @@ button.project-row,
 
    Appearance: --dl-* tokens. Dark = the reference's final render
    (transparent body + white rim over its dark page). Light = the reference
-   button's own base glass recipe (specular + white gradient + iris + frost).
+   button's own base glass recipe (specular + white gradient + frost).
+   This is the app's ONE glass material — everything else is solid.
    ------------------------------------------------------------------------- */
 .add-row-button,
 .primary-button,
 .secondary-button,
 .file-picker,
 .ghost-button,
-.composer-row button,
-.composer-project-row button,
 .cache-add button,
 .project-create button {
   --py: 12px; --px: 22px;
   --py-h: 14px; --px-h: 25px;
-  --rad: 20px; --rad-h: 24px;
+  --rad: var(--r-xl); --rad-h: calc(var(--r-xl) + 4px);
   position: relative;
   isolation: isolate;
   display: inline-flex;
@@ -970,8 +773,6 @@ button.project-row,
   margin: 0;
 }
 
-.composer-row button,
-.composer-project-row button,
 .cache-add button,
 .project-create button {
   width: max-content;
@@ -983,8 +784,6 @@ button.project-row,
 /* Icon: the reference's 1.5rem glyph, easing down on the same spring. */
 .add-row-button svg,
 .primary-button svg,
-.composer-row button svg,
-.composer-project-row button svg,
 .cache-add button svg,
 .project-create button svg,
 .secondary-button svg,
@@ -1002,8 +801,6 @@ button.project-row,
   .secondary-button:hover,
   .file-picker:hover,
   .ghost-button:hover,
-  .composer-row button:hover,
-  .composer-project-row button:hover,
   .cache-add button:hover,
   .project-create button:hover {
     margin-left: -3px;
@@ -1016,8 +813,6 @@ button.project-row,
   .secondary-button:hover svg,
   .file-picker:hover svg,
   .ghost-button:hover svg,
-  .composer-row button:hover svg,
-  .composer-project-row button:hover svg,
   .cache-add button:hover svg,
   .project-create button:hover svg { transform: scale(0.95); }
 }
@@ -1028,8 +823,6 @@ button.project-row,
 .secondary-button:active,
 .file-picker:active,
 .ghost-button:active,
-.composer-row button:active,
-.composer-project-row button:active,
 .cache-add button:active,
 .project-create button:active { box-shadow: var(--dl-active-shadow); }
 
@@ -1037,8 +830,6 @@ button.project-row,
 .primary-button:disabled,
 .secondary-button:disabled,
 .ghost-button:disabled,
-.composer-row button:disabled,
-.composer-project-row button:disabled,
 .cache-add button:disabled,
 .project-create button:disabled {
   opacity: 0.6;
@@ -1058,7 +849,6 @@ button.project-row,
 
 /* -------------------------------------------------------------------------
    TIER C — Flat / transparent. Icon buttons only. Hover wash, press-scale.
-   No glass chip, no spring.
    ------------------------------------------------------------------------- */
 .icon-button {
   display: inline-grid;
@@ -1076,7 +866,7 @@ button.project-row,
 .icon-button.danger { color: var(--danger); }
 @media (hover: hover) { .icon-button.danger:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); } }
 
-/* today title button — flat, hover wash */
+/* today title button — flat, hover wash; active = quiet accent chip */
 .today-title-button {
   padding: 7px 12px;
   color: var(--ink);
@@ -1088,68 +878,43 @@ button.project-row,
 @media (hover: hover) { .today-title-button:hover { background: var(--wash); } }
 .today-title-button:active { transform: scale(0.97); }
 .today-title-button.active {
-  background: var(--chip-fill);
-  border-color: var(--chip-rim);
-  box-shadow: var(--chip-shadow);
+  background: var(--primary-tint);
+  border-color: var(--primary-tint-strong);
 }
 .today-title-button.active span { color: var(--primary-dark); }
-
-/* tag add button — small flat */
-.tag-input button {
-  display: inline-grid;
-  min-height: 38px;
-  place-items: center;
-  justify-self: center;
-  padding: 8px 12px;
-  color: var(--primary-dark);
-  font-weight: 700;
-  background: var(--wash);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  transition: background var(--t) var(--ease), transform 0.14s var(--ease);
-}
-@media (hover: hover) { .tag-input button:hover { background: var(--wash-strong); } }
-.tag-input button:active { transform: scale(0.95); }
 
 /* =========================================================================
    Inputs / fields
    ========================================================================= */
-.task-composer > input,
 .search-filters > input,
 .project-create input,
-.tag-input input,
 .field-label input,
 .field-label select,
 .field-label textarea,
-.composer-row select,
-.composer-row input,
 .mapping-row select,
-.filter-grid select,
-.task-title-input,
-.task-notes textarea {
+.filter-grid select {
   width: 100%;
   min-height: 44px;
   padding: 11px 13px;
   color: var(--ink);
   background-color: var(--field-bg);
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), background var(--t) var(--ease);
 }
 
 @media (hover: hover) {
-  .task-composer > input:hover, .search-filters > input:hover, .project-create input:hover,
+  .search-filters > input:hover, .project-create input:hover,
   .field-label input:hover, .field-label select:hover, .field-label textarea:hover,
-  .composer-row select:hover, .composer-row input:hover, .filter-grid select:hover { border-color: var(--muted); }
+  .filter-grid select:hover { border-color: var(--muted); }
 }
 
 input:focus, select:focus, textarea:focus { outline: none; }
 
-.task-composer > input:focus, .search-filters > input:focus, .project-create input:focus, .tag-input input:focus,
+.search-filters > input:focus, .project-create input:focus,
 .field-label input:focus, .field-label select:focus, .field-label textarea:focus,
-.composer-row select:focus, .composer-row input:focus, .mapping-row select:focus, .filter-grid select:focus,
-.task-title-input:focus, .task-notes textarea:focus,
-.cache-column header input:focus, .cache-item textarea:focus, .composer-project-row input:focus,
+.mapping-row select:focus, .filter-grid select:focus,
+.cache-item textarea:focus,
 .task-table-row select:focus, .task-table-row input:focus, .task-table-row textarea:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px var(--ring);
@@ -1157,31 +922,17 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 ::placeholder { color: var(--muted); opacity: 0.75; }
 
-.task-title-input {
-  min-height: 36px;
-  padding: 2px 0;
-  font-size: 1.05rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  background: transparent;
-  border: 0;
-  border-radius: var(--r-xs);
-}
-.task-title-input:focus { box-shadow: none; outline: none; }
-
-.composer-row, .task-controls, .filter-grid {
+.task-controls, .filter-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
   gap: 8px;
   margin-top: 8px;
 }
-.composer-row { grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) minmax(122px, 0.9fr) 76px; }
-.composer-row:not(:has(input[type="date"])) { grid-template-columns: minmax(0, 1fr) minmax(88px, 0.7fr) 76px; }
 
 /* =========================================================================
-   Panels / cards (composer, filters, settings, mapping) — flat clean surfaces
+   Panels / cards (filters, settings, mapping) — solid surfaces that sit on
+   the page: hairline + contact shadow only.
    ========================================================================= */
-.task-composer,
 .search-filters,
 .settings-section,
 .mapping-panel {
@@ -1190,7 +941,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-xs);
   animation: fade-up var(--t-slow) var(--ease) both;
 }
 .mapping-panel { margin-top: 12px; animation: scale-in var(--t) var(--ease) both; }
@@ -1215,13 +966,14 @@ input:focus, select:focus, textarea:focus { outline: none; }
   padding: 13px 15px;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
   animation: fade-up var(--t-slow) var(--ease) both;
 }
 
-/* Hero metric — a clear pane of liquid glass; weighted percent floods in as
-   glossy green liquid from the left. Tier A floating material. */
+/* Hero metric — a solid pane; the weighted percent floods in as liquid drawn
+   on one canvas (HeroPulse.tsx). The pane itself is just surface + hairline;
+   the canvas is the feature. */
 .progress-summary > div:first-child {
   position: relative;
   grid-column: 1 / -1;
@@ -1234,15 +986,15 @@ input:focus, select:focus, textarea:focus { outline: none; }
   overflow: hidden;
   isolation: isolate;
   color: var(--ink);
-  background: var(--glass-fill);
-  border: 1px solid var(--glass-rim);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--r-xl);
-  box-shadow: var(--glass-highlight), var(--shadow);
+  box-shadow: var(--shadow-sm);
 }
 
 /* The entire weighted-progress fill is drawn on one canvas (HeroPulse.tsx) so
-   the solid green and the dissolving dot-matrix are a single object with no
-   seam. This just parks the canvas over the glass pane and below the text.
+   the solid emerald and the dissolving dot-matrix are a single object with no
+   seam. This just parks the canvas over the pane and below the text.
    width/height 100% is required: a <canvas> is a replaced element, so inset:0
    alone leaves it at its intrinsic size instead of filling the pane. */
 .summary-hero__matrix {
@@ -1290,16 +1042,16 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 .progress-summary strong { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em; }
 
-/* Mini liquid tube */
+/* Mini progress bar — flat track, flat tone fill. The fill width still
+   animates on data change; the entrance sweep lives with the calendar. */
 .mini-bar {
   position: relative;
   display: block;
   width: 100%;
-  height: 9px;
+  height: 8px;
   margin-top: 2px;
-  border-radius: var(--r-pill);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.04)), color-mix(in srgb, var(--ink) 9%, transparent);
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.5), inset 0 -1px 2px rgba(20, 27, 45, 0.08), inset 0 0 0 1px var(--glass-rim);
+  border-radius: var(--r-xs);
+  background: var(--surface-3);
   overflow: hidden;
 }
 .mini-bar::after {
@@ -1307,11 +1059,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   display: block;
   height: 100%;
   width: clamp(0%, var(--pct, 0%), 100%);
-  border-radius: var(--r-pill);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.15) 45%, rgba(255, 255, 255, 0) 72%),
-    linear-gradient(90deg, color-mix(in srgb, var(--prog-color, var(--prog-done)) 65%, transparent) 0%, var(--prog-color, var(--prog-done)) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  border-radius: inherit;
+  background: var(--prog-color, var(--prog-done));
   transition: width var(--t-slow) var(--ease);
 }
 
@@ -1331,28 +1080,24 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table { display: grid; gap: 12px; width: 100%; }
 .task-table-header { display: none; }
 
-/* Card layout (narrow) */
+/* Card layout (narrow). Importance is encoded as a flat tint of the row's
+   surface — one solid colour, no gradient wash. */
 .task-table-row {
   --importance-color: var(--line-strong);
   position: relative;
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
-  padding: 15px 15px 15px 19px;
+  padding: 15px;
   overflow: visible;
-  background:
-    linear-gradient(100deg,
-      color-mix(in srgb, var(--importance-color) 14%, transparent),
-      color-mix(in srgb, var(--importance-color) 4%, transparent) 90px,
-      transparent 220px),
-    var(--surface);
+  background: color-mix(in srgb, var(--importance-color) 6%, var(--surface));
   border: 1px solid var(--line);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
   animation: fade-up var(--t-slow) var(--ease) both;
   transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease), border-color var(--t) var(--ease);
 }
-@media (hover: hover) { .task-table-row:hover { box-shadow: var(--shadow); border-color: var(--line-strong); } }
+@media (hover: hover) { .task-table-row:hover { box-shadow: var(--shadow-sm); border-color: var(--line-strong); } }
 
 .task-table-row.importance-1 { --importance-color: var(--imp-1); }
 .task-table-row.importance-2 { --importance-color: var(--imp-2); }
@@ -1380,14 +1125,13 @@ input:focus, select:focus, textarea:focus { outline: none; }
   color: var(--ink);
   background-color: var(--field-bg);
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 .tt-cell > textarea, .task-table-note-cell textarea { overflow: hidden; resize: vertical; }
 .tt-task .task-table-title { font-weight: 700; font-size: 1rem; }
 
-/* Importance shown as a self-contained colour chip (replaces the old left
-   spine, which poked past the table's rounded corner). Lives entirely inside
+/* Importance shown as a self-contained colour chip. Lives entirely inside
    the importance cell, so it can never overflow the table edge. */
 .tt-cell > .task-table-importance {
   width: auto;
@@ -1402,7 +1146,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   background-color: color-mix(in srgb, var(--importance-color) 16%, var(--field-bg));
   background-image: none;
   border: 1px solid color-mix(in srgb, var(--importance-color) 32%, var(--line-strong));
-  border-radius: var(--r-pill);
+  border-radius: var(--r-sm);
 }
 .task-table-importance.imp-2 { font-weight: 750; }
 .task-table-importance.imp-3,
@@ -1428,7 +1172,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   appearance: none;
   width: 100%; min-width: 0; min-height: 0; height: 8px;
   padding: 0; margin: 0; border: 0;
-  border-radius: var(--r-pill);
+  border-radius: var(--r-xs);
   background-color: var(--surface-3);
   background-image: linear-gradient(var(--prog-color), var(--prog-color));
   background-repeat: no-repeat;
@@ -1443,12 +1187,12 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border-radius: 50%;
   background: #fff;
   border: 3px solid var(--prog-color);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
   transition: transform var(--t-fast) var(--ease), border-color var(--t) var(--ease);
 }
 .progress-slider:active::-webkit-slider-thumb { transform: scale(1.25); }
-.progress-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--prog-color); box-shadow: var(--shadow-sm); }
-.progress-slider::-moz-range-track { height: 8px; border-radius: var(--r-pill); background: transparent; }
+.progress-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--prog-color); box-shadow: var(--shadow-xs); }
+.progress-slider::-moz-range-track { height: 8px; border-radius: var(--r-xs); background: transparent; }
 
 .task-table-note-cell {
   display: grid;
@@ -1471,7 +1215,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--r-lg);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-xs);
   }
   .task-table-header {
     display: grid;
@@ -1480,7 +1224,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
     color: var(--muted);
     background: var(--table-head-bg);
     border-bottom: 1px solid var(--line);
-    border-radius: var(--r-lg) var(--r-lg) 0 0;
+    /* Concentric with the table's 1px border. */
+    border-radius: calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0;
     font-size: 0.7rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
   }
   .task-table-header.with-date { grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
@@ -1492,35 +1237,34 @@ input:focus, select:focus, textarea:focus { outline: none; }
     grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
     gap: 0; min-height: 56px; padding: 0;
     overflow: visible;
-    background: linear-gradient(100deg, color-mix(in srgb, var(--importance-color) 11%, transparent), color-mix(in srgb, var(--importance-color) 3%, transparent) 80px, transparent 200px);
+    background: color-mix(in srgb, var(--importance-color) 4%, transparent);
     border: 0; border-bottom: 1px solid var(--line);
     border-radius: 0; box-shadow: none; animation: none;
+    transition: background var(--t) var(--ease);
   }
   @media (hover: hover) {
     .task-table-row:hover {
-      background:
-        linear-gradient(100deg, color-mix(in srgb, var(--importance-color) 14%, transparent), color-mix(in srgb, var(--importance-color) 4%, transparent) 80px, transparent 200px),
-        color-mix(in srgb, var(--primary) 3%, transparent);
+      background: color-mix(in srgb, var(--importance-color) 8%, transparent);
       box-shadow: none;
     }
   }
   .task-table-row.with-date { grid-template-columns: 78px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
-  .task-table-row:last-child { border-bottom: 0; border-bottom-left-radius: var(--r-lg); border-bottom-right-radius: var(--r-lg); }
+  .task-table-row:last-child { border-bottom: 0; border-bottom-left-radius: calc(var(--r-lg) - 1px); border-bottom-right-radius: calc(var(--r-lg) - 1px); }
   .tt-label { display: none; }
-  /* Importance chip stays a centred, contained pill in the table view. */
+  /* Importance chip stays a centred, contained chip in the table view. */
   .tt-importance { align-items: center; justify-content: center; padding: 0 9px; }
   .tt-importance > .task-table-importance {
     min-height: 30px; min-width: 38px; padding: 3px 8px !important;
     background-color: color-mix(in srgb, var(--importance-color) 16%, var(--surface));
     border: 1px solid color-mix(in srgb, var(--importance-color) 30%, transparent);
-    border-radius: var(--r-pill);
+    border-radius: var(--r-sm);
     transition: background-color var(--t) var(--ease), border-color var(--t) var(--ease);
   }
   /* Keep the chip's tint on focus instead of snapping to a plain white field. */
   .tt-importance > .task-table-importance:focus {
     background-color: color-mix(in srgb, var(--importance-color) 24%, var(--surface));
     border-color: color-mix(in srgb, var(--importance-color) 45%, transparent);
-    border-radius: var(--r-pill);
+    border-radius: var(--r-sm);
   }
   .tt-cell { display: flex; gap: 0; border-right: 1px solid var(--line); }
   .tt-notes { border-right: 0; }
@@ -1542,74 +1286,12 @@ input:focus, select:focus, textarea:focus { outline: none; }
   }
 }
 
-.composer-project-row { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; margin-top: 8px; }
-.composer-project-row input {
-  width: 100%; min-height: 44px; padding: 10px 12px;
-  color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm);
-  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
-}
-
-/* Task card (legacy card view) */
-.task-card {
-  display: grid; gap: 10px; padding: 16px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
-  box-shadow: var(--shadow); position: relative; overflow: hidden;
-  animation: fade-up var(--t-slow) var(--ease) both;
-  transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease);
-}
-.task-card::before { content: ""; position: absolute; top: 0; left: 0; bottom: 0; width: 4px; background: var(--primary); }
-.priority-low::before { background: var(--sage); }
-.priority-medium::before { background: var(--blue); }
-.priority-high::before { background: var(--rust); }
-.priority-urgent::before { background: var(--danger); }
-.task-card-top { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: start; }
-.task-meta { display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 4px; color: var(--muted); font-size: 0.84rem; font-weight: 500; }
-
-/* Status pills */
-.status-pill {
-  display: inline-flex; min-height: 30px; align-items: center;
-  padding: 5px 11px; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.01em;
-  border-radius: var(--r-pill); animation: pop-in var(--t) var(--ease-spring) both;
-}
-.status-inbox, .status-todo { color: var(--st-todo-fg); background: var(--st-todo-bg); }
-.status-doing { color: var(--st-doing-fg); background: var(--st-doing-bg); }
-.status-waiting { color: var(--st-waiting-fg); background: var(--st-waiting-bg); }
-.status-blocked { color: var(--st-blocked-fg); background: var(--st-blocked-bg); }
-.status-done { color: var(--st-done-fg); background: var(--st-done-bg); }
-.status-cancelled { color: var(--st-cancelled-fg); background: var(--st-cancelled-bg); }
-
-/* Quick status grid */
-.quick-status { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
-.quick-status button {
-  display: grid; min-width: 0; min-height: 52px; place-items: center; gap: 3px;
-  color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: var(--r-sm);
-  transition: background var(--t) var(--ease), color var(--t) var(--ease), border-color var(--t) var(--ease), transform 0.14s var(--ease);
-}
-.quick-status button svg { transition: transform var(--t) var(--ease-spring); }
-@media (hover: hover) { .quick-status button:hover { color: var(--ink); background: var(--wash); } }
-.quick-status button:active { transform: scale(0.95); }
-.quick-status button.active { color: var(--primary-dark); background: var(--chip-fill); border-color: var(--chip-rim); box-shadow: var(--chip-shadow); }
-.quick-status span { overflow: hidden; max-width: 100%; font-size: 0.68rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-
-/* Field labels */
+/* Field labels (import wizard) */
 .field-label { display: grid; gap: 5px; color: var(--muted); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.01em; }
 .field-label.full { grid-column: 1 / -1; }
-.field-label textarea, .task-notes textarea { resize: vertical; }
-.task-notes { border-radius: var(--r-sm); }
-.task-notes summary { min-height: 34px; display: inline-flex; align-items: center; color: var(--muted); font-weight: 700; cursor: pointer; user-select: none; transition: color var(--t) var(--ease); }
-.task-notes summary:hover { color: var(--ink); }
-.task-notes[open] summary { margin-bottom: 6px; color: var(--primary-dark); }
+.field-label textarea { resize: vertical; }
 
-/* Tags */
-.tag-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.tag-chip {
-  display: inline-flex; min-height: 30px; align-items: center; padding: 5px 11px;
-  color: var(--primary-dark); background: var(--primary-tint); border: 1px solid var(--primary-tint-strong);
-  border-radius: var(--r-pill); font-size: 0.78rem; font-weight: 650; animation: pop-in var(--t) var(--ease-spring) both;
-}
-.tag-input { display: grid; grid-template-columns: minmax(80px, 1fr) 58px; gap: 5px; min-width: 154px; }
-.tag-input input { min-height: 38px; }
-.task-actions, .export-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.export-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 
 /* =========================================================================
    Projects
@@ -1619,6 +1301,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 .project-create { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }
 
+/* The project chips are the app's second glass exception (see header): the
+   original liquid-glass material and motion, restored verbatim. Radii ride
+   the new scale — rest --r-md, swelling to --r-lg on the 0.42s spring. */
 .project-row {
   position: relative;
   display: grid;
@@ -1627,6 +1312,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   padding: 4px 6px 4px 4px;
   overflow: visible;
   background: var(--chip-fill);
+  -webkit-backdrop-filter: var(--chip-sampling);
+  backdrop-filter: var(--chip-sampling);
   border: 1.25px solid var(--chip-rim);
   border-radius: var(--r-md);
   box-shadow: var(--chip-shadow);
@@ -1643,20 +1330,21 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 .project-rename {
   width: 100%; min-width: 0; min-height: 40px; padding: 8px 10px;
-  color: var(--ink); background: var(--field-bg); border: 1px solid var(--primary); border-radius: var(--r-sm);
+  color: var(--ink); background: var(--field-bg); border: 1px solid var(--primary); border-radius: var(--r-md);
   box-shadow: 0 0 0 3px var(--ring);
 }
 .project-rename:focus { outline: none; }
 
 /* Completion meter lives inside the clickable project surface. It tints the
-   lower inside edge instead of sitting outside the button as a detached rule. */
+   lower inside edge instead of sitting outside the button as a detached rule;
+   its insets breathe with the chip's hover swell on the same spring. */
 .row-progress {
   position: absolute;
   right: 7px; bottom: 6px; left: 7px;
   height: 7px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--ink) 4%, transparent), color-mix(in srgb, var(--ink) 8%, transparent));
-  border-radius: var(--r-pill);
+  border-radius: 999px;
   overflow: hidden;
   pointer-events: none;
   box-shadow:
@@ -1716,6 +1404,8 @@ button.project-row {
   text-align: left;
   font-weight: 600;
   background: var(--chip-fill);
+  -webkit-backdrop-filter: var(--chip-sampling);
+  backdrop-filter: var(--chip-sampling);
   border: 1.25px solid var(--chip-rim);
   border-radius: var(--r-md);
   box-shadow: var(--chip-shadow);
@@ -1733,7 +1423,7 @@ button.project-row:active { transform: scale(0.99); }
 button.project-row > span { flex: 1; min-width: 0; }
 .project-row strong, button.project-row strong { font-weight: 800; color: var(--primary-dark); font-variant-numeric: tabular-nums; }
 .project-row span:not(.project-color), button.project-row span:not(.project-color) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.project-color { width: 11px; height: 11px; flex: none; border-radius: var(--r-pill); box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
+.project-color { width: 11px; height: 11px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
 
 .project-row.active { border-color: color-mix(in srgb, var(--primary) 55%, var(--chip-rim)); box-shadow: var(--chip-shadow), inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent); }
 button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%, var(--chip-rim)); box-shadow: var(--chip-shadow), inset 0 0 0 1px color-mix(in srgb, var(--primary) 30%, transparent); color: var(--primary-dark); }
@@ -1744,8 +1434,8 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cache-board { display: grid; gap: 10px; width: 100%; }
 .cache-project-add { margin: -2px 0 10px; }
 .cache-section {
-  border: 1px solid var(--line); border-radius: var(--r-md); background: var(--surface);
-  box-shadow: var(--shadow-sm); overflow: hidden; animation: fade-up var(--t-slow) var(--ease) both;
+  border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface);
+  box-shadow: var(--shadow-xs); overflow: hidden; animation: fade-up var(--t-slow) var(--ease) both;
 }
 .cache-section__head {
   display: flex; align-items: center; gap: 11px; padding: 15px 16px;
@@ -1760,7 +1450,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cache-section__body { display: grid; gap: 10px; padding: 2px 16px 16px; animation: fade-in var(--t) var(--ease) both; }
 .cache-count {
   flex: none; display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px;
-  color: var(--primary-dark); background: var(--primary-tint); border-radius: var(--r-pill); font-size: 0.76rem; font-weight: 750;
+  color: var(--primary-dark); background: var(--primary-tint); border-radius: var(--r-sm); font-size: 0.76rem; font-weight: 750;
 }
 .cache-section__remove { flex: none; width: 32px; min-width: 32px; height: 32px; color: var(--muted); background: transparent; border-color: transparent; box-shadow: none; opacity: 0.65; transition: opacity var(--t) var(--ease), color var(--t) var(--ease), background var(--t) var(--ease); }
 @media (hover: hover) { .cache-section__head:hover .cache-section__remove { opacity: 1; } .cache-section__remove:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); } }
@@ -1771,20 +1461,20 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cache-rename span { color: var(--muted); font-size: 0.78rem; font-weight: 750; }
 .cache-rename input {
   width: 100%; min-height: 42px; padding: 9px 12px;
-  color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-md);
 }
 .cache-rename input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
 .cache-add { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 8px; overflow: visible; }
 .cache-add input {
   width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px;
-  color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-md);
   transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 .cache-add input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
 .cache-items { display: grid; gap: 8px; }
 .cache-item {
   display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 8px; align-items: center;
-  padding: 11px 8px 11px 13px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm);
+  padding: 11px 8px 11px 13px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md);
   animation: scale-in var(--t) var(--ease) both;
   transition: border-color var(--t) var(--ease), background var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
@@ -1799,16 +1489,15 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .search-next-item strong { color: var(--ink); font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
 
 /* =========================================================================
-   Settings metrics
+   Settings metrics — informational stat cards; not interactive, so no hover
+   response. They sit on the page: hairline + contact shadow.
    ========================================================================= */
 .settings-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
 .metric {
   display: grid; gap: 6px; min-height: 80px; padding: 14px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-sm);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
   animation: fade-up var(--t-slow) var(--ease) both;
-  transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
-@media (hover: hover) { .metric:hover { transform: translateY(-2px); box-shadow: var(--shadow); } }
 .metric:nth-child(1) { animation-delay: 0.02s; } .metric:nth-child(2) { animation-delay: 0.05s; }
 .metric:nth-child(3) { animation-delay: 0.08s; } .metric:nth-child(4) { animation-delay: 0.11s; }
 .metric:nth-child(5) { animation-delay: 0.14s; } .metric:nth-child(6) { animation-delay: 0.17s; }
@@ -1836,23 +1525,24 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 /* Import mapping */
 .mapping-grid { display: grid; gap: 8px; max-height: 280px; padding-right: 4px; overflow: auto; }
 .import-detection { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; color: var(--muted); font-size: 0.78rem; font-weight: 650; }
-.import-detection span { padding: 5px 10px; background: var(--surface-3); border: 1px solid var(--line); border-radius: var(--r-pill); }
+.import-detection span { padding: 5px 10px; background: var(--surface-3); border: 1px solid var(--line); border-radius: var(--r-sm); }
 .mapping-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(132px, 0.8fr); gap: 8px; align-items: center; }
 .mapping-row span { overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.import-preview { padding: 12px; margin: 12px 0; background: var(--surface-3); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.import-preview { padding: 12px; margin: 12px 0; background: var(--surface-3); border: 1px solid var(--line); border-radius: var(--r-md); }
 .import-preview strong { font-weight: 750; }
 .import-preview p, .inline-message, .empty-state, .install-note p { margin: 6px 0 0; color: var(--muted); }
 .inline-message.error { color: var(--danger); font-weight: 600; }
 .empty-state {
   display: grid; place-items: center; padding: 38px 22px; margin: 4px 0; text-align: center;
-  color: var(--muted); font-weight: 500; background: var(--surface-2); border: 1px dashed var(--line-strong); border-radius: var(--r-md);
+  color: var(--muted); font-weight: 500; background: var(--surface-2); border: 1px dashed var(--line-strong); border-radius: var(--r-lg);
   animation: fade-in var(--t-slow) var(--ease) both;
 }
 .install-note { display: flex; align-items: flex-start; gap: 10px; color: var(--muted); }
 .install-note svg { flex: none; color: var(--primary); }
 
 /* =========================================================================
-   Login — PIN pad
+   Login — PIN pad. A solid floating card (it owns the whole screen, so the
+   large elevation stop is earned).
    ========================================================================= */
 @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-9px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(3px); } }
 
@@ -1863,21 +1553,21 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 }
 .pin-pad {
   display: grid; width: min(324px, 100%); gap: 26px; padding: 30px 26px 32px;
-  background: var(--glass-fill);
-  border: 1px solid var(--glass-rim);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--r-xl);
-  box-shadow: var(--glass-highlight), var(--shadow-lg);
+  box-shadow: var(--shadow-lg);
   animation: scale-in var(--t-slow) var(--ease-spring) both;
 }
 .pin-pad.shake { animation: shake 0.42s var(--ease); }
 .pin-brand { display: grid; justify-items: center; gap: 5px; text-align: center; }
 .pin-logo {
   display: grid; width: 58px; height: 58px; place-items: center; margin-bottom: 8px;
-  color: var(--ink);
-  background: var(--primary-fill);
-  border: 1px solid var(--primary-rim);
+  color: var(--primary-ink);
+  background: var(--primary);
+  border: 1px solid var(--primary-dark);
   border-radius: var(--r-lg);
-  box-shadow: var(--primary-shadow);
+  box-shadow: var(--shadow-sm);
   animation: pop-in var(--t-slow) var(--ease-spring) both;
 }
 .pin-brand h1 { margin: 0; font-size: 1.42rem; font-weight: 800; letter-spacing: -0.02em; }
@@ -1885,23 +1575,23 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .pin-pad.shake .pin-brand p { color: var(--danger); }
 .pin-dots { display: flex; justify-content: center; gap: 16px; min-height: 16px; }
 .pin-dots span { width: 14px; height: 14px; border: 1.5px solid var(--line-strong); border-radius: 50%; background: transparent; transition: transform var(--t) var(--ease-spring), background var(--t) var(--ease), border-color var(--t) var(--ease); }
-.pin-dots span.filled { background: var(--primary); border-color: var(--primary); animation: pop-in var(--t) var(--ease-spring); }
+.pin-dots span.filled { background: var(--primary); border-color: var(--primary); animation: pop-in var(--t) var(--ease-pop); }
 .pin-dots.error span { border-color: var(--danger); }
 .pin-dots.error span.filled { background: var(--danger); border-color: var(--danger); }
 
 .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
-/* Tier B — quiet glass keys */
+/* Solid keys: surface + hairline + contact shadow; press dips on a fast ease. */
 .keypad button {
   display: grid; place-items: center;
   width: 100%; min-height: 60px;
   color: var(--ink); font-size: 1.5rem; font-weight: 500;
-  background: var(--chip-fill);
-  border: 1.25px solid var(--chip-rim);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
-  box-shadow: var(--chip-shadow);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 0.12s var(--ease);
+  box-shadow: var(--shadow-xs);
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 0.12s var(--ease);
 }
-@media (hover: hover) { .keypad button:hover:not(:disabled) { background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); } }
+@media (hover: hover) { .keypad button:hover:not(:disabled) { background: var(--surface-3); border-color: var(--line-strong); box-shadow: var(--shadow-sm); } }
 .keypad button:active:not(:disabled) { transform: scale(0.94); }
 .keypad button.keypad-action { color: var(--muted); font-size: 1.15rem; background: transparent; border-color: transparent; box-shadow: none; }
 @media (hover: hover) { .keypad button.keypad-action:hover:not(:disabled) { background: var(--wash); box-shadow: none; } }
@@ -1919,7 +1609,9 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 }
 
 /* =========================================================================
-   Task / project actions popover (Tier A floating glass; flat rows inside)
+   Task / project actions popover — a floating solid layer (elevation earned)
+   with flat rows inside. Row corners are concentric with the panel:
+   12px outer − 8px padding = 4px rows.
    ========================================================================= */
 .task-table-row:has(.task-menu.is-open) { z-index: 70; }
 .project-row:has(.task-menu.is-open) { z-index: 70; }
@@ -1935,10 +1627,10 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
   min-width: 208px; padding: 8px;
   transform-origin: bottom right;
   color: var(--ink);
-  background: var(--menu-fill);
-  border: 1px solid var(--glass-rim-strong);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
   border-radius: var(--r-lg);
-  box-shadow: var(--menu-highlight), var(--shadow-lg);
+  box-shadow: var(--shadow-lg);
   animation: task-menu-morph 0.24s var(--ease-spring) both;
 }
 @keyframes task-menu-morph { from { opacity: 0; transform: translate(3px, 5px) scale(0.92); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
@@ -1947,7 +1639,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .task-action-menu button {
   display: flex; width: 100%; min-height: 38px; align-items: center; justify-content: flex-start; gap: 10px;
   padding: 9px 12px; color: var(--ink-soft); font-weight: 600; text-align: left; white-space: nowrap;
-  background: transparent; border: 0; border-radius: var(--r-sm); box-shadow: none; transform: none;
+  background: transparent; border: 0; border-radius: calc(var(--r-lg) - 8px); box-shadow: none; transform: none;
   transition: background 0.16s ease, color 0.16s ease;
   animation: task-menu-item 0.2s var(--ease) both;
 }
@@ -1965,11 +1657,11 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .task-action-menu button.danger { color: var(--danger); }
 .task-action-menu button.danger svg { color: var(--danger); }
 @media (hover: hover) { .task-action-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); } .task-action-menu button.danger:hover svg { color: var(--danger); } }
-.task-action-menu__sep { display: block; height: 1px; margin: 5px 8px; background: var(--glass-rim); }
+.task-action-menu__sep { display: block; height: 1px; margin: 5px 8px; background: var(--line); }
 .task-action-menu__prompt { display: block; padding: 6px 12px 4px; color: var(--muted); font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
 
 .project-row .task-menu { justify-self: center; }
-.project-row .task-menu-trigger { width: 36px; min-width: 36px; min-height: 36px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; border-radius: var(--r-pill); box-shadow: none; }
+.project-row .task-menu-trigger { width: 36px; min-width: 36px; min-height: 36px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; border-radius: var(--r-sm); box-shadow: none; }
 @media (hover: hover) { .project-row .task-menu-trigger:hover { color: var(--primary-dark); background: var(--wash); } }
 
 /* =========================================================================
@@ -1978,28 +1670,26 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .archived-panel { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
 .archived-toggle {
   display: flex; width: 100%; align-items: center; gap: 8px; min-height: 42px; padding: 9px 11px;
-  color: var(--ink-soft); font-weight: 600; text-align: left; background: transparent; border: 0; border-radius: var(--r-sm);
+  color: var(--ink-soft); font-weight: 600; text-align: left; background: transparent; border: 0; border-radius: var(--r-md);
   box-shadow: none; transition: background var(--t) var(--ease), color var(--t) var(--ease);
 }
 .archived-toggle > span:first-of-type { flex: 1; }
 .archived-toggle svg { color: var(--muted); }
 @media (hover: hover) { .archived-toggle:hover { background: var(--wash); color: var(--ink); } }
-.archived-toggle__count { min-width: 22px; padding: 1px 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; text-align: center; background: var(--surface-3); border-radius: var(--r-pill); }
+.archived-toggle__count { min-width: 22px; padding: 1px 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; text-align: center; background: var(--surface-3); border-radius: var(--r-xs); }
 .archived-toggle__chevron { transition: transform var(--t) var(--ease); }
 .archived-panel.is-open .archived-toggle__chevron { transform: rotate(180deg); }
 .archived-list { display: grid; gap: 6px; margin-top: 6px; animation: fade-up var(--t) var(--ease) both; }
 .archived-empty { margin: 4px 0; padding: 0 10px; color: var(--muted); font-size: 0.85rem; }
 .archived-row {
   display: grid; grid-template-columns: 13px minmax(0, 1fr) 40px; align-items: center; gap: 10px; padding: 9px 11px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--shadow-xs);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs);
 }
 .archived-row__name { overflow: hidden; color: var(--ink-soft); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .archived-row .icon-button { min-width: 36px; min-height: 36px; justify-self: center; }
 
 /* =========================================================================
-   ████  CALENDAR — fully redesigned  ████
-   A clean, aligned header bar with a unified segmented control, a proper
-   summary hero, and refined week / month / year views.
+   ████  CALENDAR  ████
    ========================================================================= */
 .calendar-header { flex-direction: column; align-items: stretch; gap: 16px; }
 @media (min-width: 820px) { .calendar-header { flex-direction: row; align-items: center; justify-content: space-between; } }
@@ -2008,39 +1698,50 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 
 .cal-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
-/* Unified segmented control — a quiet glass track; active segment is a quiet
-   glass chip. One consistent treatment for both View and Metric. (Tier B) */
+/* Segmented control — an inset solid track whose thumb is a real element
+   sliding on a damped spring (transform-only, so it stays compositor-smooth).
+   The thumb corner is concentric with the 2px track padding. Shared by
+   calendar view/metric, theme, hero-animation and language switches. */
 .cal-seg {
-  display: inline-flex;
-  gap: 3px;
-  padding: 4px;
-  background: var(--glass-fill-flat);
-  border: 1px solid var(--glass-rim);
-  border-radius: var(--r-pill);
-  box-shadow:
-    var(--glass-highlight-flat),
-    inset 0 2px 6px -2px rgba(20, 27, 45, 0.12),
-    0 1px 2px rgba(20, 27, 45, 0.05);
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  padding: 2px;
+  isolation: isolate;
+  background: var(--seg-track);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.cal-seg__thumb {
+  position: absolute;
+  top: 2px; bottom: 2px; left: 2px;
+  width: calc((100% - 4px) / var(--seg-count, 2));
+  background: var(--seg-thumb);
+  border: 1px solid var(--line-strong);
+  /* Concentric with the 2px-padded track. */
+  border-radius: calc(var(--r-md) - 2px);
+  box-shadow: var(--shadow-xs);
+  transform: translateX(calc(var(--seg-i, 0) * 100%));
+  transition: transform 0.38s var(--ease-spring);
 }
 .cal-seg button {
-  padding: 8px 16px;
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+  padding: 7px 14px;
   font-size: 0.82rem;
   font-weight: 700;
   color: var(--muted);
   background: transparent;
-  border: 1px solid transparent;
-  border-radius: var(--r-pill);
-  box-shadow: none;
-  transition: color var(--t) var(--ease), background var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 0.12s var(--ease);
+  border: 0;
+  border-radius: calc(var(--r-md) - 2px);
+  transition: color var(--t) var(--ease), background var(--t) var(--ease), transform 0.12s var(--ease);
+  white-space: nowrap;
 }
-@media (hover: hover) { .cal-seg button:hover:not(.active) { color: var(--ink); } }
+@media (hover: hover) { .cal-seg button:hover:not(.active) { color: var(--ink-soft); } }
 .cal-seg button:active { transform: scale(0.96); }
-.cal-seg button.active {
-  color: var(--primary-dark);
-  background: var(--chip-fill);
-  border-color: var(--chip-rim);
-  box-shadow: var(--chip-shadow);
-}
+.cal-seg button.active { color: var(--ink); }
 
 /* All calendar views share a centred max width */
 .cal-summary, .cal-week, .cal-month, .cal-year, .cal-insights { width: 100%; max-width: 1000px; margin-inline: auto; }
@@ -2061,10 +1762,10 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
   align-items: center;
   margin-bottom: 18px;
   padding: 20px 22px;
-  background: var(--glass-fill);
-  border: 1px solid var(--glass-rim);
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: var(--r-xl);
-  box-shadow: var(--glass-highlight), var(--shadow);
+  box-shadow: var(--shadow-sm);
 }
 .cal-summary__hero { display: grid; align-content: center; gap: 8px; }
 .cal-summary__label { color: var(--muted); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.01em; }
@@ -2080,10 +1781,9 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-summary__stats div {
   display: grid; gap: 3px; justify-items: center; align-content: center; text-align: center;
   padding: 12px 8px;
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  box-shadow: var(--shadow-xs);
 }
 .cal-summary__stats span { color: var(--muted); font-size: 0.7rem; font-weight: 650; }
 .cal-summary__stats strong { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
@@ -2093,12 +1793,12 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-week__card {
   display: grid; gap: 9px; align-content: start; justify-items: stretch;
   min-height: clamp(124px, 15vw, 172px); padding: clamp(11px, 1.4vw, 16px); text-align: left;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
   transition: transform var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease);
 }
-@media (hover: hover) { .cal-week__card:hover { transform: translateY(-2px); box-shadow: var(--shadow); border-color: var(--line-strong); } }
+@media (hover: hover) { .cal-week__card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); border-color: var(--line-strong); } }
 .cal-week__card:active { transform: scale(0.99); }
-.cal-week__card.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm); }
+.cal-week__card.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-xs); }
 .cal-week__card.is-future { opacity: 0.55; }
 @media (hover: hover) { .cal-week__card.is-future:hover { opacity: 1; } }
 .cal-week__weekday { color: var(--muted); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -2122,12 +1822,12 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-insights > *:nth-child(4) { animation-delay: 0.2s; }
 .cal-insights > *:nth-child(5) { animation-delay: 0.25s; }
 
-/* Liquid fills sweep in once the insight cards land. */
+/* Tone fills sweep in once the insight cards land. */
 @keyframes bar-sweep { from { width: 0; } }
 .cal-week .mini-bar::after, .cal-insights .mini-bar::after { animation: bar-sweep 0.55s var(--ease-out) 0.1s both; }
 
 .cal-insights__pulse { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.cal-stat strong.trend-up { color: var(--sage); }
+.cal-stat strong.trend-up { color: var(--primary); }
 .cal-stat strong.trend-down { color: var(--danger); }
 .cal-stat small { color: var(--muted); font-size: 0.7rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -2138,14 +1838,14 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-insights__duo { display: grid; gap: 12px; }
 @media (min-width: 720px) { .cal-insights__duo { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
 
-.cal-card { padding: 16px 18px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs); }
+.cal-card { padding: 16px 18px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs); }
 .cal-card__head { display: flex; align-items: center; gap: 7px; margin-bottom: 13px; }
 .cal-card__head svg { flex: none; color: var(--muted); }
 .cal-card__title { color: var(--muted); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.01em; }
 .cal-card__badge {
   margin-left: auto; padding: 2px 9px;
   color: var(--ink-soft); font-size: 0.72rem; font-weight: 750; font-variant-numeric: tabular-nums;
-  background: var(--surface-3); border-radius: var(--r-pill);
+  background: var(--surface-3); border-radius: var(--r-xs);
 }
 
 .cal-insights__empty { display: flex; align-items: center; gap: 10px; }
@@ -2165,7 +1865,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 /* Focus mix (importance split) */
 .cal-mix__bar {
   display: flex; gap: 2px; height: 14px; overflow: hidden;
-  background: var(--surface-3); border-radius: var(--r-pill);
+  background: var(--surface-3); border-radius: var(--r-xs);
   transform-origin: left; animation: grow-x 0.5s var(--ease-out) 0.12s both;
 }
 @keyframes grow-x { from { transform: scaleX(0); } }
@@ -2182,17 +1882,18 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-mix__count { color: var(--muted); font-size: 0.74rem; font-weight: 650; font-variant-numeric: tabular-nums; }
 .cal-mix__value { justify-self: end; font-size: 0.8rem; font-weight: 800; font-variant-numeric: tabular-nums; }
 
-/* Worklog digests (weekly output / blockers) */
+/* Worklog digests (weekly output / blockers). The blocker card carries its
+   state as a flat danger-tinted surface — one solid colour, no wash. */
 .cal-log-card.is-blocker {
-  background: linear-gradient(100deg, color-mix(in srgb, var(--danger) 7%, transparent), transparent 180px), var(--surface);
+  background: color-mix(in srgb, var(--danger) 4%, var(--surface));
   border-color: color-mix(in srgb, var(--danger) 22%, var(--line));
 }
-.cal-log-card.is-output .cal-card__head svg { color: var(--sage); }
+.cal-log-card.is-output .cal-card__head svg { color: var(--primary); }
 .cal-log-card.is-blocker .cal-card__head svg { color: var(--danger); }
 .cal-log { display: grid; gap: 8px; }
 .cal-log__row {
   display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; text-align: left;
-  background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-sm); box-shadow: none;
+  background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-md); box-shadow: none;
   animation: fade-up var(--t-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * 0.03s);
   transition: background var(--t) var(--ease), border-color var(--t) var(--ease), transform var(--t) var(--ease);
 }
@@ -2202,7 +1903,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-log__chip {
   flex: none; min-width: 56px; margin-top: 1px; padding: 3px 8px; text-align: center;
   font-size: 0.7rem; font-weight: 750; font-variant-numeric: tabular-nums;
-  background: var(--st-done-bg); color: var(--st-done-fg); border-radius: var(--r-pill);
+  background: var(--st-done-bg); color: var(--st-done-fg); border-radius: var(--r-xs);
 }
 .cal-log-card.is-blocker .cal-log__chip { background: var(--st-blocked-bg); color: var(--st-blocked-fg); }
 .cal-log__chip.is-today { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent); }
@@ -2213,7 +1914,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-log__more {
   display: inline-flex; align-items: center; gap: 5px; justify-self: center; margin-top: 2px; padding: 7px 14px;
   color: var(--muted); font-size: 0.78rem; font-weight: 700;
-  background: transparent; border: 0; border-radius: var(--r-pill);
+  background: transparent; border: 0; border-radius: var(--r-sm);
   transition: color var(--t) var(--ease), background var(--t) var(--ease);
 }
 @media (hover: hover) { .cal-log__more:hover { color: var(--ink); background: var(--surface-3); } }
@@ -2234,9 +1935,9 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-month__head, .cal-month__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(5px, 0.7vw, 8px); }
 .cal-month__head span { padding: 2px 0; color: var(--muted); font-size: 0.66rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.05em; }
 .cal-cell {
-  position: relative; display: block; min-height: clamp(52px, 6.5vw, 78px); padding: 7px 8px; text-align: left; border-radius: var(--r-sm);
+  position: relative; display: block; min-height: clamp(52px, 6.5vw, 78px); padding: 7px 8px; text-align: left; border-radius: var(--r-md);
 }
-@media (hover: hover) { .cal-cell:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); z-index: 1; } }
+@media (hover: hover) { .cal-cell:hover { transform: translateY(-2px); box-shadow: var(--shadow-xs); z-index: 1; } }
 .cal-cell.is-outside { opacity: 0.4; }
 .cal-cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
 .cal-cell__num { font-size: 0.84rem; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -2247,28 +1948,28 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-year__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .cal-stat {
   position: relative; display: grid; gap: 3px; justify-items: start; padding: 14px 16px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
 }
 .cal-stat span { color: var(--muted); font-size: 0.72rem; font-weight: 650; }
 .cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .cal-stat svg { color: var(--muted); }
 .cal-stat svg.is-flame { color: var(--warning); }
-.cal-stat svg.trend-up { color: var(--sage); }
+.cal-stat svg.trend-up { color: var(--primary); }
 .cal-stat svg.trend-down { color: var(--danger); }
 
 .cal-heatmap {
   display: flex; gap: clamp(3px, 0.4vw, 5px); justify-content: center; overflow-x: auto; padding: 14px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
 }
 .cal-heatmap__col { display: grid; grid-auto-rows: clamp(13px, 1.6vw, 18px); gap: clamp(3px, 0.4vw, 5px); }
-.cal-heatmap__cell { width: clamp(13px, 1.6vw, 18px); height: clamp(13px, 1.6vw, 18px); border-radius: 4px; padding: 0; }
-@media (hover: hover) { .cal-heatmap__cell:hover { transform: scale(1.35); box-shadow: var(--shadow-sm); z-index: 1; } }
+.cal-heatmap__cell { width: clamp(13px, 1.6vw, 18px); height: clamp(13px, 1.6vw, 18px); border-radius: var(--r-xs); padding: 0; }
+@media (hover: hover) { .cal-heatmap__cell:hover { transform: scale(1.35); box-shadow: var(--shadow-xs); z-index: 1; } }
 .cal-heatmap__cell.is-outside { visibility: hidden; }
 .cal-heatmap__cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
 
 .cal-year__months {
   padding: 18px 18px 16px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: var(--shadow-xs);
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
 }
 .cal-year__caption { display: block; margin-bottom: 12px; color: var(--muted); font-size: 0.74rem; font-weight: 700; }
 
@@ -2280,8 +1981,8 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 .cal-series__track { position: relative; display: block; width: 100%; height: clamp(76px, 12vh, 132px); border-radius: var(--r-xs); background: var(--surface-3); overflow: hidden; }
 .cal-series__fill {
   position: absolute; inset: auto 0 0 0; height: clamp(3%, var(--pct, 0%), 100%);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--prog-color) 78%, transparent), var(--prog-color));
-  border-radius: var(--r-xs) var(--r-xs) 0 0; box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+  background: var(--prog-color, var(--prog-done));
+  border-radius: var(--r-xs) var(--r-xs) 0 0;
 }
 @media (hover: hover) { .cal-series__col[type="button"]:hover .cal-series__track { box-shadow: inset 0 0 0 1px var(--primary); } }
 .cal-series__col.active .cal-series__track { box-shadow: inset 0 0 0 2px var(--primary); }
@@ -2293,7 +1994,6 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 @media (min-width: 720px) {
   .project-page { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; }
   .project-page .page-header { grid-column: 1 / -1; }
-  .project-page .task-composer,
   .project-page .task-list,
   .project-page .task-table-wrap,
   .project-page .progress-summary { grid-column: 2; }
@@ -2310,15 +2010,13 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
     top: 0; right: auto; width: 96px; height: 100vh;
     grid-template-columns: 1fr; grid-auto-rows: 76px; align-content: start; gap: 6px;
     padding: calc(20px + env(safe-area-inset-top)) 11px 20px;
-    border-top: 0; border-right: 1px solid var(--glass-rim);
-    box-shadow: var(--glass-highlight), 8px 0 24px -12px rgba(20, 27, 45, 0.18);
+    border-top: 0; border-right: 1px solid var(--line);
   }
   .bottom-nav button { min-height: 68px; }
   .bottom-nav span { font-size: 0.72rem; }
 
-  .task-composer, .search-filters, .settings-section, .mapping-panel { padding: 18px; }
+  .search-filters, .settings-section, .mapping-panel { padding: 18px; }
   .task-list { grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); align-items: start; }
-  .task-card { align-content: start; }
 
   .project-page { grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
   .project-page .project-list {
@@ -2334,11 +2032,7 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
 
 @media (max-width: 430px) {
   .page-content { padding-right: 11px; padding-left: 11px; }
-  .composer-row, .task-controls, .filter-grid { grid-template-columns: 1fr; }
-  .composer-row, .composer-row:not(:has(input[type="date"])) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .composer-row input[type="date"] { grid-column: 1 / -1; }
-  .composer-row button { grid-column: 1 / -1; }
-  .quick-status { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .task-controls, .filter-grid { grid-template-columns: 1fr; }
   .progress-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
   .progress-summary div { min-height: 60px; padding: 11px 13px; }
   .progress-summary strong { font-size: 1.05rem; }
@@ -2362,13 +2056,12 @@ button.project-row.active { border-color: color-mix(in srgb, var(--primary) 55%,
    Light/dark is a whole-page token swap, so theme.ts wraps it in
    document.startViewTransition(): the old frame is captured once and
    dissolved into the new one as a compositor-only opacity animation — the
-   high-frame-rate path, vs. transitioning every element's colours per frame
-   (which also can't interpolate the gradient tokens at all).
+   high-frame-rate path, vs. transitioning every element's colours per frame.
    ========================================================================= */
 /* While the fade runs, per-element transitions are frozen so the live page
    under the snapshot jumps straight to its final state; the dissolve is the
-   only motion on screen. Animations (specular drift, hero pulse) keep running
-   so they don't visibly reset. */
+   only motion on screen. Animations (hero pulse) keep running so they don't
+   visibly reset. */
 :root.theme-switching *,
 :root.theme-switching *::before,
 :root.theme-switching *::after {

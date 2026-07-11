@@ -36,8 +36,10 @@ export function ExportButton({ r2Enabled, onExported }: ExportButtonProps) {
     }
   }
 
+  // Fragment children of the Settings page's shared .export-actions row, so
+  // the export buttons sit beside the import picker with the standard gap.
   return (
-    <div className="export-actions">
+    <>
       <button type="button" className="primary-button" disabled={busy} onClick={() => exportExcel(false)}>
         <Download size={17} aria-hidden="true" />
         <span>{busy ? m.exporter.working : m.exporter.export}</span>
@@ -49,6 +51,6 @@ export function ExportButton({ r2Enabled, onExported }: ExportButtonProps) {
         </button>
       ) : null}
       {message ? <p className="inline-message">{message}</p> : null}
-    </div>
+    </>
   );
 }

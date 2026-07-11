@@ -74,11 +74,12 @@
   --prog-done: #16a34a;
 
   /* Importance scale — a single blue hue, deep (1) to airy (4). One hue keeps
-     the rail reading as "depth" rather than four unrelated colours. */
-  --imp-1: #1d4ed8;
-  --imp-2: #3b82f6;
+     the rail reading as "depth" rather than four unrelated colours; the stops
+     sit ~18 L* apart so adjacent levels are tellable at a glance. */
+  --imp-1: #1e3a8a;
+  --imp-2: #2563eb;
   --imp-3: #60a5fa;
-  --imp-4: #93c5fd;
+  --imp-4: #b7d6fd;
 
   /* Focus ring */
   --ring: rgba(16, 185, 129, 0.25);
@@ -108,6 +109,8 @@
   /* Micro overshoot for small pops — the curve provides the bounce, so the
      motion stays continuous (no keyframed mid-flight jumps). */
   --ease-pop: cubic-bezier(0.3, 1.42, 0.52, 1);
+  /* Split-flap digit wheel: fast tip-over, damped settle. */
+  --ease-drum: cubic-bezier(0.3, 1.36, 0.44, 1);
   /* Signature liquid swell — overshoots then settles. Glass buttons only. */
   --spring: cubic-bezier(0.175, 0.885, 0.32, 2.2);
 
@@ -153,16 +156,20 @@
     linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6)),
     var(--chip-iris);
   --chip-rim: rgba(20, 27, 45, 0.12);
+  /* Chip elevation rides the app's four-stop scale (rest = sm, hover = the
+     default stop) — the glass keeps its inset material, but its cast shadow
+     is height like everyone else's: small blur, small offset, low alpha,
+     never larger than the chip itself. */
   --chip-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
     inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
-    0 1px 2px rgba(20, 27, 45, 0.06),
-    0 10px 24px -10px rgba(20, 27, 45, 0.24);
+    0 1px 2px rgba(20, 27, 45, 0.05),
+    0 2px 6px -2px rgba(20, 27, 45, 0.07);
   --chip-hover-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
     inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
-    0 2px 4px rgba(20, 27, 45, 0.07),
-    0 16px 30px -10px rgba(20, 27, 45, 0.28);
+    0 1px 2px rgba(20, 27, 45, 0.05),
+    0 6px 14px -6px rgba(20, 27, 45, 0.12);
 
   /* Chip accent — the project chips keep their original v2 indigo identity
      (colour dots, % figures, active ring) beside the app's emerald. Part of
@@ -224,10 +231,10 @@
     --prog-high: #4ade80;
     --prog-done: #22c55e;
 
-    --imp-1: #4f8bf5;
-    --imp-2: #6fb0ff;
-    --imp-3: #93c5fd;
-    --imp-4: #bcd8fb;
+    --imp-1: #3b7bf3;
+    --imp-2: #6fa6f8;
+    --imp-3: #a5c8fb;
+    --imp-4: #d6e5fd;
 
     --ring: rgba(52, 211, 153, 0.32);
 
@@ -262,13 +269,13 @@
     --chip-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.05),
       inset 0 -1px 1px rgba(0, 0, 0, 0.3),
-      0 1px 2px rgba(0, 0, 0, 0.4),
-      0 8px 18px -10px rgba(0, 0, 0, 0.6);
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      0 2px 6px -2px rgba(0, 0, 0, 0.5);
     --chip-hover-shadow:
       inset 0 0 0 1px rgba(255, 255, 255, 0.07),
       inset 0 -1px 1px rgba(0, 0, 0, 0.3),
-      0 2px 4px rgba(0, 0, 0, 0.45),
-      0 14px 26px -10px rgba(0, 0, 0, 0.66);
+      0 1px 2px rgba(0, 0, 0, 0.5),
+      0 6px 14px -6px rgba(0, 0, 0, 0.55);
 
     --chip-accent: #818cf8;
     --chip-accent-dark: #aab2fc;
@@ -320,10 +327,10 @@
   --prog-high: #4ade80;
   --prog-done: #22c55e;
 
-  --imp-1: #5b6bf0;
-  --imp-2: #6fb0ff;
-  --imp-3: #93c5fd;
-  --imp-4: #c7ddfb;
+  --imp-1: #3b7bf3;
+  --imp-2: #6fa6f8;
+  --imp-3: #a5c8fb;
+  --imp-4: #d6e5fd;
 
   --ring: rgba(52, 211, 153, 0.32);
 
@@ -358,13 +365,13 @@
   --chip-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.05),
     inset 0 -1px 1px rgba(0, 0, 0, 0.3),
-    0 1px 2px rgba(0, 0, 0, 0.4),
-    0 8px 18px -10px rgba(0, 0, 0, 0.6);
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 2px 6px -2px rgba(0, 0, 0, 0.5);
   --chip-hover-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.07),
     inset 0 -1px 1px rgba(0, 0, 0, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.45),
-    0 14px 26px -10px rgba(0, 0, 0, 0.66);
+    0 1px 2px rgba(0, 0, 0, 0.5),
+    0 6px 14px -6px rgba(0, 0, 0, 0.55);
 
   --chip-accent: #818cf8;
   --chip-accent-dark: #aab2fc;
@@ -444,16 +451,11 @@ button.project-row:focus-visible {
 
 .icon-button:focus-visible,
 .bottom-nav button:focus-visible,
-.date-nav__group button:focus-visible,
+.today-title-button:focus-visible,
 .cal-seg button:focus-visible,
 .archived-toggle:focus-visible,
 .cache-section__head:focus-visible,
 .task-action-menu button:focus-visible { background: var(--wash-strong); }
-
-.date-nav__home:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
 
 select {
   appearance: none;
@@ -487,10 +489,13 @@ select {
 .first-reveal .login-screen { animation: ink-reveal 0.7s var(--ease); transform: translateZ(0); }
 .first-reveal .offline-banner,
 .first-reveal .bottom-nav { animation: fade-in 0.8s var(--ease) both; }
-.reveal-complete .page-content,
 .reveal-complete .login-screen,
 .reveal-complete .offline-banner,
 .reveal-complete .bottom-nav { animation: none; }
+/* After the first reveal, each tab switch remounts its page — a short soft
+   rise keeps the swap from feeling like a hard cut. */
+.reveal-complete .page-content { animation: page-in 0.26s var(--ease-out); }
+@keyframes page-in { from { opacity: 0; transform: translateY(5px); } }
 
 /* Collapse-and-fade for items being removed (delete / archive / unarchive),
    driven by useRemoveTransition. JS locks the element's height then drops it to
@@ -501,6 +506,10 @@ select {
   pointer-events: none;
   opacity: 0;
   transform: scale(0.98);
+  /* Rows in the wide table mode carry min-height: 56px — left in place it
+     clamps the height transition at 56px and the "collapse" becomes a hard
+     pop when the row unmounts. */
+  min-height: 0 !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
   margin-top: 0 !important;
@@ -508,13 +517,15 @@ select {
   border-top-width: 0 !important;
   border-bottom-width: 0 !important;
   animation: none !important;
+  /* Content fades ahead of the box: by mid-collapse the row is an empty
+     sliver, so neighbours appear to glide over a gap, not crush a card. */
   transition:
-    height var(--t-slow) var(--ease),
-    opacity var(--t-slow) var(--ease),
-    transform var(--t-slow) var(--ease),
-    padding var(--t-slow) var(--ease),
-    margin var(--t-slow) var(--ease),
-    border-width var(--t-slow) var(--ease) !important;
+    height 0.38s var(--ease-out),
+    opacity 0.22s var(--ease),
+    transform 0.38s var(--ease-out),
+    padding 0.38s var(--ease-out),
+    margin 0.38s var(--ease-out),
+    border-width 0.38s var(--ease-out) !important;
 }
 
 /* =========================================================================
@@ -566,123 +577,71 @@ select {
 .today-page-header { align-items: center; }
 
 /* =========================================================================
-   Date navigator — the page-head cluster on Today and Calendar: the page
-   title (which on Today names the day being viewed and rolls with it), a
-   solid segmented capsule of ‹ date ›, and a tinted "return" chip that
-   springs in whenever the view leaves today / the current period.
+   Date switcher — the page-head cluster on Today and Calendar: ‹ › arrows
+   flanking a stacked two-line block (the day name over the concrete date)
+   that is itself the way home. Flat — a hover wash and a press dip, no
+   glass chip. Both lines roll along the travel direction on change; the
+   title line sits on a hidden sizer of every label it can show and the sub
+   line width-morphs, so the arrows never shift when text lengths differ.
    ========================================================================= */
-.page-head-nav {
+.today-date-switcher {
   display: flex;
   min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px 18px;
-}
-.page-head-nav h1 { min-width: 0; }
-
-.date-nav {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  gap: 10px;
-}
-
-.date-nav__group {
-  display: flex;
-  align-items: stretch;
-  height: 42px;
-  overflow: hidden;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-xs);
-}
-
-.date-nav__group button {
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  transition: background var(--t) var(--ease), color var(--t) var(--ease);
-}
-/* The label keeps its hairline dividers against the border-reset above. */
-.date-nav__group button.date-nav__label {
-  border-left: 1px solid var(--line);
-  border-right: 1px solid var(--line);
-}
-
-.date-nav__arrow {
-  display: grid;
-  place-items: center;
-  width: 40px;
-  color: var(--muted);
-}
-.date-nav__arrow svg { transition: transform 0.34s var(--ease-pop); }
-@media (hover: hover) {
-  .date-nav__arrow:hover { background: var(--wash); color: var(--ink); }
-  .date-nav__arrow:first-child:hover svg { transform: translateX(-1.5px); }
-  .date-nav__arrow:last-child:hover svg { transform: translateX(1.5px); }
-}
-/* Press: the chevron kicks further along its direction — feedback lives in
-   the icon so the capsule itself never jumps. */
-.date-nav__arrow:first-child:active svg { transform: translateX(-4px); transition-duration: 0.1s; }
-.date-nav__arrow:last-child:active svg { transform: translateX(4px); transition-duration: 0.1s; }
-
-.date-nav__label {
-  display: grid;
-  place-items: center;
-  min-width: 138px;
-  padding: 0 14px;
-  color: var(--ink);
-  font-size: 0.9rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-@media (hover: hover) { .date-nav__label:hover { background: var(--wash); } }
-.date-nav__label:active .roll-text { transform: scale(0.96); }
-.date-nav__label .roll-text { transition: transform 0.14s var(--ease); }
-/* Viewing home already: the label is quietly authoritative, not a control. */
-.date-nav__label[aria-current] { color: var(--ink); }
-
-/* Return chip — appears only while away from home, springing in from the
-   capsule's edge and folding back out when the view returns. */
-.date-nav__home {
-  display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
-  padding: 0 13px;
-  color: var(--primary-dark);
-  font-size: 0.82rem;
+}
+.date-nav-button { flex: none; }
+/* The chevron kicks along its travel direction on hover/press — feedback
+   lives in the icon, so the row itself holds still. */
+.date-nav-button svg { transition: transform 0.34s var(--ease-pop); }
+@media (hover: hover) {
+  .today-date-switcher .date-nav-button:first-child:hover svg { transform: translateX(-1.5px); }
+  .today-date-switcher .date-nav-button:last-child:hover svg { transform: translateX(1.5px); }
+}
+.today-date-switcher .date-nav-button:first-child:active svg { transform: translateX(-4px); transition-duration: 0.1s; }
+.today-date-switcher .date-nav-button:last-child:active svg { transform: translateX(4px); transition-duration: 0.1s; }
+
+.today-title-button {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+  justify-items: start;
+  padding: 7px 12px;
+  color: var(--ink);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-md);
+  box-shadow: none;
+  transition: background var(--t) var(--ease), transform 0.14s var(--ease);
+}
+@media (hover: hover) { .today-title-button:hover { background: var(--wash); } }
+.today-title-button:active { transform: scale(0.97); }
+
+.dt-title { display: grid; justify-items: start; }
+.dt-title > * { grid-area: 1 / 1; }
+/* Invisible stack of every title the line can show ("Today" + weekdays),
+   reserving the widest one's width so the block never reflows the arrows. */
+.dt-sizer { display: grid; visibility: hidden; pointer-events: none; }
+.dt-sizer > span { grid-area: 1 / 1; white-space: nowrap; }
+
+.dt-sub {
+  color: var(--muted);
+  font-size: 0.78rem;
   font-weight: 700;
   white-space: nowrap;
-  background: var(--primary-tint);
-  border: 1px solid var(--primary-tint-strong);
-  border-radius: 999px;
-  box-shadow: var(--shadow-xs);
-  transform-origin: left center;
-  animation: home-pill-in 0.42s var(--ease-spring) both;
-  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), transform 0.14s var(--ease);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--t) var(--ease);
 }
-.date-nav__home svg { flex: none; }
-@media (hover: hover) {
-  .date-nav__home:hover { background: var(--primary-tint-strong); border-color: color-mix(in srgb, var(--primary) 32%, var(--primary-tint-strong)); }
-}
-.date-nav__home:active { transform: scale(0.94); }
-.date-nav__home.is-leaving { animation: home-pill-out 0.22s var(--ease) both; pointer-events: none; }
-
-@keyframes home-pill-in {
-  0% { opacity: 0; transform: translateX(-8px) scale(0.85); }
-  100% { opacity: 1; transform: none; }
-}
-@keyframes home-pill-out {
-  to { opacity: 0; transform: translateX(-6px) scale(0.9); }
-}
+/* At home the date line quietly confirms it in the accent (2.1.29's cue);
+   away, the block is plain and the tooltip names the way back. */
+.today-title-button.active .dt-sub { color: var(--primary-dark); }
 
 /* Directionally rolling label (used by the capsule and the Today h1): the
    outgoing text slides along the travel direction while the incoming text
-   arrives from the other side. Transform/opacity only.  */
+   arrives from the other side, and the container's width tweens between the
+   two measured text widths (set inline by RollText) on the same clock.
+   Transform/opacity/width-of-one-small-span only. */
 .roll-text {
   position: relative;
   display: inline-grid;
@@ -690,9 +649,13 @@ select {
   /* Breathing room so ascenders/descenders survive the overflow clip. */
   padding: 0.08em 0.06em;
   margin: -0.08em -0.06em;
+  transition: width 0.32s var(--ease-out);
 }
 .roll-text > span {
   grid-area: 1 / 1;
+  /* Content-sized even when a wider ghost stretches the column, so the
+     width morph can measure the incoming text on its own. */
+  justify-self: start;
   white-space: nowrap;
   min-width: 0;
 }
@@ -706,6 +669,69 @@ select {
 @keyframes roll-out-fwd { to { opacity: 0; transform: translateX(-0.9em); } }
 @keyframes roll-in-back { from { opacity: 0; transform: translateX(-0.9em); } }
 @keyframes roll-out-back { to { opacity: 0; transform: translateX(0.9em); } }
+
+/* ---- Split-flap digits (RollDigits: the calendar hero %) ----
+   Each character sits on its own drum column; only columns whose character
+   changed roll over, rippling outward from the units digit. The old and new
+   characters ride one rigid wheel — same duration, same easing, a constant
+   ~84° apart — so a step reads as a single wheel-click that settles with the
+   easing's damped overshoot. The numbers model a cylinder of radius 0.62em:
+   y = r·sin84°, scale ≈ depth recession. Opacity windows overlap so the cell
+   never reads blank mid-roll. Transform/opacity only — compositor-driven, so
+   the wheel holds full frame rate at any type size. Appearing / vanishing
+   columns tween their track between 0fr and 1fr (a transition, so an
+   interrupted grow/collapse retargets mid-flight; @starting-style routes
+   freshly inserted columns through the same tween) and the width morphs
+   instead of jumping. */
+.roll { display: inline-block; font-variant-numeric: tabular-nums; }
+.roll-inner { display: inline-flex; }
+.roll-slot {
+  display: inline-grid;
+  grid-template-columns: 1fr;
+  transition: grid-template-columns 0.5s var(--ease-out) calc(var(--ri) * 0.03s);
+}
+.roll-slot.is-collapse { grid-template-columns: 0fr; }
+@starting-style {
+  .roll-slot.is-grow { grid-template-columns: 0fr; }
+}
+.roll-pane {
+  display: grid;
+  min-width: 0;
+  /* Clip sideways while a column melts away; stay open vertically so the
+     drum can poke above/below the line box mid-roll. */
+  overflow: clip visible;
+  /* Em-based so the wheel's depth reads the same at every type size. */
+  perspective: 5.5em;
+}
+.roll-char { grid-area: 1 / 1; white-space: pre; backface-visibility: hidden; }
+.roll-char-in,
+.roll-char-out { animation: roll-char-in-up 0.56s var(--ease-drum) both; animation-delay: calc(var(--ri) * 0.03s); }
+.roll-char-out { animation-name: roll-char-out-up; pointer-events: none; }
+.roll-char-in.is-down { animation-name: roll-char-in-down; }
+.roll-char-out.is-down { animation-name: roll-char-out-down; }
+
+@keyframes roll-char-out-up {
+  0% { opacity: 1; transform: none; }
+  55% { opacity: 0.92; }
+  84% { opacity: 0; }
+  100% { opacity: 0; transform: translateY(-0.62em) rotateX(84deg) scale(0.9); }
+}
+@keyframes roll-char-in-up {
+  0% { opacity: 0; transform: translateY(0.62em) rotateX(-84deg) scale(0.9); }
+  34% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes roll-char-out-down {
+  0% { opacity: 1; transform: none; }
+  55% { opacity: 0.92; }
+  84% { opacity: 0; }
+  100% { opacity: 0; transform: translateY(0.62em) rotateX(-84deg) scale(0.9); }
+}
+@keyframes roll-char-in-down {
+  0% { opacity: 0; transform: translateY(-0.62em) rotateX(84deg) scale(0.9); }
+  34% { opacity: 1; }
+  100% { opacity: 1; transform: none; }
+}
 
 /* =========================================================================
    Navigation — a solid fixed bar; the hairline does the separating. Items
@@ -742,10 +768,12 @@ select {
 }
 .bottom-nav button:active { transform: scale(0.94); }
 
+/* Selected nav: the accent lives in the icon/label only; the pill is a
+   quiet neutral wash with no outline. One cue, not three — tint + tinted
+   border + tinted text stacked into a glowing sticker. */
 .bottom-nav button.active {
   color: var(--primary-dark);
-  background: var(--primary-tint);
-  border-color: var(--primary-tint-strong);
+  background: var(--wash);
 }
 .bottom-nav button.active svg { transform: translateY(-1px) scale(1.04); }
 
@@ -1219,7 +1247,12 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 .table-more { margin: 10px 2px 0; color: var(--muted); font-size: 0.82rem; font-weight: 600; text-align: center; }
 .task-table-sentinel { width: 100%; height: 1px; pointer-events: none; }
-.task-table { display: grid; gap: 12px; width: 100%; }
+/* Rows are spaced by their own margin, not the grid's gap: a collapsing row
+   (useRemoveTransition) can transition its margin to 0 along with its height,
+   so it exits owning zero space — a gap would stay 12px tall until the row
+   unmounted and then snap shut. */
+.task-table { display: grid; gap: 0; width: 100%; }
+.task-table > .task-table-row { margin-bottom: 12px; }
 .task-table-header { display: none; }
 
 /* Card layout (narrow). Importance is encoded as a flat tint of the row's
@@ -1240,6 +1273,10 @@ input:focus, select:focus, textarea:focus { outline: none; }
   transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease), border-color var(--t) var(--ease);
 }
 @media (hover: hover) { .task-table-row:hover { box-shadow: var(--shadow-sm); border-color: var(--line-strong); } }
+
+/* A freshly added row arrives from the Add-task button above it. */
+.task-table-row.is-new { animation: row-in 0.42s var(--ease-out) both; }
+@keyframes row-in { from { opacity: 0; transform: translateY(-8px) scale(0.99); } }
 
 .task-table-row.importance-1 { --importance-color: var(--imp-1); }
 .task-table-row.importance-2 { --importance-color: var(--imp-2); }
@@ -1286,7 +1323,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
   font-weight: 800;
   text-align: center;
   text-align-last: center;
-  color: var(--importance-color);
+  /* Lean the digit on the ink so the airy end of the scale (4) stays legible
+     on its pale chip; the tint/border still carry the pure ramp. */
+  color: color-mix(in srgb, var(--importance-color) 78%, var(--ink));
   background-color: color-mix(in srgb, var(--importance-color) 16%, var(--field-bg));
   background-image: none;
   border: 1px solid color-mix(in srgb, var(--importance-color) 32%, var(--line-strong));
@@ -1379,6 +1418,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .task-table-header span { min-height: 38px; min-width: 0; padding: 12px 9px; border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .task-table-header span:last-child { border-right: 0; }
 
+  .task-table > .task-table-row { margin-bottom: 0; }
   .task-table-row {
     display: grid;
     grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
@@ -1452,12 +1492,42 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 .export-actions:last-child { margin-bottom: 0; }
 .export-actions .inline-message { flex-basis: 100%; margin: 0; }
+/* The import wizard's mapping panel breaks onto its own full-width row under
+   the picker/export buttons; the row gap already spaces it. */
+.export-actions .mapping-panel { flex-basis: 100%; margin-top: 0; }
 
 /* =========================================================================
    Projects
    ========================================================================= */
-.project-list { display: grid; align-content: start; gap: 8px; margin-bottom: 14px; scrollbar-width: none; -ms-overflow-style: none; }
+.project-list { position: relative; display: grid; align-content: start; gap: 8px; margin-bottom: 14px; scrollbar-width: none; -ms-overflow-style: none; }
 .project-list::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+/* Selection ring — a single element that glides from the previously active
+   chip to the new one on a spring (position + height set inline by
+   ProjectList), so selecting reads as the highlight travelling, not two
+   borders flashing. Sits above the glass, never intercepts the pointer. */
+.project-active-ring {
+  position: absolute;
+  top: 0; left: 0;
+  /* Geometry (translate/width/height) is set inline from the active chip's
+     offset box — the list's own padding (the desktop scroll inset) must not
+     leak into the ring, so no right: 0 stretch here. */
+  width: 0;
+  height: 0;
+  z-index: 1;
+  pointer-events: none;
+  border: 1.25px solid color-mix(in srgb, var(--chip-accent) 55%, var(--chip-rim));
+  border-radius: var(--r-md);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 30%, transparent);
+  opacity: 0;
+  transition:
+    transform 0.44s var(--ease-spring),
+    height 0.44s var(--ease-spring),
+    border-radius 0.42s var(--spring),
+    opacity 0.2s var(--ease);
+}
+/* Corners follow the active chip's hover swell so ring and chip stay concentric. */
+.project-list:has(> .project-row.active:hover) .project-active-ring { border-radius: var(--r-lg); }
 
 .project-create { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }
 
@@ -1477,14 +1547,22 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border: 1.25px solid var(--chip-rim);
   border-radius: var(--r-md);
   box-shadow: var(--chip-shadow);
+  /* Entrance cascade: each chip fades up a beat after the one above it
+     (--chip-i set inline), capped so long lists don't drag the tail. */
   animation: fade-up var(--t-slow) var(--ease) both;
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.16s var(--ease);
+  animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.34s var(--ease-pop);
 }
 @media (hover: hover) {
   .project-row:hover { background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
   .project-row:hover > button:first-child { color: var(--chip-accent-dark); }
 }
-.project-row:active { transform: scale(0.99); }
+/* Press dips fast; releasing springs back with a touch of overshoot (the
+   rest-state transform transition above is the pop curve). */
+.project-row:active {
+  transform: scale(0.985);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.1s var(--ease);
+}
 .project-row .icon-button { min-width: 36px; min-height: 36px; justify-self: center; }
 .project-row.editing { grid-template-columns: minmax(0, 1fr) 44px; padding: 6px; }
 
@@ -1496,8 +1574,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .project-rename:focus { outline: none; }
 
 /* Completion meter lives inside the clickable project surface. It tints the
-   lower inside edge instead of sitting outside the button as a detached rule;
-   its insets breathe with the chip's hover swell on the same spring. */
+   lower inside edge instead of sitting outside the button as a detached rule.
+   It holds still on hover — the chip itself already answers the pointer. */
 .row-progress {
   position: absolute;
   right: 7px; bottom: 6px; left: 7px;
@@ -1510,11 +1588,6 @@ input:focus, select:focus, textarea:focus { outline: none; }
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
-  transition: right 0.42s var(--spring), left 0.42s var(--spring), bottom 0.42s var(--spring);
-}
-.project-row:hover .row-progress,
-button.project-row:hover .row-progress {
-  right: 9px; left: 9px; bottom: 7px;
 }
 .row-progress::after {
   content: "";
@@ -1570,14 +1643,17 @@ button.project-row {
   border-radius: var(--r-md);
   box-shadow: var(--chip-shadow);
   animation: fade-up var(--t-slow) var(--ease) both;
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.16s var(--ease);
+  animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.34s var(--ease-pop);
 }
 button.project-row .row-progress { right: 13px; left: 13px; bottom: 7px; }
-button.project-row:hover .row-progress { right: 15px; left: 15px; bottom: 8px; }
 @media (hover: hover) {
   button.project-row:hover { color: var(--chip-accent-dark); background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
 }
-button.project-row:active { transform: scale(0.99); }
+button.project-row:active {
+  transform: scale(0.985);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.1s var(--ease);
+}
 
 .project-row > button:first-child > span:not(.project-color),
 button.project-row > span { flex: 1; min-width: 0; }
@@ -1585,8 +1661,10 @@ button.project-row > span { flex: 1; min-width: 0; }
 .project-row span:not(.project-color), button.project-row span:not(.project-color) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-color { width: 11px; height: 11px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
 
-.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 55%, var(--chip-rim)); box-shadow: var(--chip-shadow), inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 30%, transparent); }
-button.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 55%, var(--chip-rim)); box-shadow: var(--chip-shadow), inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 30%, transparent); color: var(--chip-accent-dark); }
+/* The active border/inset lives on the gliding .project-active-ring; the
+   chip itself only warms its text so the ring has nothing to fight. */
+button.project-row.active { color: var(--chip-accent-dark); }
+.project-row.active > button:first-child { color: var(--chip-accent-dark); }
 
 /* =========================================================================
    Next / cache board
@@ -1671,8 +1749,6 @@ button.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 
 .settings-section h2 { margin: 0 0 12px; font-size: 1.05rem; font-weight: 750; letter-spacing: -0.01em; }
 .settings-section > .secondary-button,
 .settings-section > .ghost-button { margin-bottom: 10px; }
-/* The import wizard's file picker sits directly in the section. */
-.settings-section > .file-picker { margin-bottom: 12px; }
 .settings-hint { margin: 8px 2px 0; font-size: 0.82rem; line-height: 1.55; color: var(--muted); }
 
 /* A label + control pair inside a settings section (e.g. the hero-animation
@@ -1693,6 +1769,9 @@ button.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 
 .import-preview { padding: 12px; margin: 12px 0; background: var(--surface-3); border: 1px solid var(--line); border-radius: var(--r-md); }
 .import-preview strong { font-weight: 750; }
 .import-preview p, .inline-message, .empty-state, .install-note p { margin: 6px 0 0; color: var(--muted); }
+/* Result notes surface, they don't pop. */
+.inline-message { animation: msg-in 0.3s var(--ease-out); }
+@keyframes msg-in { from { opacity: 0; transform: translateY(-3px); } }
 .inline-message.error { color: var(--danger); font-weight: 600; }
 .empty-state {
   display: grid; place-items: center; padding: 38px 22px; margin: 4px 0; text-align: center;
@@ -1947,11 +2026,9 @@ button.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 
 /* All calendar views share a centred max width */
 .cal-summary, .cal-week, .cal-month, .cal-year, .cal-insights { width: 100%; max-width: 1000px; margin-inline: auto; }
 
-/* Views rise in softly when the granularity switches; the year view staggers
-   its own blocks instead so nested cards don't double-animate. */
-.cal-week, .cal-month { animation: fade-up var(--t-slow) var(--ease) both; }
-.cal-year > * { animation: fade-up var(--t-slow) var(--ease) both; }
-.cal-year > *:nth-child(2) { animation-delay: 0.05s; }
+/* Period/granularity changes animate on the .cal-body wrapper (a WAAPI
+   slide-in along the nav direction, driven by CalendarPage), so the views
+   themselves carry no per-mount entrance — that would double-animate. */
 .cal-year > *:nth-child(3) { animation-delay: 0.1s; }
 .cal-year > *:nth-child(4) { animation-delay: 0.15s; }
 
@@ -2178,11 +2255,19 @@ button.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 
 .cal-stat svg.trend-down { color: var(--danger); }
 
 .cal-heatmap {
-  display: flex; gap: clamp(3px, 0.4vw, 5px); justify-content: center; overflow-x: auto; padding: 14px;
+  display: flex; gap: clamp(3px, 0.4vw, 5px); overflow-x: auto; padding: 14px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
 }
-.cal-heatmap__col { display: grid; grid-auto-rows: clamp(13px, 1.6vw, 18px); gap: clamp(3px, 0.4vw, 5px); }
-.cal-heatmap__cell { width: clamp(13px, 1.6vw, 18px); height: clamp(13px, 1.6vw, 18px); border-radius: var(--r-xs); padding: 0; }
+/* 53 week columns flex between 13-18px so a year fits the card wherever it
+   can; cells stay square via aspect-ratio. Centering rides the first/last
+   columns' auto margins, NOT justify-content: center — a centered flex
+   container clips both ends of overflowing content and the left side can't
+   even be scrolled to (scrollLeft can't go negative). Auto margins collapse
+   to 0 once the row overflows, so narrow screens scroll edge to edge. */
+.cal-heatmap__col { flex: 1 1 13px; min-width: 13px; max-width: 18px; display: grid; grid-auto-rows: auto; gap: clamp(3px, 0.4vw, 5px); }
+.cal-heatmap__col:first-child { margin-inline-start: auto; }
+.cal-heatmap__col:last-child { margin-inline-end: auto; }
+.cal-heatmap__cell { width: 100%; aspect-ratio: 1; border-radius: var(--r-xs); padding: 0; }
 @media (hover: hover) {
   .cal-heatmap__cell:hover {
     transform: scale(1.3);
@@ -2381,6 +2466,20 @@ button.project-row.active { border-color: color-mix(in srgb, var(--chip-accent) 
 ::view-transition-new(root) {
   animation-duration: 0.36s;
   animation-timing-function: var(--ease);
+}
+
+/* Named seg-control thumbs ride every View Transition as their own groups.
+   The freeze class above kills their CSS transition while a VT runs, so the
+   group's box morph IS the slide — matched here to the thumb's normal
+   0.38s spring so a meter/theme/language switch shows the same motion. */
+::view-transition-group(seg-theme),
+::view-transition-group(seg-hero),
+::view-transition-group(seg-meters),
+::view-transition-group(seg-language),
+::view-transition-group(seg-cal-view),
+::view-transition-group(seg-cal-metric) {
+  animation-duration: 0.38s;
+  animation-timing-function: var(--ease-spring);
 }
 
 /* =========================================================================

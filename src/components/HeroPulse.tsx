@@ -18,6 +18,14 @@ function smoothstep(a: number, b: number, x: number) {
   return t * t * (3 - 2 * t);
 }
 
+/** Deterministic per-cell random in [0,1): the same index always yields the
+ * same value, so a resize re-derives the identical field instead of
+ * reshuffling every dot (which read as the whole bar strobing). */
+function cellRandom(index: number, salt: number) {
+  const s = Math.sin(index * 127.1 + salt * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
 /**
  * The whole weighted-progress hero fill, drawn on one canvas so the solid green
  * and the dot-matrix are a single object rather than two layers meeting at a
@@ -82,9 +90,9 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       speeds = new Float32Array(n);
       bias = new Float32Array(n);
       for (let i = 0; i < n; i += 1) {
-        seeds[i] = Math.random() * Math.PI * 2;
-        speeds[i] = 1.5 + Math.random() * 3.5;
-        bias[i] = Math.random();
+        seeds[i] = cellRandom(i, 1) * Math.PI * 2;
+        speeds[i] = 1.5 + cellRandom(i, 2) * 3.5;
+        bias[i] = cellRandom(i, 3);
       }
     };
 
@@ -92,7 +100,7 @@ export function HeroPulse({ pct }: HeroPulseProps) {
     // (replaces the CSS width transition the old fill element used to have).
     let renderPct = Math.min(Math.max(pctRef.current, 0), 100);
 
-    const draw = (tms: number) => {
+    const render = (tms: number) => {
       const t = tms / 1000;
       const target = Math.min(Math.max(pctRef.current, 0), 100);
       renderPct += (target - renderPct) * (reduce ? 1 : 0.1);
@@ -184,18 +192,25 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       ctx.fillStyle = shade;
       ctx.fillRect(0, 0, W, H);
       ctx.globalCompositeOperation = "source-over";
+    };
 
-      if (!reduce) raf = requestAnimationFrame(draw);
+    const loop = (tms: number) => {
+      render(tms);
+      raf = requestAnimationFrame(loop);
     };
 
     resize();
+    // Setting canvas.width wipes the bitmap, and in the frame pipeline the
+    // ResizeObserver callback runs after this frame's rAF — waiting for the
+    // next one would paint a blank frame on every step of a live window
+    // drag. Repainting synchronously here keeps the fill continuous.
     const ro = new ResizeObserver(() => {
       resize();
-      if (reduce) draw(0);
+      render(performance.now());
     });
     ro.observe(canvas);
-    if (reduce) draw(0);
-    else raf = requestAnimationFrame(draw);
+    if (reduce) render(performance.now());
+    else raf = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(raf);

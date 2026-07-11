@@ -25,24 +25,31 @@ export function useRemoveTransition<T extends HTMLElement>(remove: () => void) {
     remove();
   }, [remove]);
 
-  const begin = useCallback(() => {
-    const el = ref.current;
-    if (!el || removing) {
-      finish();
-      return;
-    }
-    // Lock the rendered height so the collapse animates from a concrete value
-    // (auto height can't be transitioned).
-    el.style.height = `${el.offsetHeight}px`;
-    // Force a reflow so the locked height is committed before we drop it to 0.
-    void el.offsetHeight;
-    setRemoving(true);
-    requestAnimationFrame(() => {
-      if (ref.current) ref.current.style.height = "0px";
-    });
-    // Fallback in case transitionend never fires (e.g. reduced motion edge cases).
-    window.setTimeout(finish, 500);
-  }, [finish, removing]);
+  const begin = useCallback(
+    (delay?: number) => {
+      const el = ref.current;
+      if (!el || removing) {
+        finish();
+        return;
+      }
+      // Guard against being wired straight into an event handler, where the
+      // first argument would be the event object rather than a delay.
+      const wait = typeof delay === "number" && Number.isFinite(delay) ? Math.max(0, delay) : 0;
+      // Lock the rendered height so the collapse animates from a concrete value
+      // (auto height can't be transitioned).
+      el.style.height = `${el.offsetHeight}px`;
+      if (wait > 0) el.style.transitionDelay = `${wait}ms`;
+      // Force a reflow so the locked height is committed before we drop it to 0.
+      void el.offsetHeight;
+      setRemoving(true);
+      requestAnimationFrame(() => {
+        if (ref.current) ref.current.style.height = "0px";
+      });
+      // Fallback in case transitionend never fires (e.g. reduced motion edge cases).
+      window.setTimeout(finish, 500 + wait);
+    },
+    [finish, removing]
+  );
 
   const onTransitionEnd = useCallback(
     (event: TransitionEvent<T>) => {

@@ -112,10 +112,7 @@ const en = {
     empty: (date: string) => `No tasks for ${date} yet. Tap “Add task” to start.`,
     prevDay: "Previous day",
     nextDay: "Next day",
-    backToToday: "Return to today",
-    yesterday: "Yesterday",
-    tomorrow: "Tomorrow",
-    todayChip: "Today"
+    backToToday: "Return to today"
   },
   progress: {
     heroAria: (pct: number) => `Weighted progress ${pct}%`,
@@ -223,9 +220,6 @@ const en = {
     prevPeriod: "Previous period",
     nextPeriod: "Next period",
     jumpCurrent: "Jump to current period",
-    thisWeek: "This week",
-    thisMonth: "This month",
-    thisYear: "This year",
     summaryAria: "Period summary",
     weightedCompletion: "Weighted completion",
     completionAria: (v: number) => `Completion ${v}%`,
@@ -484,10 +478,7 @@ const zh: Messages = {
     empty: (date) => `${date} 还没有任务，点「添加任务」开始记录。`,
     prevDay: "前一天",
     nextDay: "后一天",
-    backToToday: "回到今天",
-    yesterday: "昨天",
-    tomorrow: "明天",
-    todayChip: "今天"
+    backToToday: "回到今天"
   },
   progress: {
     heroAria: (pct) => `加权推进 ${pct}%`,
@@ -595,9 +586,6 @@ const zh: Messages = {
     prevPeriod: "上一时段",
     nextPeriod: "下一时段",
     jumpCurrent: "回到当前时段",
-    thisWeek: "本周",
-    thisMonth: "本月",
-    thisYear: "今年",
     summaryAria: "时段总览",
     weightedCompletion: "加权完成度",
     completionAria: (v) => `完成度 ${v}%`,

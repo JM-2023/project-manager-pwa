@@ -12,9 +12,10 @@ import {
   TrendingUp,
   Trophy
 } from "lucide-react";
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CompletionBar, MiniBarSeries } from "../components/calendar/CalendarCharts";
-import { DateNav, type NavDirection } from "../components/DateNav";
+import { DateSwitcher, type NavDirection } from "../components/DateNav";
+import { RollDigits } from "../components/RollDigits";
 import { SegControl } from "../components/SegControl";
 import {
   addDays,
@@ -119,7 +120,15 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
           ? `${yearOf(anchor)}年`
           : yearOf(anchor);
 
+  // What kind of change the next body animation should express: prev/next
+  // travels sideways along the nav direction, a granularity switch re-forms
+  // in place. Refs, because they only matter to the effect below.
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const bodyMotionRef = useRef<"nav" | "view">("nav");
+  const bodySettledRef = useRef(false);
+
   function shift(direction: NavDirection) {
+    bodyMotionRef.current = "nav";
     setNavDir(direction);
     setAnchor((current) =>
       granularity === "week"
@@ -130,49 +139,74 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
     );
   }
 
+  function changeGranularity(next: Granularity) {
+    bodyMotionRef.current = "view";
+    setGranularity(next);
+  }
+
   const isThisPeriod = today >= range.start && today <= range.end;
-  const homeLabel =
-    granularity === "week" ? m.calendar.thisWeek : granularity === "month" ? m.calendar.thisMonth : m.calendar.thisYear;
 
   function jumpToCurrent() {
+    bodyMotionRef.current = "nav";
     setNavDir(today > range.end ? 1 : -1);
     setAnchor(today);
   }
 
+  // The period's content (summary + grid) travels with every navigation:
+  // sideways from the direction you went, or settling in place when the
+  // week/month/year lens changes. Compositor-only (opacity/transform), and
+  // no remount — the views keep their internal state and just re-render.
+  useLayoutEffect(() => {
+    if (!bodySettledRef.current) {
+      bodySettledRef.current = true;
+      return;
+    }
+    const el = bodyRef.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const from =
+      bodyMotionRef.current === "nav"
+        ? { opacity: 0.22, transform: `translateX(${navDir * 18}px)` }
+        : { opacity: 0.22, transform: "translateY(7px) scale(0.997)" };
+    el.animate([from, { opacity: 1, transform: "none" }], {
+      duration: 320,
+      easing: "cubic-bezier(0.16, 1, 0.3, 1)"
+    });
+  }, [range.start, range.end, granularity, navDir]);
+
   return (
     <main className="page-content calendar-page">
       <header className="page-header calendar-header">
-        <div className="page-head-nav">
-          <h1>{m.calendar.title}</h1>
-          <DateNav
-            label={String(periodLabel)}
-            dir={navDir}
-            onPrev={() => shift(-1)}
-            onNext={() => shift(1)}
-            onHome={jumpToCurrent}
-            isHome={isThisPeriod}
-            homeLabel={homeLabel}
-            prevAria={m.calendar.prevPeriod}
-            nextAria={m.calendar.nextPeriod}
-            homeAria={m.calendar.jumpCurrent}
-          />
-        </div>
+        <DateSwitcher
+          title={m.calendar.title}
+          sub={String(periodLabel)}
+          dir={navDir}
+          onPrev={() => shift(-1)}
+          onNext={() => shift(1)}
+          onHome={jumpToCurrent}
+          isHome={isThisPeriod}
+          prevAria={m.calendar.prevPeriod}
+          nextAria={m.calendar.nextPeriod}
+          homeAria={m.calendar.jumpCurrent}
+        />
         <div className="cal-controls">
           <SegControl
             ariaLabel={m.calendar.viewAria}
             value={granularity}
-            onChange={setGranularity}
+            onChange={changeGranularity}
+            vtName="seg-cal-view"
             options={GRANULARITIES.map((id) => ({ id, label: m.calendar[id] }))}
           />
           <SegControl
             ariaLabel={m.calendar.metricAria}
             value={metric}
             onChange={setMetric}
+            vtName="seg-cal-metric"
             options={METRICS.map((id) => ({ id, label: id === "weighted" ? m.calendar.weighted : m.calendar.doneRate }))}
           />
         </div>
       </header>
 
+      <div className="cal-body" ref={bodyRef}>
       <CalendarSummary stats={periodStats} metric={metric} />
 
       {granularity === "week" ? (
@@ -200,7 +234,7 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
           onOpenDay={onOpenDay}
           onPickWeek={(date) => {
             setAnchor(date);
-            setGranularity("week");
+            changeGranularity("week");
           }}
         />
       ) : null}
@@ -217,10 +251,11 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
           onOpenDay={onOpenDay}
           onPickMonth={(month) => {
             setAnchor(month);
-            setGranularity("month");
+            changeGranularity("month");
           }}
         />
       ) : null}
+      </div>
     </main>
   );
 }
@@ -232,7 +267,11 @@ function CalendarSummary({ stats, metric }: { stats: PeriodStats; metric: Comple
     <section className="cal-summary" aria-label={m.calendar.summaryAria}>
       <div className="cal-summary__hero">
         <span className="cal-summary__label">{metric === "done" ? m.calendar.doneRate : m.calendar.weightedCompletion}</span>
-        <strong className="cal-summary__value">{value}%</strong>
+        <strong className="cal-summary__value">
+          {/* Silent on mount; period / lens / metric changes spin the digits
+              over a 3D drum, odometer-style, instead of sliding the text. */}
+          <RollDigits value={value} text={`${value}%`} />
+        </strong>
         <CompletionBar value={value} label={m.calendar.completionAria(value)} />
       </div>
       <div className="cal-summary__stats">

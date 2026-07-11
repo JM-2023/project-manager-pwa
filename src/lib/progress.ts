@@ -138,12 +138,14 @@ export function progressStatus(progress: TaskProgress): TaskStatus {
 
 export type ProgressTone = "none" | "low" | "mid" | "high" | "done";
 
-/** Maps a 0-100 progress value to a color band used across the UI. */
+/** Maps a 0-100 progress value to a color band used across the UI. Any
+ * started work reads as colour; "none" (neutral gray) is reserved for 0%,
+ * where the warm ramp would otherwise vanish against the track. */
 export function progressTone(progress: number): ProgressTone {
   if (progress >= 100) return "done";
   if (progress >= 75) return "high";
   if (progress >= 50) return "mid";
-  if (progress >= 25) return "low";
+  if (progress > 0) return "low";
   return "none";
 }
 

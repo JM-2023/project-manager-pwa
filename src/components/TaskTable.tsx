@@ -28,6 +28,13 @@ import {
 import { useRemoveTransition } from "../lib/useRemoveTransition";
 import { usePresence } from "../lib/usePresence";
 
+/** Rows to collapse out (staggered top-to-bottom); each commits its new date
+ * as its own exit finishes. Driven by the Today page's roll-over button. */
+export interface PendingRowExit {
+  ids: string[];
+  date: string;
+}
+
 interface TaskTableProps {
   tasks: Task[];
   projects: Project[];
@@ -35,6 +42,10 @@ interface TaskTableProps {
   // When set, the matching row's title field focuses on mount (used by the
   // Today page so a freshly added task is immediately typeable).
   focusTaskId?: string | null;
+  // True when the list is scoped to one day, so moving a task to another day
+  // means the row leaves — it collapses out instead of blinking away.
+  exitOnMove?: boolean;
+  pendingExit?: PendingRowExit | null;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
@@ -45,6 +56,8 @@ interface TaskRowProps {
   projects: Project[];
   showDate: boolean;
   autoFocusTitle?: boolean;
+  exitOnMove?: boolean;
+  pendingExit?: PendingRowExit | null;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
@@ -86,7 +99,7 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} ref={ref} />;
 }
 
-function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate, onDelete }: TaskRowProps) {
+function TaskRow({ task, projects, showDate, autoFocusTitle, exitOnMove, pendingExit, onCreate, onUpdate, onDelete }: TaskRowProps) {
   const { m } = useI18n();
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
@@ -107,9 +120,13 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
   const progressTargetRef = useRef<TaskProgress>(progress);
   const progressDisplayRef = useRef<number>(progress);
   const progressRafRef = useRef(0);
+  const progressDraggingRef = useRef(false);
   const previousTaskRef = useRef(task);
+  // What the collapse commits once the row has folded shut: deletion by
+  // default, or a date change when the row exits because it moved days.
+  const exitActionRef = useRef<() => void>(() => onDelete(task));
   const { ref: rowRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLDivElement>(
-    () => onDelete(task)
+    () => exitActionRef.current()
   );
 
   useEffect(() => {
@@ -229,37 +246,53 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
     }
   }, [menuOpen]);
 
-  // Chase the target each frame. `1 - exp(-k·dt)` is a frame-rate-independent
+  // Paint one frame of fill/badge/thumb. The input write is skippable: during
+  // a live drag the browser owns the thumb, and writing .value back each
+  // frame rips it out from under the pointer.
+  const paintProgress = useCallback((value: number, options?: { skipInput?: boolean }) => {
+    progressDisplayRef.current = value;
+    progressWrapRef.current?.style.setProperty("--pct", `${value}%`);
+    if (!options?.skipInput && progressSliderRef.current) progressSliderRef.current.value = String(value);
+    if (progressBadgeRef.current) progressBadgeRef.current.textContent = `${Math.round(value)}%`;
+  }, []);
+
+  // Glide the display to a target. `1 - exp(-k·dt)` is a frame-rate-independent
   // damped approach: fast off the mark, easing to rest without overshoot.
-  useEffect(() => {
-    progressTargetRef.current = progress;
-    const paint = (value: number) => {
-      progressDisplayRef.current = value;
-      progressWrapRef.current?.style.setProperty("--pct", `${value}%`);
-      if (progressSliderRef.current) progressSliderRef.current.value = String(value);
-      if (progressBadgeRef.current) progressBadgeRef.current.textContent = `${Math.round(value)}%`;
-    };
-    cancelAnimationFrame(progressRafRef.current);
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      paint(progress);
-      return;
-    }
-    let last = performance.now();
-    const step = (now: number) => {
-      const dt = Math.min((now - last) / 1000, 0.05);
-      last = now;
-      const current = progressDisplayRef.current;
-      const next = current + (progress - current) * (1 - Math.exp(-14 * dt));
-      if (Math.abs(progress - next) < 0.35) {
-        paint(progress);
+  const glideProgressTo = useCallback(
+    (target: number) => {
+      cancelAnimationFrame(progressRafRef.current);
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        paintProgress(target);
         return;
       }
-      paint(next);
+      let last = performance.now();
+      const step = (now: number) => {
+        const dt = Math.min((now - last) / 1000, 0.05);
+        last = now;
+        const current = progressDisplayRef.current;
+        const next = current + (target - current) * (1 - Math.exp(-14 * dt));
+        if (Math.abs(target - next) < 0.35) {
+          paintProgress(target);
+          return;
+        }
+        paintProgress(next);
+        progressRafRef.current = requestAnimationFrame(step);
+      };
       progressRafRef.current = requestAnimationFrame(step);
-    };
-    progressRafRef.current = requestAnimationFrame(step);
+    },
+    [paintProgress]
+  );
+
+  // Keyboard steps, external updates and drag releases glide to the detent.
+  // A live drag paints directly in onChange instead: the glide's per-frame
+  // writes would fight the pointer (worst on wide card-mode bars).
+  useEffect(() => {
+    progressTargetRef.current = progress;
+    if (!progressDraggingRef.current) {
+      glideProgressTo(progress);
+    }
     return () => cancelAnimationFrame(progressRafRef.current);
-  }, [progress]);
+  }, [progress, glideProgressTo]);
 
   function updateImportance(value: TaskImportance) {
     const extra = parseTaskExtra(task);
@@ -311,16 +344,35 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
   }
 
   function moveTask(offset: number) {
-    onUpdate(task, { start_date: taskDateWithOffset(offset) });
+    const start_date = taskDateWithOffset(offset);
     setMenuOpen(false);
+    if (exitOnMove) {
+      // On a day-scoped list the moved row leaves this view: fold it shut
+      // first, then commit the date change as the fold lands.
+      exitActionRef.current = () => onUpdate(task, { start_date });
+      beginRemove();
+      return;
+    }
+    onUpdate(task, { start_date });
   }
+
+  // Roll-over: when this row is named in the pending exit set, collapse out
+  // with a small top-to-bottom stagger and commit the new date on landing.
+  useEffect(() => {
+    if (!pendingExit || removing) return;
+    const index = pendingExit.ids.indexOf(task.id);
+    if (index === -1) return;
+    const date = pendingExit.date;
+    exitActionRef.current = () => onUpdate(task, { start_date: date });
+    beginRemove(Math.min(index * 36, 240));
+  }, [pendingExit, removing, task, onUpdate, beginRemove]);
 
   const importance = getTaskImportance(task);
 
   return (
     <div
       ref={rowRef}
-      className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}${removing ? " is-removing" : ""}`}
+      className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}${removing ? " is-removing" : ""}${autoFocusTitle ? " is-new" : ""}`}
       onTransitionEnd={onTransitionEnd}
     >
       <label className="tt-cell tt-importance">
@@ -389,10 +441,20 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
             min={0}
             max={100}
             defaultValue={progress}
+            onPointerDown={() => {
+              progressDraggingRef.current = true;
+            }}
             onChange={(event) => {
               const raw = Number(event.target.value);
               const snapped = (Math.round(raw / 25) * 25) as TaskProgress;
               progressTargetRef.current = snapped;
+              if (progressDraggingRef.current) {
+                // Fill and badge track the pointer 1:1 while the finger is
+                // down; the weight moves to the release, which settles onto
+                // the detent.
+                cancelAnimationFrame(progressRafRef.current);
+                paintProgress(raw, { skipInput: true });
+              }
               setProgress(snapped);
             }}
             onKeyDown={(event) => {
@@ -412,7 +474,19 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
               progressTargetRef.current = next;
               setProgress(next);
             }}
-            onPointerUp={() => commitProgress(progressTargetRef.current)}
+            onPointerUp={() => {
+              if (progressDraggingRef.current) {
+                progressDraggingRef.current = false;
+                glideProgressTo(progressTargetRef.current);
+              }
+              commitProgress(progressTargetRef.current);
+            }}
+            onPointerCancel={() => {
+              if (!progressDraggingRef.current) return;
+              progressDraggingRef.current = false;
+              glideProgressTo(progressTargetRef.current);
+              commitProgress(progressTargetRef.current);
+            }}
             onKeyUp={() => commitProgress(progressTargetRef.current)}
             aria-label={m.taskTable.progressHeader}
             aria-valuetext={`${progress}%`}
@@ -469,7 +543,16 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
                     <span className="task-action-menu__prompt" role="presentation">
                       {m.taskTable.deletePrompt}
                     </span>
-                    <button type="button" role="menuitem" className="danger" onClick={() => { setMenuOpen(false); beginRemove(); }}>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="danger"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        exitActionRef.current = () => onDelete(task);
+                        beginRemove();
+                      }}
+                    >
                       <Trash2 size={15} aria-hidden="true" />
                       <span>{m.taskTable.confirmDelete}</span>
                     </button>
@@ -520,7 +603,17 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, onCreate, onUpdate,
 const INITIAL_BATCH = 40;
 const BATCH_STEP = 40;
 
-export function TaskTable({ tasks, projects, showDate = true, focusTaskId, onCreate, onUpdate, onDelete }: TaskTableProps) {
+export function TaskTable({
+  tasks,
+  projects,
+  showDate = true,
+  focusTaskId,
+  exitOnMove,
+  pendingExit,
+  onCreate,
+  onUpdate,
+  onDelete
+}: TaskTableProps) {
   const { m } = useI18n();
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
 
@@ -577,6 +670,8 @@ export function TaskTable({ tasks, projects, showDate = true, focusTaskId, onCre
             projects={liveProjects}
             showDate={showDate}
             autoFocusTitle={task.id === focusTaskId}
+            exitOnMove={exitOnMove}
+            pendingExit={pendingExit}
             onCreate={onCreate}
             onUpdate={onUpdate}
             onDelete={onDelete}

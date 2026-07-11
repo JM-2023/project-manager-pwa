@@ -1,5 +1,5 @@
 import { Archive, ArchiveRestore, Check, ChevronDown, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { Project, Task } from "../lib/types";
 import { useI18n } from "../lib/i18n";
 import { isWorklogTask, progressTone, summarizeWorklogOverview, type WorklogOverview } from "../lib/progress";
@@ -34,6 +34,8 @@ interface ProjectRowProps {
   project: Project;
   summary: WorklogOverview;
   active: boolean;
+  /** Position in the chip stack, for the entrance cascade. */
+  index: number;
   onSelect: (projectId: string) => void;
   onArchive: (project: Project) => void;
   onDelete: (project: Project) => void;
@@ -45,7 +47,7 @@ interface ProjectRowProps {
 // single tap.
 type ConfirmAction = "archive" | "delete";
 
-function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, onRename }: ProjectRowProps) {
+function ProjectRow({ project, summary, active, index, onSelect, onArchive, onDelete, onRename }: ProjectRowProps) {
   const { m } = useI18n();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(project.name);
@@ -116,9 +118,11 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
     }
   }
 
+  const chipStyle = { "--chip-i": index } as CSSProperties;
+
   if (editing) {
     return (
-      <div className="project-row editing">
+      <div className="project-row editing" data-chip-id={project.id} style={chipStyle}>
         <input
           className="project-rename"
           value={draft}
@@ -147,6 +151,8 @@ function ProjectRow({ project, summary, active, onSelect, onArchive, onDelete, o
     <div
       ref={rowRef}
       className={`project-row${active ? " active" : ""}${removing ? " is-removing" : ""}`}
+      data-chip-id={project.id}
+      style={chipStyle}
       onTransitionEnd={onTransitionEnd}
     >
       <button type="button" onClick={() => onSelect(project.id)}>
@@ -242,7 +248,7 @@ function ArchivedRow({ project, onUnarchive }: ArchivedRowProps) {
       <button
         type="button"
         className="icon-button"
-        onClick={beginRemove}
+        onClick={() => beginRemove()}
         aria-label={m.projectList.restore(project.name)}
         title={m.projectList.restoreTitle}
       >
@@ -270,6 +276,51 @@ export function ProjectList({
   const allSummary = summarizeWorklogOverview(tasks);
   const noProjectSummary = summarizeWorklogOverview(tasks.filter((task) => !task.project_id));
 
+  // Selection ring: ONE absolutely-positioned element that glides from the
+  // previously active chip to the newly selected one on a spring, instead of
+  // each chip flashing its own border on/off. First placement lands without
+  // a transition so the ring doesn't fly in from the top on mount.
+  const listRef = useRef<HTMLElement | null>(null);
+  const ringRef = useRef<HTMLDivElement | null>(null);
+  const ringArmedRef = useRef(false);
+
+  const positionRing = useCallback(() => {
+    const list = listRef.current;
+    const ring = ringRef.current;
+    if (!list || !ring) return;
+    const target = list.querySelector<HTMLElement>(`[data-chip-id="${CSS.escape(selectedProjectId)}"]`);
+    if (!target || target.classList.contains("is-removing")) {
+      ring.style.opacity = "0";
+      return;
+    }
+    ring.style.opacity = "1";
+    // Frame the chip's border box exactly: offsetLeft/offsetWidth matter on
+    // desktop, where the scrolling list adds an 8px padding inset that a
+    // left/right-stretched ring would overhang. Width applies instantly
+    // (it only changes with the viewport); the glide lives on transform.
+    ring.style.transform = `translate(${target.offsetLeft}px, ${target.offsetTop}px)`;
+    ring.style.width = `${target.offsetWidth}px`;
+    ring.style.height = `${target.offsetHeight}px`;
+    if (!ringArmedRef.current) {
+      ring.style.transition = "none";
+      void ring.offsetHeight;
+      ring.style.transition = "";
+      ringArmedRef.current = true;
+    }
+  }, [selectedProjectId]);
+
+  useLayoutEffect(positionRing, [positionRing, projects, archivedProjects, tasks]);
+
+  // Rows collapse (delete/archive) and the viewport resizes under the ring;
+  // watching the list's own box re-seats it whenever layout shifts.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => positionRing());
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [positionRing]);
+
   function createProject() {
     const clean = name.trim();
     if (!clean || !onCreate) {
@@ -280,7 +331,8 @@ export function ProjectList({
   }
 
   return (
-    <section className="project-list">
+    <section className="project-list" ref={listRef}>
+      <div ref={ringRef} className="project-active-ring" aria-hidden="true" />
       {onCreate ? (
         <div className="project-create">
           <input
@@ -300,7 +352,13 @@ export function ProjectList({
           </button>
         </div>
       ) : null}
-      <button type="button" className={!selectedProjectId ? "project-row active" : "project-row"} onClick={() => onSelect("")}>
+      <button
+        type="button"
+        className={!selectedProjectId ? "project-row active" : "project-row"}
+        data-chip-id=""
+        style={{ "--chip-i": 0 } as CSSProperties}
+        onClick={() => onSelect("")}
+      >
         <span>{m.common.allProjects}</span>
         <strong>{allSummary.averageProgress}%</strong>
         <ProgressMeter value={allSummary.averageProgress} />
@@ -308,13 +366,15 @@ export function ProjectList({
       <button
         type="button"
         className={selectedProjectId === NO_PROJECT_FILTER ? "project-row active" : "project-row"}
+        data-chip-id={NO_PROJECT_FILTER}
+        style={{ "--chip-i": 1 } as CSSProperties}
         onClick={() => onSelect(NO_PROJECT_FILTER)}
       >
         <span>{m.common.noProject}</span>
         <strong>{noProjectSummary.averageProgress}%</strong>
         <ProgressMeter value={noProjectSummary.averageProgress} />
       </button>
-      {projects.map((project) => {
+      {projects.map((project, index) => {
         const projectTasks = tasks.filter((task) => task.project_id === project.id && isWorklogTask(task));
         const summary = summarizeWorklogOverview(projectTasks);
         return (
@@ -323,6 +383,7 @@ export function ProjectList({
             project={project}
             summary={summary}
             active={selectedProjectId === project.id}
+            index={index + 2}
             onSelect={onSelect}
             onArchive={onArchive}
             onDelete={onDelete}

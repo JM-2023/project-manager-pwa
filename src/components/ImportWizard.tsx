@@ -99,8 +99,11 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
     }
   }
 
+  // Rendered as a fragment: the Settings page lays the picker out on the
+  // shared .export-actions row next to the export button; the mapping panel
+  // and messages break onto their own full-width rows beneath it.
   return (
-    <section className="import-wizard">
+    <>
       <label className="file-picker">
         <FileSpreadsheet size={18} aria-hidden="true" />
         <span>{busy ? m.importer.reading : m.importer.pick}</span>
@@ -157,6 +160,6 @@ export function ImportWizard({ onImport }: ImportWizardProps) {
       ) : null}
 
       {message ? <p className="inline-message">{message}</p> : null}
-    </section>
+    </>
   );
 }

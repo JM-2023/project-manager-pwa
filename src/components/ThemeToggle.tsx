@@ -12,6 +12,7 @@ export function ThemeToggle() {
       ariaLabel={m.theme.label}
       value={theme}
       onChange={setTheme}
+      vtName="seg-theme"
       options={OPTIONS.map((option) => ({ id: option, label: m.theme[option] }))}
     />
   );

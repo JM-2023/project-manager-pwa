@@ -1,9 +1,9 @@
 import { ChevronsRight, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
-import { DateNav, RollText, type NavDirection } from "../components/DateNav";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { DateSwitcher, type NavDirection } from "../components/DateNav";
 import { ProgressSummary } from "../components/ProgressSummary";
-import { TaskTable } from "../components/TaskTable";
-import { addDays, formatShortDate, toDateInput, weekdayLong } from "../lib/dates";
+import { TaskTable, type PendingRowExit } from "../components/TaskTable";
+import { addDays, formatShortDate, toDateInput, weekdayLong, weekdayLongNames } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { getTaskProgress, importancePriority, isProjectCacheTask, summarizeProgress } from "../lib/progress";
 import { useToday } from "../lib/useToday";
@@ -21,6 +21,11 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
   const [viewDate, setViewDate] = useState(initialDate || today);
   const [navDir, setNavDir] = useState<NavDirection>(1);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
+  // Roll-over choreography: rows on this list collapse out (staggered) and
+  // each one commits its date change as its own exit lands.
+  const [pendingExit, setPendingExit] = useState<PendingRowExit | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const bodySettledRef = useRef(false);
 
   // Follow day selections made from the Calendar view.
   useEffect(() => {
@@ -32,6 +37,7 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
   // A remembered focus target only applies to the day it was created on.
   useEffect(() => {
     setFocusTaskId(null);
+    setPendingExit(null);
   }, [viewDate]);
 
   const datedTasks = tasks.filter((task) => {
@@ -57,50 +63,62 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
   }
 
   function rolloverUnfinished() {
-    const target = addDays(viewDate, 1);
-    for (const task of unfinishedTasks) {
-      onUpdateTask(task, { start_date: target });
-    }
+    if (unfinishedTasks.length === 0) return;
+    setPendingExit({ ids: unfinishedTasks.map((task) => task.id), date: addDays(viewDate, 1) });
   }
+
+  // Once every rolled-over row has left the day, drop the marker so a task
+  // re-dated back here doesn't get swept out again.
+  useEffect(() => {
+    if (pendingExit && !displayTasks.some((task) => pendingExit.ids.includes(task.id))) {
+      setPendingExit(null);
+    }
+  }, [pendingExit, displayTasks]);
 
   function goTo(date: string, dir: NavDirection) {
     setNavDir(dir);
     setViewDate(date);
   }
 
-  // The page title names the day being viewed instead of always claiming
-  // "Today": today / yesterday / tomorrow by name, anything further by weekday.
-  const dayTitle =
-    viewDate === today
-      ? m.today.title
-      : viewDate === addDays(today, -1)
-        ? m.today.yesterday
-        : viewDate === addDays(today, 1)
-          ? m.today.tomorrow
-          : weekdayLong(viewDate, lang);
+  // The day's content travels with the navigation: everything under the
+  // header slides in from the direction you went. No remount — the summary
+  // canvas and table state stay live; opacity/transform only.
+  useLayoutEffect(() => {
+    if (!bodySettledRef.current) {
+      bodySettledRef.current = true;
+      return;
+    }
+    const el = bodyRef.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    el.animate(
+      [{ opacity: 0.22, transform: `translateX(${navDir * 18}px)` }, { opacity: 1, transform: "none" }],
+      { duration: 320, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+    );
+  }, [viewDate, navDir]);
+
+  // The title names the day being viewed: "Today" at home, otherwise the
+  // weekday itself; the concrete date sits underneath on the second line.
+  const dayTitle = viewDate === today ? m.today.title : weekdayLong(viewDate, lang);
 
   return (
     <main className="page-content">
       <header className="page-header today-page-header">
-        <div className="page-head-nav">
-          <h1>
-            <RollText text={dayTitle} dir={navDir} />
-          </h1>
-          <DateNav
-            label={formatShortDate(viewDate, lang)}
-            dir={navDir}
-            onPrev={() => goTo(addDays(viewDate, -1), -1)}
-            onNext={() => goTo(addDays(viewDate, 1), 1)}
-            onHome={() => goTo(today, viewDate > today ? -1 : 1)}
-            isHome={viewDate === today}
-            homeLabel={m.today.todayChip}
-            prevAria={m.today.prevDay}
-            nextAria={m.today.nextDay}
-            homeAria={m.today.backToToday}
-          />
-        </div>
+        <DateSwitcher
+          title={dayTitle}
+          sub={formatShortDate(viewDate, lang)}
+          titleSizer={[m.today.title, ...weekdayLongNames(lang)]}
+          dir={navDir}
+          onPrev={() => goTo(addDays(viewDate, -1), -1)}
+          onNext={() => goTo(addDays(viewDate, 1), 1)}
+          onHome={() => goTo(today, viewDate > today ? -1 : 1)}
+          isHome={viewDate === today}
+          prevAria={m.today.prevDay}
+          nextAria={m.today.nextDay}
+          homeAria={m.today.backToToday}
+        />
         <p>{m.today.subtitle(displayTasks.length, summary.weightedPercent)}</p>
       </header>
+      <div className="page-body" ref={bodyRef}>
       <ProgressSummary label={m.today.dailySummary} summary={summary} />
       <div className="add-row-actions">
         <button type="button" className="add-row-button" onClick={addTask}>
@@ -125,6 +143,8 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
           projects={projects}
           showDate={false}
           focusTaskId={focusTaskId}
+          exitOnMove
+          pendingExit={pendingExit}
           onCreate={onCreateTask}
           onUpdate={onUpdateTask}
           onDelete={onDeleteTask}
@@ -132,6 +152,7 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
       ) : (
         <p className="empty-state">{m.today.empty(formatShortDate(viewDate, lang))}</p>
       )}
+      </div>
     </main>
   );
 }

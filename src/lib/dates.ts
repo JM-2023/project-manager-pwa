@@ -221,6 +221,11 @@ export function weekdayLong(value: string, lang: Language = "en"): string {
   return lang === "zh" ? WEEKDAY_NAMES_ZH[day] : WEEKDAY_NAMES_LONG[day];
 }
 
+/** Every name weekdayLong can produce, for reserving the title's width. */
+export function weekdayLongNames(lang: Language = "en"): string[] {
+  return lang === "zh" ? [...WEEKDAY_NAMES_ZH] : [...WEEKDAY_NAMES_LONG];
+}
+
 export function monthLabel(value: string, lang: Language = "en"): string {
   const input = toDateInput(value) || todayDate();
   const [year, month] = input.split("-").map(Number);

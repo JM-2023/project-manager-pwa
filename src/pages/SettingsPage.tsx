@@ -140,6 +140,7 @@ export function SettingsPage({
             ariaLabel={m.settings.heroAnim}
             value={heroAnim}
             onChange={setHeroAnim}
+            vtName="seg-hero"
             options={HERO_ANIM_OPTIONS.map((option) => ({ id: option, label: heroAnimLabels[option] }))}
           />
         </div>
@@ -150,6 +151,7 @@ export function SettingsPage({
             ariaLabel={m.settings.meterStyle}
             value={meterStyle}
             onChange={setMeterStyle}
+            vtName="seg-meters"
             options={METER_STYLE_OPTIONS.map((option) => ({ id: option, label: meterStyleLabels[option] }))}
           />
         </div>
@@ -164,6 +166,7 @@ export function SettingsPage({
             ariaLabel={m.settings.appLanguage}
             value={lang}
             onChange={setLang}
+            vtName="seg-language"
             options={LANGUAGE_OPTIONS.map((option) => ({
               id: option.id,
               label: option.label,
@@ -176,8 +179,10 @@ export function SettingsPage({
 
       <section className="settings-section">
         <h2>{m.settings.excel}</h2>
-        <ImportWizard onImport={onImport} />
-        <ExportButton r2Enabled={r2Enabled} onExported={onExported} />
+        <div className="export-actions">
+          <ImportWizard onImport={onImport} />
+          <ExportButton r2Enabled={r2Enabled} onExported={onExported} />
+        </div>
       </section>
 
       <section className="settings-section">

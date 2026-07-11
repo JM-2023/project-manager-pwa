@@ -1231,7 +1231,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   width: clamp(0%, var(--pct, 0%), 100%);
   border-radius: inherit;
   background: var(--prog-color, var(--prog-done));
-  transition: width var(--t-slow) var(--ease);
+  /* Background-color too: a metric flip can retone the fill, not just resize it. */
+  transition: width var(--t-slow) var(--ease), background-color var(--t-slow) var(--ease);
 }
 
 @media (min-width: 600px) { .progress-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
@@ -2026,11 +2027,25 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* All calendar views share a centred max width */
 .cal-summary, .cal-week, .cal-month, .cal-year, .cal-insights { width: 100%; max-width: 1000px; margin-inline: auto; }
 
-/* Period/granularity changes animate on the .cal-body wrapper (a WAAPI
-   slide-in along the nav direction, driven by CalendarPage), so the views
-   themselves carry no per-mount entrance — that would double-animate. */
-.cal-year > *:nth-child(3) { animation-delay: 0.1s; }
-.cal-year > *:nth-child(4) { animation-delay: 0.15s; }
+/* Prev/next navigation slides the whole .cal-body sideways (WAAPI, driven
+   by CalendarPage). A week/month/year lens switch instead leaves the summary
+   card perfectly still — its digits roll on their drums — and re-forms only
+   the region below: CalendarPage tweens .cal-view between the two lens
+   heights under this clip (so the page length glides instead of jumping)
+   while the incoming sections cascade up through their mount animations,
+   lead grid first, insights following. Nav never remounts a view, so none
+   of these entrances replay on prev/next. */
+.cal-view.is-morph { overflow: clip; transition: height 0.52s var(--ease-out); }
+.cal-week, .cal-month, .cal-year > * { animation: fade-up 0.42s var(--ease-out) both; }
+.cal-year > *:nth-child(2) { animation-delay: 0.06s; }
+.cal-year > *:nth-child(3) { animation-delay: 0.12s; }
+.cal-year > *:nth-child(4) { animation-delay: 0.18s; }
+
+/* Soft swap for secondary text (chip hints, the summary label) and the trend
+   arrow: keyed by content, so it only plays when the line actually changes. */
+.cal-swap { display: inline-block; animation: swap-rise var(--t-slow) var(--ease-out); }
+.cal-swap--icon { display: inline-flex; }
+@keyframes swap-rise { from { opacity: 0; transform: translateY(5px); } }
 
 /* ---- Period summary hero ---- */
 .cal-summary {
@@ -2084,7 +2099,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-week__meta { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .cal-week__count { color: var(--ink-soft); font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 /* Day completion figure, tinted by its progress tone but pulled toward ink for legibility. */
-.cal-week__pct { color: color-mix(in srgb, var(--prog-color, var(--muted)) 72%, var(--ink)); font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cal-week__pct { color: color-mix(in srgb, var(--prog-color, var(--muted)) 72%, var(--ink)); font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; transition: color var(--t-slow) var(--ease); }
 .cal-week__pct.tone-empty { color: var(--muted); font-weight: 650; }
 .cal-week__dots { display: flex; gap: 4px; min-height: 8px; }
 .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; }
@@ -2213,7 +2228,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
     transform 0.34s var(--ease-pop),
     box-shadow 0.34s var(--ease-pop),
     border-color var(--t) var(--ease),
-    background var(--t) var(--ease);
+    /* Slow enough that a metric flip reads as the whole grid re-inking. */
+    background var(--t-slow) var(--ease);
 }
 
 /* ---- Month view ---- */
@@ -2248,7 +2264,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
 }
 .cal-stat span { color: var(--muted); font-size: 0.72rem; font-weight: 650; }
-.cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color var(--t-slow) var(--ease); }
 .cal-stat svg { color: var(--muted); }
 .cal-stat svg.is-flame { color: var(--warning); }
 .cal-stat svg.trend-up { color: var(--primary); }
@@ -2299,7 +2315,13 @@ button.project-row.active { color: var(--chip-accent-dark); }
   position: absolute; inset: auto 0 0 0; height: clamp(3%, var(--pct, 0%), 100%);
   background: var(--prog-color, var(--prog-done));
   border-radius: var(--r-xs) var(--r-xs) 0 0;
+  /* Data / metric changes retarget the same column: height glides, tone re-inks. */
+  transition: height 0.5s var(--ease-out), background-color var(--t-slow) var(--ease);
+  /* On mount the columns ripple up left to right, trailing the card's rise. */
+  animation: series-grow 0.5s var(--ease-out) both;
+  animation-delay: calc(0.12s + var(--i, 0) * 0.035s);
 }
+@keyframes series-grow { from { height: 0; } }
 @media (hover: hover) { .cal-series__col[type="button"]:hover .cal-series__track { box-shadow: inset 0 0 0 1px var(--primary); } }
 .cal-series__col.active .cal-series__track { box-shadow: inset 0 0 0 2px var(--primary); }
 .cal-series__label { color: var(--muted); font-size: 0.66rem; font-weight: 700; }

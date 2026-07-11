@@ -27,13 +27,14 @@ interface MiniBarSeriesProps {
 export function MiniBarSeries({ data, onSelect }: MiniBarSeriesProps) {
   return (
     <div className="cal-series" role="group">
-      {data.map((item) => {
+      {data.map((item, index) => {
         const Tag = onSelect ? "button" : "div";
         return (
           <Tag
             key={item.key}
             type={onSelect ? "button" : undefined}
             className={`cal-series__col${item.active ? " active" : ""}`}
+            style={{ "--i": index } as CSSProperties}
             onClick={onSelect ? () => onSelect(item.key) : undefined}
             title={`${item.hint ?? item.label}: ${Math.round(item.value)}%`}
           >

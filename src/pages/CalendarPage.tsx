@@ -124,8 +124,15 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
   // travels sideways along the nav direction, a granularity switch re-forms
   // in place. Refs, because they only matter to the effect below.
   const bodyRef = useRef<HTMLDivElement | null>(null);
+  const viewRef = useRef<HTMLDivElement | null>(null);
   const bodyMotionRef = useRef<"nav" | "view">("nav");
   const bodySettledRef = useRef(false);
+  // Height of the outgoing lens, captured in the click handler (pre-render),
+  // and the cleanup timer that ends a morph. A timer, not transitionend or a
+  // WAAPI finished promise — those can silently never fire (tab hidden,
+  // animation dropped), which would leave the clip stuck on.
+  const viewHeightRef = useRef<number | null>(null);
+  const viewMorphTimerRef = useRef(0);
 
   function shift(direction: NavDirection) {
     bodyMotionRef.current = "nav";
@@ -140,7 +147,9 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
   }
 
   function changeGranularity(next: Granularity) {
+    if (next === granularity) return;
     bodyMotionRef.current = "view";
+    viewHeightRef.current = viewRef.current?.offsetHeight ?? null;
     setGranularity(next);
   }
 
@@ -152,25 +161,48 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
     setAnchor(today);
   }
 
-  // The period's content (summary + grid) travels with every navigation:
-  // sideways from the direction you went, or settling in place when the
-  // week/month/year lens changes. Compositor-only (opacity/transform), and
-  // no remount — the views keep their internal state and just re-render.
+  // Prev/next: the whole period (summary + grid) travels sideways from the
+  // direction you went — compositor-only, no remount. A lens switch instead
+  // leaves the summary card alone (its digits roll on their drums) and
+  // morphs only the region below it: the wrapper's height tweens from the
+  // outgoing lens to the incoming one under an overflow clip — so the page
+  // never jumps — while the new sections cascade up via their CSS mount
+  // animations.
   useLayoutEffect(() => {
     if (!bodySettledRef.current) {
       bodySettledRef.current = true;
       return;
     }
-    const el = bodyRef.current;
-    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const from =
-      bodyMotionRef.current === "nav"
-        ? { opacity: 0.22, transform: `translateX(${navDir * 18}px)` }
-        : { opacity: 0.22, transform: "translateY(7px) scale(0.997)" };
-    el.animate([from, { opacity: 1, transform: "none" }], {
-      duration: 320,
-      easing: "cubic-bezier(0.16, 1, 0.3, 1)"
-    });
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (bodyMotionRef.current === "nav") {
+      bodyRef.current?.animate(
+        [{ opacity: 0.22, transform: `translateX(${navDir * 18}px)` }, { opacity: 1, transform: "none" }],
+        { duration: 320, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+      );
+      return;
+    }
+    const view = viewRef.current;
+    const from = viewHeightRef.current;
+    viewHeightRef.current = null;
+    if (!view) return;
+    // Reset any in-flight morph before measuring the true target height.
+    // `from` was captured pre-render, so a lens flip mid-morph retargets
+    // from the height the user actually sees — no snap. All of this runs
+    // before paint (layout effect), so the intermediate states never flash.
+    window.clearTimeout(viewMorphTimerRef.current);
+    view.classList.remove("is-morph");
+    view.style.height = "";
+    if (from === null) return;
+    const to = view.offsetHeight;
+    if (Math.abs(to - from) < 2) return;
+    view.classList.add("is-morph");
+    view.style.height = `${from}px`;
+    void view.offsetHeight; // commit the start height, then transition to the target
+    view.style.height = `${to}px`;
+    viewMorphTimerRef.current = window.setTimeout(() => {
+      view.classList.remove("is-morph");
+      view.style.height = "";
+    }, 640);
   }, [range.start, range.end, granularity, navDir]);
 
   return (
@@ -209,6 +241,7 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
       <div className="cal-body" ref={bodyRef}>
       <CalendarSummary stats={periodStats} metric={metric} />
 
+      <div className="cal-view" ref={viewRef}>
       {granularity === "week" ? (
         <WeekView
           days={periodDays}
@@ -256,17 +289,42 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
         />
       ) : null}
       </div>
+      </div>
     </main>
+  );
+}
+
+/**
+ * Soft swap for secondary text (chip hints, the summary label): keyed by
+ * content, so an unchanged line never animates; a change lets the new line
+ * rise in over the old one's spot. Mounts ride the surrounding card or
+ * section entrance, so the extra first play is invisible.
+ */
+function SwapText({ text }: { text: string }) {
+  return (
+    <span key={text} className="cal-swap">
+      {text}
+    </span>
   );
 }
 
 function CalendarSummary({ stats, metric }: { stats: PeriodStats; metric: CompletionMetric }) {
   const { m } = useI18n();
   const value = completionValue(stats, metric);
+  // The card itself never moves — period and lens changes only re-ink it:
+  // every figure rides its own split-flap drum and the bar re-fills.
+  const counters: Array<[string, number]> = [
+    [m.calendar.tasks, stats.taskCount],
+    [m.calendar.done, stats.doneCount],
+    [m.calendar.output, stats.outputCount],
+    [m.calendar.blocked, stats.blockedCount]
+  ];
   return (
     <section className="cal-summary" aria-label={m.calendar.summaryAria}>
       <div className="cal-summary__hero">
-        <span className="cal-summary__label">{metric === "done" ? m.calendar.doneRate : m.calendar.weightedCompletion}</span>
+        <span className="cal-summary__label">
+          <SwapText text={metric === "done" ? m.calendar.doneRate : m.calendar.weightedCompletion} />
+        </span>
         <strong className="cal-summary__value">
           {/* Silent on mount; period / lens / metric changes spin the digits
               over a 3D drum, odometer-style, instead of sliding the text. */}
@@ -275,22 +333,14 @@ function CalendarSummary({ stats, metric }: { stats: PeriodStats; metric: Comple
         <CompletionBar value={value} label={m.calendar.completionAria(value)} />
       </div>
       <div className="cal-summary__stats">
-        <div>
-          <span>{m.calendar.tasks}</span>
-          <strong>{stats.taskCount}</strong>
-        </div>
-        <div>
-          <span>{m.calendar.done}</span>
-          <strong>{stats.doneCount}</strong>
-        </div>
-        <div>
-          <span>{m.calendar.output}</span>
-          <strong>{stats.outputCount}</strong>
-        </div>
-        <div>
-          <span>{m.calendar.blocked}</span>
-          <strong>{stats.blockedCount}</strong>
-        </div>
+        {counters.map(([label, count]) => (
+          <div key={label}>
+            <span>{label}</span>
+            <strong>
+              <RollDigits value={count} text={String(count)} />
+            </strong>
+          </div>
+        ))}
       </div>
     </section>
   );
@@ -335,7 +385,7 @@ function StatChip({
       {icon}
       <span>{label}</span>
       <strong className={valueClass}>{value}</strong>
-      {hint ? <small>{hint}</small> : null}
+      {hint ? <small>{typeof hint === "string" ? <SwapText text={hint} /> : hint}</small> : null}
     </div>
   );
 }
@@ -348,19 +398,24 @@ function TrendStat({ noun, stats, prevStats, metric }: { noun: PeriodNoun; stats
   const delta = value - prevValue;
   const flat = prevStats.taskCount === 0 || delta === 0;
   const trendClass = flat ? undefined : delta > 0 ? "trend-up" : "trend-down";
+  const arrow = flat ? "flat" : delta > 0 ? "up" : "down";
   return (
     <StatChip
       icon={
-        flat ? (
-          <Minus size={16} aria-hidden="true" />
-        ) : delta > 0 ? (
-          <TrendingUp size={16} aria-hidden="true" className="trend-up" />
-        ) : (
-          <TrendingDown size={16} aria-hidden="true" className="trend-down" />
-        )
+        /* Keyed swap: flipping the metric can flip the trend itself, so the
+           arrow pops over instead of teleporting. */
+        <span key={arrow} className="cal-swap cal-swap--icon">
+          {flat ? (
+            <Minus size={16} aria-hidden="true" />
+          ) : delta > 0 ? (
+            <TrendingUp size={16} aria-hidden="true" className="trend-up" />
+          ) : (
+            <TrendingDown size={16} aria-hidden="true" className="trend-down" />
+          )}
+        </span>
       }
       label={m.calendar.vsLast(noun)}
-      value={prevStats.taskCount === 0 ? m.calendar.newBadge : m.calendar.pt(delta)}
+      value={<RollDigits value={delta} text={prevStats.taskCount === 0 ? m.calendar.newBadge : m.calendar.pt(delta)} />}
       valueClass={trendClass}
       hint={prevStats.taskCount === 0 ? m.calendar.noDataLast(noun) : `${prevValue}% → ${value}%`}
     />
@@ -371,11 +426,12 @@ function TrendStat({ noun, stats, prevStats, metric }: { noun: PeriodNoun; stats
 function CoreFocusStat({ mix, metric }: { mix: ImportanceBand[]; metric: CompletionMetric }) {
   const { m } = useI18n();
   const core = mix[0];
+  const value = core.taskCount > 0 ? completionValue(core.stats, metric) : 0;
   return (
     <StatChip
       icon={<Target size={16} aria-hidden="true" />}
       label={m.calendar.coreFocus}
-      value={core.taskCount > 0 ? `${completionValue(core.stats, metric)}%` : "—"}
+      value={<RollDigits value={value} text={core.taskCount > 0 ? `${value}%` : "—"} />}
       hint={core.taskCount > 0 ? m.calendar.coreTasks(core.taskCount) : m.calendar.noCoreTasks}
     />
   );
@@ -418,7 +474,7 @@ function WeekView({ days, today, metric, stats, buckets, projects, dayStats, onO
                   {dayStat.doneCount}/{dayStat.taskCount}
                 </span>
                 <span className={`cal-week__pct tone-${dayStat.taskCount > 0 ? progressTone(value) : "empty"}`}>
-                  {dayStat.taskCount > 0 ? `${value}%` : "—"}
+                  <RollDigits value={value} text={dayStat.taskCount > 0 ? `${value}%` : "—"} />
                 </span>
               </span>
               <span className="cal-week__dots">
@@ -481,13 +537,13 @@ function WeekInsights({ days, today, metric, stats, buckets, projects, dayStats,
         <StatChip
           icon={<Trophy size={16} aria-hidden="true" />}
           label={m.calendar.bestDay}
-          value={bestDay ? dayChip(bestDay.date, lang) : "—"}
+          value={<RollDigits value={bestDay?.value ?? 0} text={bestDay ? dayChip(bestDay.date, lang) : "—"} />}
           hint={bestDay ? m.calendar.metricValue(bestDay.value, metric) : m.calendar.noActiveDay}
         />
         <StatChip
           icon={<Activity size={16} aria-hidden="true" />}
           label={m.calendar.activeDays}
-          value={`${activeDays}/7`}
+          value={<RollDigits value={activeDays} text={`${activeDays}/7`} />}
           hint={m.calendar.tasksDone(stats.taskCount, stats.doneCount)}
         />
         <CoreFocusStat mix={mix} metric={metric} />
@@ -547,7 +603,9 @@ function ProjectFocusCard({ focus, metric, noun }: { focus: ProjectFocus[]; metr
               <span className="cal-proj__meta">
                 {row.stats.doneCount}/{row.stats.taskCount}
               </span>
-              <strong className="cal-proj__value">{rowValue}%</strong>
+              <strong className="cal-proj__value">
+                <RollDigits value={rowValue} text={`${rowValue}%`} />
+              </strong>
               <CompletionBar value={rowValue} label={`${row.name} ${rowValue}%`} />
             </div>
           );
@@ -585,7 +643,12 @@ function FocusMixCard({ mix, metric }: { mix: ImportanceBand[]; metric: Completi
             <i className={`cal-mix__dot imp-${band.importance}`} aria-hidden="true" />
             <span className="cal-mix__label">P{band.importance}</span>
             <span className="cal-mix__count">{band.taskCount > 0 ? m.calendar.bandTasks(band.taskCount) : "—"}</span>
-            <strong className="cal-mix__value">{band.taskCount > 0 ? `${completionValue(band.stats, metric)}%` : ""}</strong>
+            <strong className="cal-mix__value">
+              <RollDigits
+                value={band.taskCount > 0 ? completionValue(band.stats, metric) : 0}
+                text={band.taskCount > 0 ? `${completionValue(band.stats, metric)}%` : ""}
+              />
+            </strong>
           </div>
         ))}
       </div>
@@ -786,13 +849,13 @@ function MonthInsights({
         <StatChip
           icon={<Trophy size={16} aria-hidden="true" />}
           label={m.calendar.bestWeek}
-          value={bestWeek ? bestWeek.label : "—"}
+          value={<RollDigits value={bestWeek?.value ?? 0} text={bestWeek ? bestWeek.label : "—"} />}
           hint={bestWeek ? `${bestWeek.hint} · ${bestWeek.value}%` : m.calendar.noActiveWeek}
         />
         <StatChip
           icon={<Activity size={16} aria-hidden="true" />}
           label={m.calendar.activeDays}
-          value={`${activeDays}/${days.length}`}
+          value={<RollDigits value={activeDays} text={`${activeDays}/${days.length}`} />}
           hint={m.calendar.tasksDone(stats.taskCount, stats.doneCount)}
         />
         <CoreFocusStat mix={mix} metric={metric} />
@@ -894,25 +957,25 @@ function YearView({ anchor, days, today, metric, stats, buckets, projects, daySt
         <StatChip
           icon={<Flame size={16} aria-hidden="true" className="is-flame" />}
           label={m.calendar.currentStreak}
-          value={m.calendar.streakDays(streak.current)}
+          value={<RollDigits value={streak.current} text={m.calendar.streakDays(streak.current)} />}
           hint={m.calendar.daysAtGoal(COMPLETION_GOAL)}
         />
         <StatChip
           icon={<Award size={16} aria-hidden="true" />}
           label={m.calendar.longestStreak}
-          value={m.calendar.streakDays(streak.longest)}
+          value={<RollDigits value={streak.longest} text={m.calendar.streakDays(streak.longest)} />}
           hint={m.calendar.inYear(yearKey)}
         />
         <StatChip
           icon={<Activity size={16} aria-hidden="true" />}
           label={m.calendar.activeDays}
-          value={activeDays}
+          value={<RollDigits value={activeDays} text={String(activeDays)} />}
           hint={m.calendar.tasksDone(stats.taskCount, stats.doneCount)}
         />
         <StatChip
           icon={<Trophy size={16} aria-hidden="true" />}
           label={m.calendar.bestMonth}
-          value={bestMonth ? monthShort(bestMonth.key, lang) : "—"}
+          value={<RollDigits value={bestMonth?.value ?? 0} text={bestMonth ? monthShort(bestMonth.key, lang) : "—"} />}
           hint={bestMonth && stats.taskCount > 0 ? m.calendar.metricValue(Math.round(bestMonth.value), metric) : m.calendar.noRecords}
         />
         <TrendStat noun="year" stats={stats} prevStats={prevStats} metric={metric} />

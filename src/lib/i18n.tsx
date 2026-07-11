@@ -130,7 +130,7 @@ const en = {
     task: "Task",
     output: "Today's output",
     blocker: "Blocked on",
-    nextStep: "Tomorrow's first step",
+    nextStep: "Next Step",
     newTask: "New task…",
     taskActions: "Task actions",
     copyToYesterday: "Copy to yesterday",

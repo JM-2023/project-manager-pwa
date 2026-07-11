@@ -33,14 +33,21 @@ export class ApiResponseError extends Error {
   }
 }
 
-async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+const API_TIMEOUT_MS = 15_000;
+// A full bootstrap (first run, forced resync, epoch rotation after a purge)
+// streams the entire dataset; on a slow link the default deadline would abort
+// it, and the sync engine's retry starts another full pull — a loop that never
+// completes. Delta pulls share the budget harmlessly: they finish early.
+const BOOTSTRAP_TIMEOUT_MS = 60_000;
+
+async function apiFetch<T>(path: string, init: RequestInit = {}, timeoutMs = API_TIMEOUT_MS): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 15_000);
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   const abortFromCaller = () => controller.abort(init.signal?.reason);
   if (init.signal?.aborted) controller.abort(init.signal.reason);
   else init.signal?.addEventListener("abort", abortFromCaller, { once: true });
@@ -109,7 +116,7 @@ export function bootstrap(syncEpoch?: string | null, syncCursor?: number | null)
   if (syncEpoch) params.set("epoch", syncEpoch);
   if (syncCursor !== null && syncCursor !== undefined) params.set("cursor", String(syncCursor));
   const query = params.size > 0 ? `?${params.toString()}` : "";
-  return apiFetch<BootstrapResponse>(`/api/bootstrap${query}`);
+  return apiFetch<BootstrapResponse>(`/api/bootstrap${query}`, {}, BOOTSTRAP_TIMEOUT_MS);
 }
 
 export function sendMutations(clientId: string, mutations: ClientMutation[]): Promise<MutationsResponse> {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { BottomNav } from "./components/BottomNav";
 import { OfflineBanner } from "./components/OfflineBanner";
 import {
@@ -36,7 +36,7 @@ import {
 } from "./lib/localDb";
 import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
-import { compactPendingMutations, mutationRecordKey, removeRecord, replayPendingMutations, upsertRecord } from "./lib/syncMerge";
+import { compactPendingMutations, mutationRecordKey, replayPendingMutations } from "./lib/syncMerge";
 import { SyncEngine, type SyncIO } from "./lib/syncEngine";
 import {
   beginLogoutBarrier,
@@ -60,7 +60,7 @@ import { ProjectsPage } from "./pages/ProjectsPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodayPage } from "./pages/TodayPage";
-import { appReducer, initialState, sortedProjects, sortedTasks } from "./state/appStore";
+import { appReducer, initialState, sortedProjects, sortedTasks, type AppAction } from "./state/appStore";
 
 const PROJECT_COLORS = ["#1f6f68", "#a64b2a", "#5b6c5d", "#3f5f8f", "#7a5c99", "#8a6a23"];
 const PROJECT_ARCHIVE_MARKER_KEY = "archived_with_project_id";
@@ -170,6 +170,16 @@ export function App() {
   const { m } = useI18n();
   const [state, dispatch] = useReducer(appReducer, initialState);
   const stateRef = useRef(state);
+  // The app's single state write path: apply the action to the synchronous
+  // mirror (through the same reducer React runs) and dispatch it. Handlers and
+  // the sync engine read stateRef.current mid-tick, so a bare dispatch would
+  // leave the mirror one action behind — App-level code must always commit,
+  // never dispatch directly. (SyncEngine keeps its own mirror discipline for
+  // the dispatches it owns; the [state] effect below reconciles those.)
+  const commit = useCallback((action: AppAction) => {
+    stateRef.current = appReducer(stateRef.current, action);
+    dispatch(action);
+  }, []);
   const clientId = useMemo(() => getOrCreateClientId(), []);
   const tabId = useMemo(() => crypto.randomUUID(), []);
   const engineIO = useMemo<SyncIO>(() => ({ ...baseSyncIO, publishSyncHint: () => publishSyncHint(tabId) }), [tabId]);
@@ -199,17 +209,15 @@ export function App() {
     try {
       const session = await validateAndCacheSession();
       if (!session) return;
-      stateRef.current = { ...stateRef.current, session, authRequired: false };
-      dispatch({ type: "setSession", payload: session });
+      commit({ type: "setSession", payload: session });
       if (navigator.onLine) engine.scheduleSync();
     } catch (error) {
       if (error instanceof AuthRequiredError) {
         await engineIO.saveLocalSession(null).catch(() => undefined);
-        stateRef.current = { ...stateRef.current, session: null, authRequired: true };
-        dispatch({ type: "setSession", payload: null });
-        dispatch({ type: "setAuthRequired", payload: true });
+        commit({ type: "setSession", payload: null });
+        commit({ type: "setAuthRequired", payload: true });
       } else {
-        dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Session validation failed" });
+        commit({ type: "setError", payload: error instanceof Error ? error.message : "Session validation failed" });
       }
     }
   }
@@ -223,7 +231,7 @@ export function App() {
     let barrierRetryTimer: number | null = null;
 
     async function start() {
-      dispatch({ type: "setSyncStatus", payload: "loading" });
+      commit({ type: "setSyncStatus", payload: "loading" });
       try {
         const local = await loadLocalSnapshot();
         if (cancelled) return;
@@ -244,13 +252,12 @@ export function App() {
           !navigator.onLine && !isLogoutBarrierActive() && isCachedSessionUsable(local.session)
             ? local.session
             : null;
-        stateRef.current = { ...stateRef.current, ...payload, session: cachedSession, authRequired: !cachedSession };
-        dispatch({ type: "hydrateLocal", payload });
-        if (cachedSession) dispatch({ type: "setSession", payload: cachedSession });
+        commit({ type: "hydrateLocal", payload });
+        if (cachedSession) commit({ type: "setSession", payload: cachedSession });
 
         if (!navigator.onLine) {
           if (local.session && !cachedSession) await engineIO.saveLocalSession(null).catch(() => undefined);
-          dispatch({ type: "setSyncStatus", payload: "offline" });
+          commit({ type: "setSyncStatus", payload: "offline" });
           return;
         }
 
@@ -261,25 +268,23 @@ export function App() {
           barrierRetryTimer = window.setTimeout(() => {
             if (!cancelled) void start();
           }, Math.max(50, retryDelay + 25));
-          dispatch({ type: "setSyncStatus", payload: "idle" });
+          commit({ type: "setSyncStatus", payload: "idle" });
           return;
         }
-        stateRef.current = { ...stateRef.current, session, authRequired: false };
-        dispatch({ type: "setSession", payload: session });
+        commit({ type: "setSession", payload: session });
         await syncNow();
       } catch (error) {
         if (cancelled) return;
         if (error instanceof AuthRequiredError) {
           await engineIO.saveLocalSession(null).catch(() => undefined);
-          stateRef.current = { ...stateRef.current, session: null, authRequired: true };
-          dispatch({ type: "setAuthRequired", payload: true });
-          dispatch({ type: "setSyncStatus", payload: "idle" });
+          commit({ type: "setAuthRequired", payload: true });
+          commit({ type: "setSyncStatus", payload: "idle" });
         } else if (stateRef.current.session) {
-          dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Startup sync failed" });
-          dispatch({ type: "setSyncStatus", payload: navigator.onLine ? "error" : "offline" });
+          commit({ type: "setError", payload: error instanceof Error ? error.message : "Startup sync failed" });
+          commit({ type: "setSyncStatus", payload: navigator.onLine ? "error" : "offline" });
         } else {
-          dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Startup failed" });
-          dispatch({ type: "setSyncStatus", payload: "error" });
+          commit({ type: "setError", payload: error instanceof Error ? error.message : "Startup failed" });
+          commit({ type: "setSyncStatus", payload: "error" });
         }
       }
     }
@@ -294,7 +299,7 @@ export function App() {
   useEffect(() => {
     let logoutRecoveryTimer: number | null = null;
     function handleOnline() {
-      dispatch({ type: "setOnline", payload: navigator.onLine });
+      commit({ type: "setOnline", payload: navigator.onLine });
       if (!navigator.onLine) return;
       if (stateRef.current.authRequired) void recoverAuthenticatedSession();
       else void syncNow();
@@ -381,8 +386,7 @@ export function App() {
 
   function updateTask(task: Task, changes: Partial<Task>) {
     const next: Task = { ...task, ...changes, updated_at: nowIso(), version: task.version + 1 };
-    dispatch({ type: "upsertTask", payload: next });
-    stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, next) };
+    commit({ type: "upsertTask", payload: next });
     persistMutation(
       {
         id: newMutationId(),
@@ -421,8 +425,7 @@ export function App() {
       deleted_at: null,
       version: 1
     };
-    dispatch({ type: "upsertTask", payload: task });
-    stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, task) };
+    commit({ type: "upsertTask", payload: task });
     persistMutation(
       { id: newMutationId(), entity: "task", operation: "upsert", baseVersion: null, data: task },
       { writes: [putLocal("tasks", task)] }
@@ -431,8 +434,7 @@ export function App() {
   }
 
   function deleteTask(task: Task) {
-    dispatch({ type: "purgeTask", payload: task.id });
-    stateRef.current = { ...stateRef.current, tasks: removeRecord(stateRef.current.tasks, task.id) };
+    commit({ type: "purgeTask", payload: task.id });
     persistMutation(
       {
         id: newMutationId(),
@@ -459,8 +461,7 @@ export function App() {
       deleted_at: null,
       version: 1
     };
-    dispatch({ type: "upsertProject", payload: project });
-    stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, project) };
+    commit({ type: "upsertProject", payload: project });
     persistMutation(
       { id: newMutationId(), entity: "project", operation: "upsert", baseVersion: null, data: project },
       { writes: [putLocal("projects", project)] }
@@ -474,8 +475,7 @@ export function App() {
   function setProjectArchived(project: Project, archived: 0 | 1) {
     const timestamp = nowIso();
     const next = { ...project, archived, updated_at: timestamp, version: project.version + 1 };
-    dispatch({ type: "upsertProject", payload: next });
-    stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
+    commit({ type: "upsertProject", payload: next });
 
     const tasksToToggle = stateRef.current.tasks.filter(
       (task) =>
@@ -499,8 +499,7 @@ export function App() {
         updated_at: timestamp,
         version: task.version + 1
       };
-      dispatch({ type: "upsertTask", payload: nextTask });
-      stateRef.current = { ...stateRef.current, tasks: upsertRecord(stateRef.current.tasks, nextTask) };
+      commit({ type: "upsertTask", payload: nextTask });
       persistMutation(
         {
           id: newMutationId(),
@@ -515,9 +514,7 @@ export function App() {
     }
 
     if (archived === 1 && stateRef.current.filters.projectId === project.id) {
-      const filters = { ...stateRef.current.filters, projectId: "" };
-      stateRef.current = { ...stateRef.current, filters };
-      dispatch({ type: "setFilters", payload: { projectId: "" } });
+      commit({ type: "setFilters", payload: { projectId: "" } });
     }
     persistMutation(
       {
@@ -543,18 +540,10 @@ export function App() {
   function deleteProject(project: Project) {
     const purgedTasks = stateRef.current.tasks.filter((task) => task.project_id === project.id);
     const purgedTaskIds = purgedTasks.map((task) => task.id);
-    const purgedTaskIdSet = new Set(purgedTaskIds);
 
-    dispatch({ type: "purgeProject", payload: project.id });
-    stateRef.current = {
-      ...stateRef.current,
-      projects: removeRecord(stateRef.current.projects, project.id),
-      tasks: stateRef.current.tasks.filter((task) => !purgedTaskIdSet.has(task.id))
-    };
+    commit({ type: "purgeProject", payload: project.id });
     if (stateRef.current.filters.projectId === project.id) {
-      const filters = { ...stateRef.current.filters, projectId: "" };
-      stateRef.current = { ...stateRef.current, filters };
-      dispatch({ type: "setFilters", payload: { projectId: "" } });
+      commit({ type: "setFilters", payload: { projectId: "" } });
     }
 
     const staleMutationIds = engine.pendingMutations()
@@ -585,8 +574,7 @@ export function App() {
       return;
     }
     const next = { ...project, name: clean, updated_at: nowIso(), version: project.version + 1 };
-    dispatch({ type: "upsertProject", payload: next });
-    stateRef.current = { ...stateRef.current, projects: upsertRecord(stateRef.current.projects, next) };
+    commit({ type: "upsertProject", payload: next });
     persistMutation(
       {
         id: newMutationId(),
@@ -628,8 +616,7 @@ export function App() {
       deleted_at: null,
       version: 1
     };
-    dispatch({ type: "upsertNextProject", payload: project });
-    stateRef.current = { ...stateRef.current, nextProjects: upsertRecord(stateRef.current.nextProjects, project) };
+    commit({ type: "upsertNextProject", payload: project });
     persistMutation(
       { id: newMutationId(), entity: "next_project", operation: "upsert", baseVersion: null, data: project },
       { writes: [putLocal("nextProjects", project)] }
@@ -650,8 +637,7 @@ export function App() {
       updated_at: nowIso(),
       version: project.version + 1
     };
-    dispatch({ type: "upsertNextProject", payload: next });
-    stateRef.current = { ...stateRef.current, nextProjects: upsertRecord(stateRef.current.nextProjects, next) };
+    commit({ type: "upsertNextProject", payload: next });
     const patch = pickMutationPatch(changes as Record<string, unknown>, NEXT_PROJECT_PATCH_FIELDS);
     if (Object.prototype.hasOwnProperty.call(changes, "name")) patch.name = cleanName;
     persistMutation(
@@ -670,14 +656,8 @@ export function App() {
   function deleteNextProject(project: NextProject) {
     const purgedIdeas = stateRef.current.nextIdeas.filter((idea) => idea.next_project_id === project.id);
     const purgedIdeaIds = purgedIdeas.map((idea) => idea.id);
-    const purgedIdeaSet = new Set(purgedIdeaIds);
 
-    dispatch({ type: "purgeNextProject", payload: project.id });
-    stateRef.current = {
-      ...stateRef.current,
-      nextProjects: removeRecord(stateRef.current.nextProjects, project.id),
-      nextIdeas: stateRef.current.nextIdeas.filter((idea) => !purgedIdeaSet.has(idea.id))
-    };
+    commit({ type: "purgeNextProject", payload: project.id });
     const staleMutationIds = engine.pendingMutations()
       .filter((mutation) => {
         const key = mutationRecordKey(mutation);
@@ -715,8 +695,7 @@ export function App() {
       deleted_at: null,
       version: 1
     };
-    dispatch({ type: "upsertNextIdea", payload: idea });
-    stateRef.current = { ...stateRef.current, nextIdeas: upsertRecord(stateRef.current.nextIdeas, idea) };
+    commit({ type: "upsertNextIdea", payload: idea });
     persistMutation(
       { id: newMutationId(), entity: "next_idea", operation: "upsert", baseVersion: null, data: idea },
       { writes: [putLocal("nextIdeas", idea)] }
@@ -731,8 +710,7 @@ export function App() {
       updated_at: nowIso(),
       version: idea.version + 1
     };
-    dispatch({ type: "upsertNextIdea", payload: next });
-    stateRef.current = { ...stateRef.current, nextIdeas: upsertRecord(stateRef.current.nextIdeas, next) };
+    commit({ type: "upsertNextIdea", payload: next });
     persistMutation(
       {
         id: newMutationId(),
@@ -747,8 +725,7 @@ export function App() {
   }
 
   function deleteNextIdea(idea: NextIdea) {
-    dispatch({ type: "purgeNextIdea", payload: idea.id });
-    stateRef.current = { ...stateRef.current, nextIdeas: removeRecord(stateRef.current.nextIdeas, idea.id) };
+    commit({ type: "purgeNextIdea", payload: idea.id });
 
     persistMutation(
       {
@@ -799,9 +776,8 @@ export function App() {
       syncEpoch: local.syncEpoch,
       syncCursor: local.syncCursor
     };
-    stateRef.current = { ...stateRef.current, ...payload, session, authRequired: false };
-    dispatch({ type: "hydrateLocal", payload });
-    dispatch({ type: "setSession", payload: session });
+    commit({ type: "hydrateLocal", payload });
+    commit({ type: "setSession", payload: session });
     await syncNow();
   }
 
@@ -817,7 +793,7 @@ export function App() {
       if (navigator.onLine && pending.length > 0) pending = await engine.flushWhileSuspended();
     } catch (error) {
       engine.resume();
-      dispatch({ type: "setError", payload: error instanceof Error ? `Sign out preparation failed: ${error.message}` : "Sign out preparation failed" });
+      commit({ type: "setError", payload: error instanceof Error ? `Sign out preparation failed: ${error.message}` : "Sign out preparation failed" });
       return;
     }
     // Flush while normal sync persistence is still allowed. The barrier begins
@@ -829,7 +805,7 @@ export function App() {
     } catch (error) {
       finishLogoutBarrier(tabId, false);
       engine.resume();
-      dispatch({ type: "setError", payload: error instanceof Error ? `Sign out preparation failed: ${error.message}` : "Sign out preparation failed" });
+      commit({ type: "setError", payload: error instanceof Error ? `Sign out preparation failed: ${error.message}` : "Sign out preparation failed" });
       return;
     }
     const pendingCount = compactPendingMutations(pending).length;
@@ -858,12 +834,12 @@ export function App() {
         engine.resume();
         if (previousSession) await engineIO.saveLocalSession(previousSession).catch(() => undefined);
         if (navigator.onLine) engine.scheduleSync();
-        dispatch({ type: "setError", payload: error instanceof Error ? `Sign out failed: ${error.message}` : "Sign out failed" });
+        commit({ type: "setError", payload: error instanceof Error ? `Sign out failed: ${error.message}` : "Sign out failed" });
         return;
       }
       finishLogoutBarrier(tabId, true);
       applyLoggedOutState();
-      dispatch({ type: "setError", payload: error instanceof Error ? `Local sign-out cleanup failed: ${error.message}` : "Local sign-out cleanup failed" });
+      commit({ type: "setError", payload: error instanceof Error ? `Local sign-out cleanup failed: ${error.message}` : "Local sign-out cleanup failed" });
       return;
     }
     finishLogoutBarrier(tabId, true);
@@ -883,11 +859,10 @@ export function App() {
       syncEpoch: null,
       syncCursor: null
     };
-    stateRef.current = { ...stateRef.current, ...empty, session: null, authRequired: true };
-    dispatch({ type: "hydrateLocal", payload: empty });
-    dispatch({ type: "setLastExport", payload: null });
-    dispatch({ type: "setSession", payload: null });
-    dispatch({ type: "setAuthRequired", payload: true });
+    commit({ type: "hydrateLocal", payload: empty });
+    commit({ type: "setLastExport", payload: null });
+    commit({ type: "setSession", payload: null });
+    commit({ type: "setAuthRequired", payload: true });
   }
 
   const projects = useMemo(() => sortedProjects(state.projects), [state.projects]);
@@ -920,7 +895,7 @@ export function App() {
     nextProjects,
     nextIdeas,
     filters: state.filters,
-    onFiltersChange: (filters) => dispatch({ type: "setFilters", payload: filters }),
+    onFiltersChange: (filters) => commit({ type: "setFilters", payload: filters }),
     onCreateTask: createTask,
     onUpdateTask: updateTask,
     onDeleteTask: deleteTask,
@@ -950,8 +925,8 @@ export function App() {
           {...pageProps}
           initialDate={state.selectedDate}
           onOpenDay={(date) => {
-            dispatch({ type: "setSelectedDate", payload: date });
-            dispatch({ type: "setTab", payload: "today" });
+            commit({ type: "setSelectedDate", payload: date });
+            commit({ type: "setTab", payload: "today" });
           }}
         />
       ) : null}
@@ -970,7 +945,7 @@ export function App() {
           session={state.session}
           worklogOverview={summarizeWorklogOverview(visibleTasks(state.tasks))}
           onImport={handleImport}
-          onExported={(timestamp) => dispatch({ type: "setLastExport", payload: timestamp })}
+          onExported={(timestamp) => commit({ type: "setLastExport", payload: timestamp })}
           onSync={syncNow}
           onForceResync={() => void forceFullResync()}
           onLogout={() => void handleLogout()}
@@ -980,9 +955,9 @@ export function App() {
         current={state.currentTab}
         onChange={(tab) => {
           if (tab === "today") {
-            dispatch({ type: "setSelectedDate", payload: null });
+            commit({ type: "setSelectedDate", payload: null });
           }
-          dispatch({ type: "setTab", payload: tab });
+          commit({ type: "setTab", payload: tab });
         }}
       />
     </div>

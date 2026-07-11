@@ -1427,8 +1427,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
     font-size: 0.7rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
   }
   .task-table-header.with-date { grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
-  /* Labels stay inside their own cell at any width: long ones ("Tomorrow's
-     first step") ellipsize instead of running into the next column. */
+  /* Labels stay inside their own cell at any width: long ones ("Today's
+     output") ellipsize instead of running into the next column. */
   .task-table-header span { min-height: 38px; min-width: 0; padding: 12px 9px; border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .task-table-header span:last-child { border-right: 0; }
 

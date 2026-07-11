@@ -4,6 +4,7 @@ import { onRequestPost } from "./setup";
 
 interface StubEnvOptions {
   sessionSecret?: string;
+  setupToken?: string;
   storedSettings?: Map<string, string>;
 }
 
@@ -17,6 +18,9 @@ function stubContext(options: StubEnvOptions = {}): { context: AppContext; write
   const prepare = (sql: string) => ({
     bind: (...args: unknown[]) => ({
       first: async () => {
+        if (sql.includes("INSERT INTO auth_rate_limits")) {
+          return { attempts: 1, blocked_until: null, last_reservation_id: String(args[3]) };
+        }
         if (sql.includes("FROM users")) return user;
         if (sql.includes("FROM app_settings")) {
           const key = String(args[1]);
@@ -27,23 +31,33 @@ function stubContext(options: StubEnvOptions = {}): { context: AppContext; write
       },
       run: async () => {
         writes.push(sql);
-        if (sql.includes("INTO app_settings")) settings.set(String(args[1]), String(args[2]));
-        return { success: true };
+        let changes = 1;
+        if (sql.includes("INTO app_settings")) {
+          const key = String(args[1]);
+          if (sql.includes("DO NOTHING") && settings.has(key)) {
+            changes = 0;
+          } else {
+            settings.set(key, String(args[2]));
+          }
+        }
+        return { success: true, meta: { changes } };
       }
     })
   });
 
   const request = new Request("https://app.example.com/api/auth/setup", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ password: "0802" })
+    headers: { "Content-Type": "application/json", Origin: "https://app.example.com" },
+    body: JSON.stringify({ password: "0802", setupToken: options.setupToken ?? "test-setup-token" })
   });
 
   const context = {
     request,
+    waitUntil: () => undefined,
     env: {
       OWNER_EMAIL: "owner@example.com",
       SESSION_SECRET: options.sessionSecret,
+      SETUP_TOKEN: options.setupToken ?? "test-setup-token",
       DB: { prepare }
     }
   } as unknown as AppContext;
@@ -67,6 +81,18 @@ describe("first-run passcode setup", () => {
     expect(response.headers.get("Set-Cookie")).toContain("pm_session=");
     const stored = JSON.parse(settings.get("local_password_hash") ?? "null") as { hash?: string };
     expect(stored?.hash).toMatch(/^pbkdf2_sha256\$100000\$/);
+  });
+
+  it("requires the deploy-time setup token", async () => {
+    const { context, writes } = stubContext({ sessionSecret: "test-secret", setupToken: "expected-setup-token" });
+    (context as unknown as { request: Request }).request = new Request("https://app.example.com/api/auth/setup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: "https://app.example.com" },
+      body: JSON.stringify({ password: "0802", setupToken: "wrong-token" })
+    });
+    const response = await onRequestPost(context);
+    expect(response.status).toBe(403);
+    expect(writes.some((sql) => sql.includes("INTO app_settings"))).toBe(false);
   });
 
   it("refuses to overwrite an already configured passcode", async () => {

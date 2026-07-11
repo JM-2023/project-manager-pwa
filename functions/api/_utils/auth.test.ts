@@ -21,5 +21,6 @@ describe("password verification", () => {
     // not enforce the cap. This pin keeps setup/change-password deployable.
     const hash = await hashPassword("1234");
     expect(hash).toMatch(/^pbkdf2_sha256\$100000\$/);
+    await expect(verifyPassword("1234", hash.replace("$100000$", "$100001$"))).resolves.toBe(false);
   });
 });

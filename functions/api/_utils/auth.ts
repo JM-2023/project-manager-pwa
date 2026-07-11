@@ -47,7 +47,7 @@ async function hmac(secret: string, payload: string): Promise<string> {
   return base64UrlEncode(signature);
 }
 
-async function timingSafeEqual(left: string, right: string): Promise<boolean> {
+export async function timingSafeEqual(left: string, right: string): Promise<boolean> {
   const [leftHash, rightHash] = await Promise.all([
     crypto.subtle.digest("SHA-256", encoder.encode(left)),
     crypto.subtle.digest("SHA-256", encoder.encode(right))
@@ -99,19 +99,21 @@ export async function configuredPasswordHash(env: AppEnv): Promise<string | null
   return (await readStoredPasswordHash(env)) ?? normalizePasswordHash(env.APP_PASSWORD_HASH);
 }
 
-export async function savePasswordHash(env: AppEnv, hash: string): Promise<void> {
+/** Claim first-run setup exactly once, even when two setup requests overlap. */
+export async function savePasswordHashIfAbsent(env: AppEnv, hash: string): Promise<boolean> {
   const email = ownerEmail(env);
   if (!email) {
     throw new Error("OWNER_EMAIL is missing");
   }
   const user = await getOrCreateUser(env, email);
-  await env.DB.prepare(
+  const result = await env.DB.prepare(
     `INSERT INTO app_settings (user_id, key, value_json, updated_at)
      VALUES (?, ?, ?, ?)
-     ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
+     ON CONFLICT(user_id, key) DO NOTHING`
   )
     .bind(user.id, LOCAL_PASSWORD_HASH_SETTING_KEY, JSON.stringify({ hash }), nowIso())
     .run();
+  return Number(result.meta?.changes ?? 0) === 1;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -130,7 +132,10 @@ export async function verifyPassword(password: string, hashSetting: string | und
   try {
     const [algorithm, iterationsText, saltText, expectedText] = normalizedHash.split("$");
     const iterations = Number(iterationsText);
-    if (algorithm === "pbkdf2_sha256" && Number.isInteger(iterations) && iterations >= 100_000) {
+    // The Workers runtime caps PBKDF2 at 100k. Reject a corrupted or
+    // hand-edited count on either side of that exact value before asking the
+    // runtime to perform attacker-amplified work.
+    if (algorithm === "pbkdf2_sha256" && iterations === HASH_ITERATIONS) {
       const salt = base64UrlDecode(saltText);
       const expected = base64UrlDecode(expectedText);
       const key = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveBits"]);
@@ -150,12 +155,15 @@ export async function verifyLocalPassword(env: AppEnv, password: string): Promis
   return verifyPassword(password, (await readStoredPasswordHash(env)) ?? env.APP_PASSWORD_HASH);
 }
 
-async function readSessionGeneration(env: AppEnv): Promise<number> {
-  const email = ownerEmail(env);
-  if (!email) return 0;
-  const user = await getOrCreateUser(env, email);
+async function readSessionGeneration(env: AppEnv, knownUserId?: string): Promise<number> {
+  let userId = knownUserId;
+  if (!userId) {
+    const email = ownerEmail(env);
+    if (!email) return 0;
+    userId = (await getOrCreateUser(env, email)).id;
+  }
   const row = await env.DB.prepare("SELECT value_json FROM app_settings WHERE user_id = ? AND key = ?")
-    .bind(user.id, SESSION_GENERATION_SETTING_KEY)
+    .bind(userId, SESSION_GENERATION_SETTING_KEY)
     .first<{ value_json: string }>();
   if (!row) return 0;
   // Tolerate a hand-edited or corrupted row: a malformed value must degrade to
@@ -168,21 +176,26 @@ async function readSessionGeneration(env: AppEnv): Promise<number> {
   }
 }
 
-/** Invalidate every outstanding session cookie (called on passcode change). */
-export async function bumpSessionGeneration(env: AppEnv): Promise<void> {
+/** Change the passcode and revoke existing cookies in one D1 transaction. */
+export async function replacePasswordHashAndBumpGeneration(env: AppEnv, hash: string): Promise<void> {
   const email = ownerEmail(env);
-  if (!email) {
-    throw new Error("OWNER_EMAIL is missing");
-  }
+  if (!email) throw new Error("OWNER_EMAIL is missing");
   const user = await getOrCreateUser(env, email);
-  const next = (await readSessionGeneration(env)) + 1;
-  await env.DB.prepare(
-    `INSERT INTO app_settings (user_id, key, value_json, updated_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
-  )
-    .bind(user.id, SESSION_GENERATION_SETTING_KEY, JSON.stringify(next), nowIso())
-    .run();
+  const timestamp = nowIso();
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO app_settings (user_id, key, value_json, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`
+    ).bind(user.id, LOCAL_PASSWORD_HASH_SETTING_KEY, JSON.stringify({ hash }), timestamp),
+    env.DB.prepare(
+      `INSERT INTO app_settings (user_id, key, value_json, updated_at)
+       VALUES (?, ?, '1', ?)
+       ON CONFLICT(user_id, key) DO UPDATE SET
+         value_json = CAST(CAST(COALESCE(json_extract(app_settings.value_json, '$'), 0) AS INTEGER) + 1 AS TEXT),
+         updated_at = excluded.updated_at`
+    ).bind(user.id, SESSION_GENERATION_SETTING_KEY, timestamp)
+  ]);
 }
 
 export async function createSessionCookie(env: AppEnv, email: string): Promise<string> {
@@ -200,7 +213,7 @@ export function clearSessionCookie(): string {
   return `${SESSION_COOKIE}=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
 }
 
-async function userFromLocalSession(env: AppEnv, request: Request): Promise<string | null> {
+async function userFromLocalSession(env: AppEnv, request: Request, userId: string): Promise<string | null> {
   if (!env.SESSION_SECRET) {
     throw new Error("SESSION_SECRET is missing");
   }
@@ -222,7 +235,7 @@ async function userFromLocalSession(env: AppEnv, request: Request): Promise<stri
   }
   // Cookies minted before the last passcode change carry a stale generation
   // (missing = 0, the pre-feature default) and stop being accepted.
-  if ((parsed.gen ?? 0) !== (await readSessionGeneration(env))) {
+  if ((parsed.gen ?? 0) !== (await readSessionGeneration(env, userId))) {
     return null;
   }
   return parsed.email.toLowerCase();
@@ -251,13 +264,14 @@ export async function authenticate(context: AppContext): Promise<AuthUser | Resp
     return apiError(500, "OWNER_EMAIL is missing");
   }
 
+  const user = await getOrCreateUser(context.env, expectedOwner);
   const mode = authMode(context.env);
   const email =
     mode === "none"
       ? expectedOwner
       : mode === "cloudflare_access"
         ? await userFromAccess(context.env, context.request)
-        : await userFromLocalSession(context.env, context.request);
+        : await userFromLocalSession(context.env, context.request, user.id);
 
   if (!email) {
     return apiError(401, "Authentication required");
@@ -266,7 +280,7 @@ export async function authenticate(context: AppContext): Promise<AuthUser | Resp
     return apiError(403, "Forbidden");
   }
 
-  return getOrCreateUser(context.env, email);
+  return user;
 }
 
 export function isResponse(value: AuthUser | Response): value is Response {

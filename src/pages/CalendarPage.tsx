@@ -120,13 +120,12 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
           ? `${yearOf(anchor)}年`
           : yearOf(anchor);
 
-  // What kind of change the next body animation should express: prev/next
+  // What kind of change the next view animation should express: prev/next
   // travels sideways along the nav direction, a granularity switch re-forms
   // in place. Refs, because they only matter to the effect below.
-  const bodyRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<HTMLDivElement | null>(null);
-  const bodyMotionRef = useRef<"nav" | "view">("nav");
-  const bodySettledRef = useRef(false);
+  const viewMotionRef = useRef<"nav" | "view">("nav");
+  const viewSettledRef = useRef(false);
   // Height of the outgoing lens, captured in the click handler (pre-render),
   // and the cleanup timer that ends a morph. A timer, not transitionend or a
   // WAAPI finished promise — those can silently never fire (tab hidden,
@@ -135,7 +134,7 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
   const viewMorphTimerRef = useRef(0);
 
   function shift(direction: NavDirection) {
-    bodyMotionRef.current = "nav";
+    viewMotionRef.current = "nav";
     setNavDir(direction);
     setAnchor((current) =>
       granularity === "week"
@@ -148,7 +147,7 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
 
   function changeGranularity(next: Granularity) {
     if (next === granularity) return;
-    bodyMotionRef.current = "view";
+    viewMotionRef.current = "view";
     viewHeightRef.current = viewRef.current?.offsetHeight ?? null;
     setGranularity(next);
   }
@@ -156,26 +155,26 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
   const isThisPeriod = today >= range.start && today <= range.end;
 
   function jumpToCurrent() {
-    bodyMotionRef.current = "nav";
+    viewMotionRef.current = "nav";
     setNavDir(today > range.end ? 1 : -1);
     setAnchor(today);
   }
 
-  // Prev/next: the whole period (summary + grid) travels sideways from the
-  // direction you went — compositor-only, no remount. A lens switch instead
-  // leaves the summary card alone (its digits roll on their drums) and
-  // morphs only the region below it: the wrapper's height tweens from the
-  // outgoing lens to the incoming one under an overflow clip — so the page
-  // never jumps — while the new sections cascade up via their CSS mount
-  // animations.
+  // The summary card never moves — any switch only re-inks it, digits
+  // rolling on their drums. All travel belongs to the region below it:
+  // prev/next slides .cal-view sideways from the direction you went —
+  // compositor-only, no remount — while a lens switch re-forms it in place:
+  // the wrapper's height tweens from the outgoing lens to the incoming one
+  // under an overflow clip — so the page never jumps — while the new
+  // sections cascade up via their CSS mount animations.
   useLayoutEffect(() => {
-    if (!bodySettledRef.current) {
-      bodySettledRef.current = true;
+    if (!viewSettledRef.current) {
+      viewSettledRef.current = true;
       return;
     }
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (bodyMotionRef.current === "nav") {
-      bodyRef.current?.animate(
+    if (viewMotionRef.current === "nav") {
+      viewRef.current?.animate(
         [{ opacity: 0.22, transform: `translateX(${navDir * 18}px)` }, { opacity: 1, transform: "none" }],
         { duration: 320, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
       );
@@ -238,7 +237,6 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
         </div>
       </header>
 
-      <div className="cal-body" ref={bodyRef}>
       <CalendarSummary stats={periodStats} metric={metric} />
 
       <div className="cal-view" ref={viewRef}>
@@ -288,7 +286,6 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
           }}
         />
       ) : null}
-      </div>
       </div>
     </main>
   );

@@ -4,11 +4,7 @@ import { useI18n } from "../lib/i18n";
 import type { NextIdea, NextProject } from "../lib/types";
 import type { TaskPageProps } from "./pageProps";
 
-function projectIdeas(ideas: NextIdea[], project: NextProject): NextIdea[] {
-  return ideas
-    .filter((idea) => !idea.deleted_at && idea.next_project_id === project.id)
-    .sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at) || a.title.localeCompare(b.title));
-}
+const EMPTY_IDEAS: NextIdea[] = [];
 
 function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
@@ -181,7 +177,21 @@ export function NextPage(props: TaskPageProps) {
   const { m } = useI18n();
   const { nextProjects, nextIdeas, onCreateNextProject, onUpdateNextProject, onDeleteNextProject, onCreateNextIdea, onUpdateNextIdea, onDeleteNextIdea } = props;
   const [projectName, setProjectName] = useState("");
-  const ideaCount = useMemo(() => nextIdeas.filter((idea) => !idea.deleted_at).length, [nextIdeas]);
+  const { ideaCount, ideasByProject } = useMemo(() => {
+    const grouped = new Map<string, NextIdea[]>();
+    let count = 0;
+    for (const idea of nextIdeas) {
+      if (idea.deleted_at) continue;
+      count += 1;
+      const projectIdeas = grouped.get(idea.next_project_id);
+      if (projectIdeas) projectIdeas.push(idea);
+      else grouped.set(idea.next_project_id, [idea]);
+    }
+    for (const projectIdeas of grouped.values()) {
+      projectIdeas.sort((a, b) => a.sort_order - b.sort_order || a.created_at.localeCompare(b.created_at) || a.title.localeCompare(b.title));
+    }
+    return { ideaCount: count, ideasByProject: grouped };
+  }, [nextIdeas]);
 
   function createProject() {
     onCreateNextProject(projectName);
@@ -226,7 +236,7 @@ export function NextPage(props: TaskPageProps) {
           <NextProjectSection
             key={project.id}
             project={project}
-            ideas={projectIdeas(nextIdeas, project)}
+            ideas={ideasByProject.get(project.id) ?? EMPTY_IDEAS}
             onCreateIdea={createIdea}
             onUpdateIdea={onUpdateNextIdea}
             onDeleteIdea={onDeleteNextIdea}

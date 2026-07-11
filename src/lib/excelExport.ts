@@ -11,7 +11,7 @@ import {
   worklogBlocker,
   worklogOutput
 } from "./progress";
-import type { ExportDataResponse, NextIdea, NextProject, Project, Task } from "./types";
+import type { ExportDataResponse, NextIdea, NextProject, Task } from "./types";
 
 const GUIDE_ROWS = [
   ["重点标记：左侧记录任务，右侧每日总结", null, null, null, null, null, null, null],
@@ -38,8 +38,8 @@ const GUIDE_ROWS = [
   [null, null, null, null, null, "今日判断", "自动判断当天状态", "优先显示有卡点，其次核心推进好"]
 ];
 
-function projectName(projects: Project[], projectId?: string | null): string {
-  return projects.find((project) => project.id === projectId)?.name ?? "";
+function projectName(projectNames: ReadonlyMap<string, string>, projectId?: string | null): string {
+  return (projectId && projectNames.get(projectId)) || "";
 }
 
 function sortedWorklogTasks(tasks: Task[]): Task[] {
@@ -69,6 +69,11 @@ function dateSpan(start: string | null, end: string | null): string[] {
   const dates: string[] = [];
   const cursor = new Date(`${start}T00:00:00`);
   const final = new Date(`${end}T00:00:00`);
+  const spanDays = Math.floor((final.getTime() - cursor.getTime()) / 86_400_000);
+  // A malformed or extreme date range must not allocate millions of empty
+  // Daily Summary rows. For long archives the caller falls back to dates that
+  // actually contain worklog entries.
+  if (!Number.isFinite(spanDays) || spanDays < 0 || spanDays > 3_660) return [];
   while (!Number.isNaN(cursor.getTime()) && cursor <= final) {
     const year = cursor.getFullYear();
     const month = String(cursor.getMonth() + 1).padStart(2, "0");
@@ -79,11 +84,11 @@ function dateSpan(start: string | null, end: string | null): string[] {
   return dates;
 }
 
-function coreTaskText(tasks: Task[], projects: Project[]): string {
+function coreTaskText(tasks: Task[], projectNames: ReadonlyMap<string, string>): string {
   return tasks
     .filter((task) => getTaskImportance(task) === 1)
     .slice(0, 4)
-    .map((task) => `${projectName(projects, task.project_id)}：${task.title}`)
+    .map((task) => `${projectName(projectNames, task.project_id)}：${task.title}`)
     .join("；");
 }
 
@@ -100,9 +105,24 @@ export function buildWorkbook(data: ExportDataResponse) {
   const projectsForNames = data.projects.filter((project) => !project.deleted_at);
   const nextProjectsForExport = data.nextProjects.filter((project) => !project.deleted_at && project.archived === 0);
   const nextIdeasForExport = sortedNextIdeas(data.nextIdeas.filter((idea) => !idea.deleted_at));
+  const projectNames = new Map(projectsForNames.map((project) => [project.id, project.name]));
+  const nextProjectNames = new Map(nextProjectsForExport.map((project) => [project.id, project.name]));
+  const nextIdeasByProject = new Map<string, NextIdea[]>();
+  for (const idea of nextIdeasForExport) {
+    const projectIdeas = nextIdeasByProject.get(idea.next_project_id);
+    if (projectIdeas) projectIdeas.push(idea);
+    else nextIdeasByProject.set(idea.next_project_id, [idea]);
+  }
   const liveTasks = data.tasks.filter((task) => !task.deleted_at && task.archived === 0);
   const tasksForExport = sortedWorklogTasks(liveTasks.filter(isWorklogTask));
   const datedTasks = tasksForExport.filter((task) => task.start_date);
+  const datedTasksByDate = new Map<string, Task[]>();
+  for (const task of datedTasks) {
+    const date = task.start_date as string;
+    const dateTasks = datedTasksByDate.get(date);
+    if (dateTasks) dateTasks.push(task);
+    else datedTasksByDate.set(date, [task]);
+  }
   const overview = summarizeWorklogOverview(tasksForExport);
 
   const worklogRows = [
@@ -135,7 +155,7 @@ export function buildWorkbook(data: ExportDataResponse) {
       return [
         task.start_date ?? "",
         getTaskImportance(task),
-        projectName(projectsForNames, task.project_id),
+        projectName(projectNames, task.project_id),
         task.title,
         explicitProgress !== null ? explicitProgress / 100 : "",
         worklogOutput(task),
@@ -158,14 +178,16 @@ export function buildWorkbook(data: ExportDataResponse) {
   ];
 
   const dailyStartRow = 3;
-  dateSpan(overview.firstDate, overview.lastDate).forEach((date, index) => {
-    const dateTasks = datedTasks.filter((task) => task.start_date === date);
+  const dailySummaryDates = dateSpan(overview.firstDate, overview.lastDate);
+  const datesForSummary = dailySummaryDates.length > 0 ? dailySummaryDates : uniqueDates(datedTasks);
+  datesForSummary.forEach((date, index) => {
+    const dateTasks = datedTasksByDate.get(date) ?? [];
     const summary = summarizeProgress(dateTasks);
     const hasCoreTasks = dateTasks.some((task) => getTaskImportance(task) === 1);
     const rowIndex = dailyStartRow + index;
     const existing = worklogRows[rowIndex] ?? Array.from({ length: 20 }, () => null);
     existing[10] = date;
-    existing[11] = coreTaskText(dateTasks, projectsForNames);
+    existing[11] = coreTaskText(dateTasks, projectNames);
     existing[12] = hasCoreTasks ? summary.corePercent / 100 : "";
     existing[13] = dateTasks.length > 0 ? summary.weightedPercent / 100 : "";
     existing[14] = summary.outputCount;
@@ -212,7 +234,7 @@ export function buildWorkbook(data: ExportDataResponse) {
 
   const projectColumns = nextProjectsForExport.map((project) => [
     project.name,
-    ...nextIdeasForExport.filter((idea) => idea.next_project_id === project.id).map((idea) => idea.title)
+    ...(nextIdeasByProject.get(project.id) ?? []).map((idea) => idea.title)
   ]);
   const maxProjectRows = Math.max(1, ...projectColumns.map((column) => column.length));
   const projectCache = Array.from({ length: maxProjectRows }, (_row, rowIndex) => projectColumns.map((column) => column[rowIndex] ?? null));
@@ -238,7 +260,7 @@ export function buildWorkbook(data: ExportDataResponse) {
     ["ID", "Next Project", "Title", "Note", "Sort Order", "Created At", "Updated At", "Version"],
     ...nextIdeasForExport.map((idea: NextIdea) => [
       idea.id,
-      nextProjectsForExport.find((project) => project.id === idea.next_project_id)?.name ?? "",
+      nextProjectNames.get(idea.next_project_id) ?? "",
       idea.title,
       idea.note ?? "",
       idea.sort_order,

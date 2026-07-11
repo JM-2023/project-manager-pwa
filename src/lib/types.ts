@@ -11,6 +11,8 @@ export interface UserSession {
 export interface AuthStatusResponse {
   authMode: string;
   needsSetup: boolean;
+  setupTokenRequired?: boolean;
+  setupAvailable?: boolean;
 }
 
 export interface SessionResponse {
@@ -22,6 +24,8 @@ export interface SessionResponse {
     excelAutosync?: boolean;
     authMode: string;
   };
+  /** Client-only bound for reopening the browser-local cache offline. */
+  offlineExpiresAt?: string;
 }
 
 export interface Project {
@@ -100,6 +104,12 @@ export interface NextIdea {
 
 export interface BootstrapResponse {
   serverTime: string;
+  /** Opaque identity of the current cloud dataset. A change requires a full local replace. */
+  syncEpoch: string;
+  /** Monotonic per-user change cursor. Unlike wall-clock time it cannot miss same-millisecond writes. */
+  syncCursor: number;
+  /** The server may force a full snapshot when a supplied cursor can no longer be served. */
+  full?: boolean;
   projects: Project[];
   tasks: Task[];
   nextProjects: NextProject[];
@@ -108,8 +118,8 @@ export interface BootstrapResponse {
 }
 
 export type MutationEntity = "project" | "task" | "setting" | "next_project" | "next_idea";
-// "purge" is an irreversible hard delete (row removed, no tombstone). Used for
-// project deletion, which cascades to the project's tasks and their task_tags.
+// "delete" creates a synchronizable tombstone. "purge" remains a compatibility
+// path for old clients and administrative hard deletes.
 export type MutationOperation = "upsert" | "delete" | "purge";
 
 export interface ClientMutation<T = unknown> {
@@ -118,6 +128,8 @@ export interface ClientMutation<T = unknown> {
   operation: MutationOperation;
   baseVersion?: number | null;
   data: T;
+  /** Changed user fields for an existing record. `data` remains the full optimistic local record. */
+  patch?: Record<string, unknown>;
   createdAt?: string;
 }
 
@@ -127,6 +139,8 @@ export interface MutationResult {
   recordId: string;
   version?: number;
   updated_at?: string;
+  rebased?: boolean;
+  serverVersion?: number;
 }
 
 export interface MutationConflict {

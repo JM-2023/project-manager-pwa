@@ -14,7 +14,7 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
   return json({
     user: { email: user.email },
     serverTime: nowIso(),
-    schemaVersion: 1,
+    schemaVersion: 5,
     features: {
       r2Backups: context.env.ENABLE_R2_BACKUPS === "true",
       excelAutosync: excelAutosyncEnabled(context),

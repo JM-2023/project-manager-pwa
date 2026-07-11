@@ -1,14 +1,14 @@
 import {
   authenticate,
   authMode,
-  bumpSessionGeneration,
   createSessionCookie,
   hashPassword,
   isResponse,
   ownerEmail,
-  savePasswordHash,
+  replacePasswordHashAndBumpGeneration,
   verifyLocalPassword
 } from "../_utils/auth";
+import { clearAuthAttempts, reserveAuthAttempt } from "../_utils/rateLimit";
 import { apiError, json, readJson, requireSameOrigin } from "../_utils/response";
 import type { AppContext } from "../_utils/types";
 
@@ -31,7 +31,21 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
   const user = await authenticate(context);
   if (isResponse(user)) return user;
 
-  const body = await readJson<ChangePasswordBody>(context.request, 20_000);
+  const reservation = await reserveAuthAttempt(context, "change-password");
+  if (!reservation.allowed) {
+    return json(
+      { error: "Too many passcode attempts. Try again later." },
+      { status: 429, headers: { "Retry-After": String(reservation.retryAfterSeconds) } }
+    );
+  }
+
+  let body: ChangePasswordBody;
+  try {
+    body = await readJson<ChangePasswordBody>(context.request, 20_000);
+  } catch {
+    return apiError(400, "Invalid request");
+  }
+  if (!body || typeof body !== "object" || Array.isArray(body)) return apiError(400, "Invalid request");
   const currentPassword = String(body.currentPassword ?? "");
   const newPassword = String(body.newPassword ?? "");
   if (!validPin(newPassword)) {
@@ -41,9 +55,9 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
     return apiError(401, "Invalid login");
   }
 
-  await savePasswordHash(context.env, await hashPassword(newPassword));
-  // Invalidate every other device's session; the fresh cookie below carries
-  // the new generation so this device stays signed in.
-  await bumpSessionGeneration(context.env);
+  await replacePasswordHashAndBumpGeneration(context.env, await hashPassword(newPassword));
+  await clearAuthAttempts(context, reservation.keys).catch(() => undefined);
+  // The fresh cookie carries the incremented generation, keeping this device
+  // signed in while every earlier cookie stops validating.
   return json({ ok: true }, { headers: { "Set-Cookie": await createSessionCookie(context.env, ownerEmail(context.env)) } });
 }

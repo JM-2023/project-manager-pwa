@@ -10,7 +10,7 @@ import { useHeroAnimation, type HeroAnimation } from "../lib/heroAnimation";
 import { useMeterStyle, type MeterStyle } from "../lib/meterStyle";
 import { useI18n, type Language } from "../lib/i18n";
 import { usePresence } from "../lib/usePresence";
-import type { ImportResponse, ImportRow, SessionResponse } from "../lib/types";
+import type { ImportResponse, ImportRow, MutationConflict, SessionResponse } from "../lib/types";
 import type { WorklogOverview } from "../lib/progress";
 
 const HERO_ANIM_OPTIONS: HeroAnimation[] = ["flow", "shimmer"];
@@ -30,7 +30,7 @@ interface SettingsPageProps {
   lastSync: string | null;
   lastExport: string | null;
   syncError: string | null;
-  conflicts: number;
+  conflicts: MutationConflict[];
   session: SessionResponse | null;
   worklogOverview: WorklogOverview;
   onImport: (filename: string, rows: ImportRow[]) => Promise<ImportResponse>;
@@ -118,10 +118,17 @@ export function SettingsPage({
           <span>{m.settings.lastExport}</span>
           <strong>{lastExport ? new Date(lastExport).toLocaleString(locale) : m.settings.never}</strong>
         </div>
-        {conflicts > 0 ? (
-          <div className="metric">
+        {conflicts.length > 0 ? (
+          <div className="metric wide">
             <span>{m.settings.conflicts}</span>
-            <strong>{conflicts}</strong>
+            <strong>{conflicts.length}</strong>
+            <div className="settings-conflict-list" aria-label={m.settings.conflictDetails}>
+              {conflicts.map((conflict) => (
+                <small key={`${conflict.id}:${conflict.reason}`}>
+                  {[conflict.entity, conflict.recordId, conflict.reason].filter(Boolean).join(" · ")}
+                </small>
+              ))}
+            </div>
           </div>
         ) : null}
         {syncError ? (

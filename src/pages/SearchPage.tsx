@@ -1,4 +1,5 @@
 import { TaskTable } from "../components/TaskTable";
+import { useMemo } from "react";
 import { useI18n } from "../lib/i18n";
 import { getTaskImportance, getTaskProgress, isProjectCacheTask, worklogBlocker, worklogOutput } from "../lib/progress";
 import { NO_PROJECT_FILTER, matchesProjectFilter } from "../state/appStore";
@@ -7,35 +8,59 @@ import type { TaskPageProps } from "./pageProps";
 export function SearchPage(props: TaskPageProps) {
   const { m } = useI18n();
   const { projects, tasks, nextProjects, nextIdeas, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask } = props;
-  const projectMap = new Map(projects.map((project) => [project.id, project.name]));
-  const nextProjectMap = new Map(nextProjects.map((project) => [project.id, project.name]));
+  const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
+  const nextProjectMap = useMemo(() => new Map(nextProjects.map((project) => [project.id, project.name])), [nextProjects]);
   const query = filters.search.trim().toLowerCase();
+  const queryActive = Boolean(query);
+  const statusFilterActive = Boolean(filters.status);
+  const priorityFilterActive = Boolean(filters.priority);
 
-  const filtered = tasks.filter((task) => {
-    if (task.deleted_at || task.archived) return false;
-    if (isProjectCacheTask(task)) return false;
-    // Untitled rows are drafts still being written on the Today page — showing
-    // them here would just be blank lines.
-    if (!task.title.trim()) return false;
-    if (query) {
-      const haystack = [task.title, worklogOutput(task), worklogBlocker(task), task.next_action, task.notes, projectMap.get(task.project_id ?? "")]
-        .join(" ")
-        .toLowerCase();
-      if (!haystack.includes(query)) return false;
-    }
-    if (!matchesProjectFilter(filters.projectId, task.project_id)) return false;
-    if (filters.status && String(getTaskProgress(task)) !== filters.status) return false;
-    if (filters.priority && String(getTaskImportance(task)) !== filters.priority) return false;
-    return true;
-  });
-  const filteredNextIdeas = nextIdeas.filter((idea) => {
-    if (idea.deleted_at) return false;
-    if (!query) return true;
-    const haystack = [idea.title, idea.note, nextProjectMap.get(idea.next_project_id ?? "")]
-      .join(" ")
-      .toLowerCase();
-    return haystack.includes(query);
-  });
+  const searchableTasks = useMemo(
+    () =>
+      tasks.map((task) => ({
+        task,
+        hidden: Boolean(task.deleted_at || task.archived || isProjectCacheTask(task) || !task.title.trim()),
+        progress: statusFilterActive ? String(getTaskProgress(task)) : "",
+        importance: priorityFilterActive ? String(getTaskImportance(task)) : "",
+        haystack: queryActive
+          ? [task.title, worklogOutput(task), worklogBlocker(task), task.next_action, task.notes, projectMap.get(task.project_id ?? "")]
+              .join(" ")
+              .toLowerCase()
+          : ""
+      })),
+    [priorityFilterActive, projectMap, queryActive, statusFilterActive, tasks]
+  );
+  const searchableNextIdeas = useMemo(
+    () =>
+      nextIdeas.map((idea) => ({
+        idea,
+        haystack: queryActive
+          ? [idea.title, idea.note, nextProjectMap.get(idea.next_project_id ?? "")].join(" ").toLowerCase()
+          : ""
+      })),
+    [nextIdeas, nextProjectMap, queryActive]
+  );
+
+  const filtered = useMemo(
+    () =>
+      searchableTasks
+        .filter(({ task, hidden, progress, importance, haystack }) => {
+          if (hidden || (query && !haystack.includes(query))) return false;
+          if (!matchesProjectFilter(filters.projectId, task.project_id)) return false;
+          if (filters.status && progress !== filters.status) return false;
+          if (filters.priority && importance !== filters.priority) return false;
+          return true;
+        })
+        .map(({ task }) => task),
+    [filters.priority, filters.projectId, filters.status, query, searchableTasks]
+  );
+  const filteredNextIdeas = useMemo(
+    () =>
+      searchableNextIdeas
+        .filter(({ idea, haystack }) => !idea.deleted_at && (!query || haystack.includes(query)))
+        .map(({ idea }) => idea),
+    [query, searchableNextIdeas]
+  );
 
   return (
     <main className="page-content">

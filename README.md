@@ -6,11 +6,11 @@ The deployment mode in `wrangler.toml` is `AUTH_MODE=local_password`: the app is
 
 ## Passcode
 
-- **First run** — on a fresh database the login screen asks you to create a passcode. It is stored as a PBKDF2 hash in D1 (`app_settings`), never in the code or the bundle.
+- **First run** — on a fresh database the login screen asks for the deploy-time `SETUP_TOKEN`, then lets you create a passcode. The token prevents an unclaimed public deployment from being registered by a visitor. The passcode is stored as a PBKDF2 hash in D1 (`app_settings`), never in the code or the bundle.
 - **Change it** — Settings -> Security -> Change passcode (current passcode required). The old passcode stops working immediately.
 - **Pre-seeded passcode** — until a passcode has been created in-app, a deploy-time `APP_PASSWORD_HASH` secret is accepted. Creating or changing a passcode in-app revokes that deploy-time hash. There is no built-in default passcode.
 
-Redeploying the app never resets the passcode: it lives in D1, and deploys only replace code. `SESSION_SECRET` must be set (secret or `.dev.vars`) for login to work in any case.
+Redeploying the app never resets the passcode: it lives in D1, and deploys only replace code. `SESSION_SECRET` must be set (secret or `.dev.vars`) for login to work in any case. Failed login and setup attempts are rate-limited in D1.
 
 ## Local Setup
 
@@ -28,12 +28,13 @@ Use Node.js 20 or newer because Wrangler requires it.
    npm run hash-password -- "1234"
    ```
 
-3. Create `.dev.vars` (`APP_PASSWORD_HASH` is optional — without it, a fresh database shows the create-passcode screen):
+3. Create `.dev.vars` (`APP_PASSWORD_HASH` is optional; `SETUP_TOKEN` is required when the database has no passcode):
 
    ```text
    AUTH_MODE=local_password
    OWNER_EMAIL=owner@project-manager.local
    APP_PASSWORD_HASH=<output-from-hash-password>
+   SETUP_TOKEN=<long-random-first-run-token>
    SESSION_SECRET=<long-random-secret>
    ENABLE_R2_BACKUPS=false
    ```
@@ -60,10 +61,11 @@ npx wrangler d1 create project_manager
 npm run db:migrate:remote
 ```
 
-Set the session secret in the Cloudflare dashboard or through Wrangler (required for login). `APP_PASSWORD_HASH` is optional — a fresh deployment without it asks you to create a passcode on first visit:
+Set the session and first-run setup secrets in the Cloudflare dashboard or through Wrangler. `APP_PASSWORD_HASH` remains an optional way to pre-seed the passcode:
 
 ```bash
 npx wrangler pages secret put SESSION_SECRET
+npx wrangler pages secret put SETUP_TOKEN
 npx wrangler pages secret put APP_PASSWORD_HASH   # optional pre-seeded passcode
 ```
 
@@ -79,6 +81,8 @@ ACCESS_AUD=<application-audience-tag>
 ## Optional R2 Backups
 
 Create an R2 bucket, uncomment the `[[r2_buckets]]` block in `wrangler.toml`, set `ENABLE_R2_BACKUPS=true`, and redeploy. Excel export still works as a direct browser download while R2 is disabled.
+
+Cloud Excel autosync stores one object per synchronization revision. After a new pointer commits, retried retention cleanup targets the current revision plus four predecessors and drains older history in R2-sized batches.
 
 ## Workbook Import Notes
 

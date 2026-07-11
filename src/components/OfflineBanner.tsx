@@ -22,15 +22,17 @@ interface BannerView {
 
 export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync }: OfflineBannerProps) {
   const { m } = useI18n();
-  const visible = !online || pendingCount > 0 || syncStatus === "syncing" || syncStatus === "error";
+  const visible = Boolean(error) || !online || pendingCount > 0 || syncStatus === "syncing" || syncStatus === "error";
   const presence = usePresence(visible, 320);
   // Freeze the last visible content for the exit animation — by the time the
   // pill leaves, the live props have already gone back to "all synced".
   const lastViewRef = useRef<BannerView | null>(null);
 
   if (visible) {
-    const state = online ? syncStatus : "offline";
-    const message = !online
+    const state = error ? "error" : online ? syncStatus : "offline";
+    const message = error
+      ? m.offline.syncIssue(error)
+      : !online
       ? pendingCount > 0
         ? m.offline.savedOffline(pendingCount)
         : m.offline.offline
@@ -41,7 +43,9 @@ export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync 
           : syncStatus === "queued"
             ? m.offline.queued(pendingCount)
             : m.offline.pending(pendingCount);
-    const Icon = !online
+    const Icon = error
+      ? CircleAlert
+      : !online
       ? CloudOff
       : syncStatus === "error"
         ? CircleAlert

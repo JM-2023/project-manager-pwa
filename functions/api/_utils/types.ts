@@ -6,6 +6,7 @@ export interface AppEnv {
   ENABLE_R2_BACKUPS?: string;
   ENABLE_D1_EXCEL_STATE?: string;
   APP_PASSWORD_HASH?: string;
+  SETUP_TOKEN?: string;
   SESSION_SECRET?: string;
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;

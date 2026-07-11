@@ -1273,6 +1273,19 @@ input:focus, select:focus, textarea:focus { outline: none; }
   animation: fade-up var(--t-slow) var(--ease) both;
   transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease), border-color var(--t) var(--ease);
 }
+/* Once incremental loading has mounted a long result set, let the browser
+   skip paint/layout work for rows far outside the viewport. The remembered
+   intrinsic size minimizes scroll jumps after a row has been measured, and
+   unsupported browsers simply ignore this guarded optimization. */
+@supports (content-visibility: auto) {
+  .task-table-row {
+    content-visibility: auto;
+    contain-intrinsic-block-size: auto var(--task-row-intrinsic-block-size, 620px);
+  }
+  .task-table-row:focus-within,
+  .task-table-row.is-removing,
+  .task-table-row:has(.task-menu.is-open) { content-visibility: visible; }
+}
 @media (hover: hover) { .task-table-row:hover { box-shadow: var(--shadow-sm); border-color: var(--line-strong); } }
 
 /* A freshly added row arrives from the Add-task button above it. */
@@ -1421,6 +1434,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
   .task-table > .task-table-row { margin-bottom: 0; }
   .task-table-row {
+    --task-row-intrinsic-block-size: 160px;
     display: grid;
     grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
     gap: 0; min-height: 56px; padding: 0;
@@ -1814,6 +1828,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
 }
 .pin-brand h1 { margin: 0; font-size: 1.42rem; font-weight: 800; letter-spacing: -0.02em; }
 .pin-brand p { margin: 0; color: var(--muted); font-size: 0.88rem; font-weight: 500; transition: color var(--t) var(--ease); }
+.pin-setup-token { display: grid; gap: 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; }
+.pin-setup-token input { width: 100%; min-height: 42px; padding: 9px 11px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
+.pin-setup-token input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
 .pin-pad.shake .pin-brand p { color: var(--danger); }
 .pin-dots { display: flex; justify-content: center; gap: 16px; min-height: 16px; }
 .pin-dots span { width: 14px; height: 14px; border: 1.5px solid var(--line-strong); border-radius: 50%; background: transparent; transition: transform var(--t) var(--ease-spring), background var(--t) var(--ease), border-color var(--t) var(--ease); }
@@ -2027,14 +2044,14 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* All calendar views share a centred max width */
 .cal-summary, .cal-week, .cal-month, .cal-year, .cal-insights { width: 100%; max-width: 1000px; margin-inline: auto; }
 
-/* Prev/next navigation slides the whole .cal-body sideways (WAAPI, driven
-   by CalendarPage). A week/month/year lens switch instead leaves the summary
-   card perfectly still — its digits roll on their drums — and re-forms only
-   the region below: CalendarPage tweens .cal-view between the two lens
-   heights under this clip (so the page length glides instead of jumping)
-   while the incoming sections cascade up through their mount animations,
-   lead grid first, insights following. Nav never remounts a view, so none
-   of these entrances replay on prev/next. */
+/* The summary card never moves — every switch only re-inks it, digits
+   rolling on their drums. All travel belongs to .cal-view below it:
+   prev/next slides it sideways (WAAPI, driven by CalendarPage), while a
+   week/month/year lens switch re-forms it in place — CalendarPage tweens
+   .cal-view between the two lens heights under this clip (so the page
+   length glides instead of jumping) while the incoming sections cascade up
+   through their mount animations, lead grid first, insights following. Nav
+   never remounts a view, so none of these entrances replay on prev/next. */
 .cal-view.is-morph { overflow: clip; transition: height 0.52s var(--ease-out); }
 .cal-week, .cal-month, .cal-year > * { animation: fade-up 0.42s var(--ease-out) both; }
 .cal-year > *:nth-child(2) { animation-delay: 0.06s; }
@@ -2078,7 +2095,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
   border: 1px solid var(--line);
   border-radius: var(--r-md);
 }
-.cal-summary__stats span { color: var(--muted); font-size: 0.7rem; font-weight: 650; }
+/* Child combinator on purpose: the counter digits are RollDigits spans inside
+   the strong, and a descendant selector would paint them hint-gray at 0.7rem. */
+.cal-summary__stats div > span { color: var(--muted); font-size: 0.7rem; font-weight: 650; }
 .cal-summary__stats strong { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
 /* ---- Week view ---- */
@@ -2263,7 +2282,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
   position: relative; display: grid; gap: 3px; justify-items: start; padding: 14px 16px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
 }
-.cal-stat span { color: var(--muted); font-size: 0.72rem; font-weight: 650; }
+/* Direct children only — the strong's RollDigits and the small's SwapText are
+   spans too, and must keep their own type scale. */
+.cal-stat > span { color: var(--muted); font-size: 0.72rem; font-weight: 650; }
 .cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color var(--t-slow) var(--ease); }
 .cal-stat svg { color: var(--muted); }
 .cal-stat svg.is-flame { color: var(--warning); }
@@ -2283,21 +2304,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-heatmap__col { flex: 1 1 13px; min-width: 13px; max-width: 18px; display: grid; grid-auto-rows: auto; gap: clamp(3px, 0.4vw, 5px); }
 .cal-heatmap__col:first-child { margin-inline-start: auto; }
 .cal-heatmap__col:last-child { margin-inline-end: auto; }
+/* Heat tiles hold still under the pointer — no hover pop; the grid is too
+   dense for a scale to read as anything but jitter. Press feedback only. */
 .cal-heatmap__cell { width: 100%; aspect-ratio: 1; border-radius: var(--r-xs); padding: 0; }
-@media (hover: hover) {
-  .cal-heatmap__cell:hover {
-    transform: scale(1.3);
-    border-color: color-mix(in srgb, var(--prog-color) 55%, var(--line-strong));
-    box-shadow: var(--shadow-sm);
-    z-index: 2;
-  }
-}
 .cal-heatmap__cell:active { transform: scale(1.08); transition-duration: 0.1s; z-index: 2; }
 .cal-heatmap__cell.is-outside { visibility: hidden; }
 .cal-heatmap__cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
-@media (hover: hover) {
-  .cal-heatmap__cell.is-today:hover { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm); }
-}
 
 .cal-year__months {
   padding: 18px 18px 16px;
@@ -2383,12 +2395,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
   box-shadow: 0 0 0 2px var(--primary-tint-strong), inset 0 1px 0 var(--meter-sheen);
 }
 @media (hover: hover) {
-  :root[data-meters="glass"] .cal-cell:hover,
-  :root[data-meters="glass"] .cal-heatmap__cell:hover {
+  :root[data-meters="glass"] .cal-cell:hover {
     box-shadow: var(--shadow-sm), inset 0 1px 0 var(--meter-sheen);
   }
-  :root[data-meters="glass"] .cal-cell.is-today:hover,
-  :root[data-meters="glass"] .cal-heatmap__cell.is-today:hover {
+  :root[data-meters="glass"] .cal-cell.is-today:hover {
     box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm), inset 0 1px 0 var(--meter-sheen);
   }
 }

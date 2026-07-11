@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowLeftToLine, ArrowRight, ArrowRightToLine, MoreHorizontal, Trash2, X } from "lucide-react";
 import {
+  memo,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -7,6 +8,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type ReactNode,
   type TextareaHTMLAttributes
 } from "react";
 import type { Project, Task } from "../lib/types";
@@ -53,11 +55,12 @@ interface TaskTableProps {
 
 interface TaskRowProps {
   task: Task;
-  projects: Project[];
+  projectOptions: ReactNode;
   showDate: boolean;
   autoFocusTitle?: boolean;
   exitOnMove?: boolean;
-  pendingExit?: PendingRowExit | null;
+  pendingExitIndex?: number;
+  pendingExitDate?: string;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
@@ -65,41 +68,95 @@ interface TaskRowProps {
 
 const importanceValues: TaskImportance[] = [1, 2, 3, 4];
 
+function fitTextarea(element: HTMLTextAreaElement): void {
+  element.style.height = "0px";
+  // style.height is border-box while scrollHeight measures the content box.
+  element.style.height = `${element.scrollHeight + element.offsetHeight - element.clientHeight}px`;
+}
+
+const textareaWidths = new WeakMap<HTMLTextAreaElement, number>();
+let textareaObserver: ResizeObserver | null = null;
+let observedTextareaCount = 0;
+
+function observeTextarea(element: HTMLTextAreaElement): () => void {
+  if (typeof ResizeObserver === "undefined") return () => undefined;
+  if (!textareaObserver) {
+    textareaObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const textarea = entry.target as HTMLTextAreaElement;
+        const width = textarea.clientWidth;
+        if (textareaWidths.get(textarea) !== width) {
+          textareaWidths.set(textarea, width);
+          fitTextarea(textarea);
+        }
+      }
+    });
+  }
+  textareaWidths.set(element, element.clientWidth);
+  textareaObserver.observe(element);
+  observedTextareaCount += 1;
+
+  return () => {
+    textareaObserver?.unobserve(element);
+    textareaWidths.delete(element);
+    observedTextareaCount -= 1;
+    if (observedTextareaCount === 0) {
+      textareaObserver?.disconnect();
+      textareaObserver = null;
+    }
+  };
+}
+
+const draftFlushers = new Set<() => void>();
+
+function flushAllDrafts(): void {
+  for (const flush of draftFlushers) flush();
+}
+
+function flushDraftsWhenHidden(): void {
+  if (document.visibilityState === "hidden") flushAllDrafts();
+}
+
+function registerDraftFlusher(flush: () => void): () => void {
+  const first = draftFlushers.size === 0;
+  draftFlushers.add(flush);
+  if (first) {
+    document.addEventListener("visibilitychange", flushDraftsWhenHidden);
+    window.addEventListener("pagehide", flushAllDrafts);
+    window.addEventListener("beforeunload", flushAllDrafts);
+  }
+
+  return () => {
+    draftFlushers.delete(flush);
+    if (draftFlushers.size === 0) {
+      document.removeEventListener("visibilitychange", flushDraftsWhenHidden);
+      window.removeEventListener("pagehide", flushAllDrafts);
+      window.removeEventListener("beforeunload", flushAllDrafts);
+    }
+  };
+}
+
 function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const value = typeof props.value === "string" ? props.value : String(props.value ?? "");
 
-  const fit = useCallback(() => {
+  useLayoutEffect(() => {
     const element = ref.current;
     if (!element) return;
-    element.style.height = "0px";
-    // + border height: style.height is border-box, scrollHeight content-box.
-    element.style.height = `${element.scrollHeight + element.offsetHeight - element.clientHeight}px`;
-  }, []);
-
-  useLayoutEffect(fit, [value, fit]);
+    fitTextarea(element);
+  }, [value]);
 
   // Re-measure when the column narrows/widens (window resize, card <-> table
-  // layout switch): wrapping changes the needed height without a value change.
+  // layout switch). One observer serves every mounted textarea.
   useEffect(() => {
     const element = ref.current;
-    if (!element || typeof ResizeObserver === "undefined") return;
-    let lastWidth = element.clientWidth;
-    const observer = new ResizeObserver(() => {
-      const width = element.clientWidth;
-      if (width !== lastWidth) {
-        lastWidth = width;
-        fit();
-      }
-    });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, [fit]);
+    return element ? observeTextarea(element) : undefined;
+  }, []);
 
   return <textarea {...props} ref={ref} />;
 }
 
-function TaskRow({ task, projects, showDate, autoFocusTitle, exitOnMove, pendingExit, onCreate, onUpdate, onDelete }: TaskRowProps) {
+function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exitOnMove, pendingExitIndex, pendingExitDate, onCreate, onUpdate, onDelete }: TaskRowProps) {
   const { m } = useI18n();
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
@@ -193,25 +250,7 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, exitOnMove, pending
     return () => window.clearTimeout(timer);
   }, [blocker, nextAction, notes, output, task, title]);
 
-  useEffect(() => {
-    function flushDraft() {
-      commitTextRef.current();
-    }
-    function flushWhenHidden() {
-      if (document.visibilityState === "hidden") {
-        flushDraft();
-      }
-    }
-
-    document.addEventListener("visibilitychange", flushWhenHidden);
-    window.addEventListener("pagehide", flushDraft);
-    window.addEventListener("beforeunload", flushDraft);
-    return () => {
-      document.removeEventListener("visibilitychange", flushWhenHidden);
-      window.removeEventListener("pagehide", flushDraft);
-      window.removeEventListener("beforeunload", flushDraft);
-    };
-  }, []);
+  useEffect(() => registerDraftFlusher(() => commitTextRef.current()), []);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -359,13 +398,10 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, exitOnMove, pending
   // Roll-over: when this row is named in the pending exit set, collapse out
   // with a small top-to-bottom stagger and commit the new date on landing.
   useEffect(() => {
-    if (!pendingExit || removing) return;
-    const index = pendingExit.ids.indexOf(task.id);
-    if (index === -1) return;
-    const date = pendingExit.date;
-    exitActionRef.current = () => onUpdate(task, { start_date: date });
-    beginRemove(Math.min(index * 36, 240));
-  }, [pendingExit, removing, task, onUpdate, beginRemove]);
+    if (pendingExitIndex === undefined || !pendingExitDate || removing) return;
+    exitActionRef.current = () => onUpdate(task, { start_date: pendingExitDate });
+    beginRemove(Math.min(pendingExitIndex * 36, 240));
+  }, [pendingExitIndex, pendingExitDate, removing, task, onUpdate, beginRemove]);
 
   const importance = getTaskImportance(task);
 
@@ -399,11 +435,7 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, exitOnMove, pending
           aria-label={m.common.project}
         >
           <option value="">{m.common.noProject}</option>
-          {projects.map((project) => (
-            <option key={project.id} value={project.id}>
-              {project.name}
-            </option>
-          ))}
+          {projectOptions}
         </select>
       </label>
 
@@ -595,6 +627,23 @@ function TaskRow({ task, projects, showDate, autoFocusTitle, exitOnMove, pending
   );
 }
 
+function taskRowPropsEqual(previous: Readonly<TaskRowProps>, next: Readonly<TaskRowProps>): boolean {
+  return (
+    previous.task === next.task &&
+    previous.projectOptions === next.projectOptions &&
+    previous.showDate === next.showDate &&
+    previous.autoFocusTitle === next.autoFocusTitle &&
+    previous.exitOnMove === next.exitOnMove &&
+    previous.pendingExitIndex === next.pendingExitIndex &&
+    previous.pendingExitDate === next.pendingExitDate
+  );
+}
+
+// Parent pages recreate their action functions whenever App sync status
+// changes. TaskTable passes stable forwarding callbacks below, so callback
+// identity is intentionally omitted from this semantic comparison.
+const TaskRow = memo(TaskRowComponent, taskRowPropsEqual);
+
 // Render rows in small batches instead of mounting the whole worklog at once.
 // Each row is expensive (3 selects, 5 auto-sizing textareas, SVG icons), so a
 // full-corpus view (Projects/Search) mounting ~150+ rows in one synchronous
@@ -616,6 +665,29 @@ export function TaskTable({
 }: TaskTableProps) {
   const { m } = useI18n();
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
+  const projectOptions = useMemo(
+    () =>
+      liveProjects.map((project) => (
+        <option key={project.id} value={project.id}>
+          {project.name}
+        </option>
+      )),
+    [liveProjects]
+  );
+  const pendingExitIndices = useMemo(
+    () => new Map((pendingExit?.ids ?? []).map((id, index) => [id, index])),
+    [pendingExit]
+  );
+  const handlersRef = useRef({ onCreate, onUpdate, onDelete });
+  useLayoutEffect(() => {
+    handlersRef.current = { onCreate, onUpdate, onDelete };
+  }, [onCreate, onDelete, onUpdate]);
+  const createFromRow = useCallback<TaskTableProps["onCreate"]>((input) => handlersRef.current.onCreate(input), []);
+  const updateFromRow = useCallback<TaskTableProps["onUpdate"]>(
+    (task, changes) => handlersRef.current.onUpdate(task, changes),
+    []
+  );
+  const deleteFromRow = useCallback<TaskTableProps["onDelete"]>((task) => handlersRef.current.onDelete(task), []);
 
   // Reset back to the first batch whenever the underlying result set changes
   // (e.g. a new search query or project filter), so the user sees the top.
@@ -667,14 +739,15 @@ export function TaskTable({
           <TaskRow
             key={task.id}
             task={task}
-            projects={liveProjects}
+            projectOptions={projectOptions}
             showDate={showDate}
             autoFocusTitle={task.id === focusTaskId}
             exitOnMove={exitOnMove}
-            pendingExit={pendingExit}
-            onCreate={onCreate}
-            onUpdate={onUpdate}
-            onDelete={onDelete}
+            pendingExitIndex={pendingExitIndices.get(task.id)}
+            pendingExitDate={pendingExit?.date}
+            onCreate={createFromRow}
+            onUpdate={updateFromRow}
+            onDelete={deleteFromRow}
           />
         ))}
       </div>

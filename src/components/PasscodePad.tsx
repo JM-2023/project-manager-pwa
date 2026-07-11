@@ -20,6 +20,7 @@ interface PasscodePadProps {
   onComplete: (pin: string) => void;
   /** Login only: hidden fields that let password managers offer and save the PIN. */
   autofillEmail?: string;
+  extra?: ReactNode;
 }
 
 /**
@@ -28,7 +29,7 @@ interface PasscodePadProps {
  * the entry resets. Callbacks are read through refs so the window keydown
  * listener never acts through a stale step closure.
  */
-export function PasscodePad({ icon, title, subtitle, error, busy, entryKey = 0, onInput, onComplete, autofillEmail }: PasscodePadProps) {
+export function PasscodePad({ icon, title, subtitle, error, busy, entryKey = 0, onInput, onComplete, autofillEmail, extra }: PasscodePadProps) {
   const { m } = useI18n();
   const [value, setValue] = useState("");
   const valueRef = useRef(value);
@@ -76,6 +77,13 @@ export function PasscodePad({ icon, title, subtitle, error, busy, entryKey = 0, 
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        (target.matches("input, textarea, select") || target.isContentEditable)
+      ) {
+        return;
+      }
       if (event.key >= "0" && event.key <= "9") {
         pressRef.current(event.key as PadKey);
       } else if (event.key === "Backspace") {
@@ -102,6 +110,8 @@ export function PasscodePad({ icon, title, subtitle, error, busy, entryKey = 0, 
           <h1>{title}</h1>
           <p>{subtitle}</p>
         </div>
+
+        {extra}
 
         <div className={`pin-dots${error ? " error" : ""}`} aria-hidden="true">
           {Array.from({ length: PIN_LENGTH }).map((_, index) => (

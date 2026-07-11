@@ -1,5 +1,5 @@
 import { FileJson, HardDriveDownload } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getExportData, restoreData } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 
@@ -24,24 +24,48 @@ export function BackupControls({ onRestored }: BackupControlsProps) {
   const { m } = useI18n();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const operationControllerRef = useRef<AbortController | null>(null);
 
-  async function downloadBackup() {
+  useEffect(() => () => {
+    const controller = operationControllerRef.current;
+    operationControllerRef.current = null;
+    controller?.abort(new DOMException("Backup page closed", "AbortError"));
+  }, []);
+
+  function beginOperation(): AbortController {
+    operationControllerRef.current?.abort(new DOMException("A newer backup operation started", "AbortError"));
+    const controller = new AbortController();
+    operationControllerRef.current = controller;
     setBusy(true);
     setMessage("");
+    return controller;
+  }
+
+  function finishOperation(controller: AbortController): void {
+    if (operationControllerRef.current !== controller) return;
+    operationControllerRef.current = null;
+    setBusy(false);
+  }
+
+  async function downloadBackup() {
+    const controller = beginOperation();
     try {
-      const data = await getExportData();
+      const data = await getExportData(controller.signal);
+      if (controller.signal.aborted) return;
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
       anchor.download = `project-manager-backup-${data.exportedAt.replace(/[:.]/g, "-")}.json`;
       anchor.click();
-      URL.revokeObjectURL(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
       setMessage(m.settings.backupDownloaded);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : m.settings.backupFailed);
+      if (!controller.signal.aborted) {
+        setMessage(error instanceof Error ? error.message : m.settings.backupFailed);
+      }
     } finally {
-      setBusy(false);
+      finishOperation(controller);
     }
   }
 
@@ -49,12 +73,13 @@ export function BackupControls({ onRestored }: BackupControlsProps) {
     if (!file) {
       return;
     }
-    setBusy(true);
-    setMessage("");
+    const controller = beginOperation();
     try {
       let parsed: BackupShape;
       try {
-        parsed = JSON.parse(await file.text()) as BackupShape;
+        const text = await file.text();
+        if (controller.signal.aborted) return;
+        parsed = JSON.parse(text) as BackupShape;
       } catch {
         throw new Error(m.settings.restoreInvalid);
       }
@@ -76,13 +101,16 @@ export function BackupControls({ onRestored }: BackupControlsProps) {
       }
       // The server ignores fields it doesn't know, so passing rows straight
       // through keeps the backup full-fidelity.
-      const result = await restoreData(payload as never);
+      const result = await restoreData(payload as never, controller.signal);
+      if (controller.signal.aborted) return;
       setMessage(m.settings.restoreDone(result.projects, result.tasks, result.nextProjects, result.nextIdeas));
       onRestored();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : m.settings.restoreFailed);
+      if (!controller.signal.aborted) {
+        setMessage(error instanceof Error ? error.message : m.settings.restoreFailed);
+      }
     } finally {
-      setBusy(false);
+      finishOperation(controller);
     }
   }
 

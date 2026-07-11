@@ -1,4 +1,4 @@
-import type { BootstrapResponse, NextIdea, NextProject, Project, SessionResponse, Task } from "../lib/types";
+import type { BootstrapResponse, MutationConflict, NextIdea, NextProject, Project, SessionResponse, Task } from "../lib/types";
 import { visibleProjects, visibleTasks } from "../lib/sync";
 import { priorityScore } from "../lib/validation";
 
@@ -36,17 +36,22 @@ export interface AppState {
   filters: Filters;
   pendingCount: number;
   lastSync: string | null;
+  syncEpoch: string | null;
+  syncCursor: number | null;
   lastExport: string | null;
   online: boolean;
   syncStatus: SyncStatus;
   error: string | null;
-  conflicts: number;
+  conflicts: MutationConflict[];
 }
 
 export type AppAction =
   | {
       type: "hydrateLocal";
-      payload: Pick<AppState, "projects" | "tasks" | "nextProjects" | "nextIdeas" | "settings" | "pendingCount" | "lastSync">;
+      payload: Pick<
+        AppState,
+        "projects" | "tasks" | "nextProjects" | "nextIdeas" | "settings" | "pendingCount" | "lastSync" | "syncEpoch" | "syncCursor"
+      >;
     }
   | { type: "replaceBootstrap"; payload: BootstrapResponse }
   | { type: "setSession"; payload: SessionResponse | null }
@@ -68,7 +73,7 @@ export type AppAction =
   | { type: "setOnline"; payload: boolean }
   | { type: "setSyncStatus"; payload: SyncStatus }
   | { type: "setError"; payload: string | null }
-  | { type: "setConflicts"; payload: number };
+  | { type: "setConflicts"; payload: MutationConflict[] };
 
 export const initialState: AppState = {
   projects: [],
@@ -89,11 +94,13 @@ export const initialState: AppState = {
   },
   pendingCount: 0,
   lastSync: null,
+  syncEpoch: null,
+  syncCursor: null,
   lastExport: localStorage.getItem("project-manager-last-export"),
   online: navigator.onLine,
   syncStatus: "idle",
   error: null,
-  conflicts: 0
+  conflicts: []
 };
 
 function byId<T extends { id: string }>(records: T[], record: T): T[] {
@@ -119,6 +126,8 @@ export function appReducer(state: AppState, action: AppAction): AppState {
         nextIdeas: action.payload.nextIdeas,
         settings: action.payload.settings,
         lastSync: action.payload.serverTime,
+        syncEpoch: action.payload.syncEpoch,
+        syncCursor: action.payload.syncCursor,
         syncStatus: "idle"
       };
     case "setSession":
@@ -134,7 +143,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "upsertProject":
       return { ...state, projects: byId(state.projects, action.payload) };
     case "purgeProject": {
-      // Hard delete a project and its tasks. Nothing is left behind as a tombstone.
+      // Optimistically remove the project and cascade; the cloud keeps tombstones.
       const projectId = action.payload;
       return {
         ...state,
@@ -145,7 +154,7 @@ export function appReducer(state: AppState, action: AppAction): AppState {
     case "upsertTask":
       return { ...state, tasks: byId(state.tasks, action.payload) };
     case "purgeTask":
-      // Hard delete a task — no tombstone left behind.
+      // Optimistically remove it; the cloud mutation keeps a tombstone.
       return { ...state, tasks: state.tasks.filter((task) => task.id !== action.payload) };
     case "upsertNextProject":
       return { ...state, nextProjects: byId(state.nextProjects, action.payload) };

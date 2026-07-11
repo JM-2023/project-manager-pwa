@@ -1,6 +1,7 @@
 import { Download, UploadCloud } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getExportData, uploadCloudExcel } from "../lib/api";
+import { buildWorkbookBlobInWorker, WorkbookWorkerUnavailableError } from "../lib/excelWorkbookClient";
 import { useI18n } from "../lib/i18n";
 import { visibleTasks } from "../lib/sync";
 
@@ -9,30 +10,84 @@ interface ExportButtonProps {
   onExported: (timestamp: string) => void;
 }
 
+async function buildExportBlob(data: Awaited<ReturnType<typeof getExportData>>, signal: AbortSignal): Promise<Blob> {
+  try {
+    return await buildWorkbookBlobInWorker(data, signal);
+  } catch (error) {
+    if (signal.aborted) throw error;
+    if (!(error instanceof WorkbookWorkerUnavailableError)) throw error;
+    // Workers can be unavailable under restrictive browser policies. Keep a
+    // main-thread fallback, while still building exactly one workbook.
+    const { workbookBlob } = await import("../lib/excelExport");
+    if (signal.aborted) throw signal.reason ?? new DOMException("Excel export aborted", "AbortError");
+    const blob = workbookBlob(data);
+    if (signal.aborted) throw signal.reason ?? new DOMException("Excel export aborted", "AbortError");
+    return blob;
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.style.display = "none";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  // WebKit may begin consuming an object URL after click() returns.
+  window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+}
+
 export function ExportButton({ r2Enabled, onExported }: ExportButtonProps) {
   const { m } = useI18n();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const exportControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => {
+    const controller = exportControllerRef.current;
+    exportControllerRef.current = null;
+    controller?.abort(new DOMException("Export page closed", "AbortError"));
+  }, []);
 
   async function exportExcel(uploadToR2: boolean) {
+    exportControllerRef.current?.abort(new DOMException("A newer export started", "AbortError"));
+    const controller = new AbortController();
+    exportControllerRef.current = controller;
     setBusy(true);
     setMessage("");
     try {
-      const { downloadExport, workbookBlob } = await import("../lib/excelExport");
-      const data = await getExportData();
-      const filename = downloadExport(data);
+      const data = await getExportData(controller.signal);
+      const blob = await buildExportBlob(data, controller.signal);
+      if (controller.signal.aborted) return;
+      const stamp = data.exportedAt.replace(/[:.]/g, "-");
+      const filename = `project-manager-${stamp}.xlsx`;
+      downloadBlob(blob, filename);
       if (uploadToR2) {
-        const blob = workbookBlob(data);
-        await uploadCloudExcel(blob, "project-manager-latest.xlsx", visibleTasks(data.tasks).length);
+        await uploadCloudExcel(
+          blob,
+          "project-manager-latest.xlsx",
+          visibleTasks(data.tasks).length,
+          data.syncEpoch,
+          data.syncCursor,
+          controller.signal
+        );
+        if (controller.signal.aborted) return;
         setMessage(m.exporter.downloadedUploaded);
       } else {
         setMessage(m.exporter.downloaded);
       }
       onExported(data.exportedAt);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : m.exporter.exportFailed);
+      if (!controller.signal.aborted) {
+        setMessage(error instanceof Error ? error.message : m.exporter.exportFailed);
+      }
     } finally {
-      setBusy(false);
+      if (exportControllerRef.current === controller) {
+        exportControllerRef.current = null;
+        setBusy(false);
+      }
     }
   }
 

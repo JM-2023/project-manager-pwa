@@ -41,7 +41,8 @@ export function normalizeDate(value: unknown): string | null {
     return null;
   }
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) {
-    return text;
+    const exact = new Date(`${text}T00:00:00.000Z`);
+    return !Number.isNaN(exact.getTime()) && exact.toISOString().slice(0, 10) === text ? text : null;
   }
   const date = new Date(text);
   if (Number.isNaN(date.getTime())) {

@@ -26,6 +26,7 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
   const headers = new Headers();
   object.writeHttpMetadata(headers);
   headers.set("etag", object.httpEtag);
+  headers.set("Cache-Control", "no-store");
   headers.set("Content-Type", headers.get("Content-Type") ?? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   return new Response(object.body, { headers });
 }

@@ -1,11 +1,13 @@
 import { Archive, ArchiveRestore, Check, ChevronDown, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Project, Task } from "../lib/types";
 import { useI18n } from "../lib/i18n";
 import { isWorklogTask, progressTone, summarizeWorklogOverview, type WorklogOverview } from "../lib/progress";
 import { NO_PROJECT_FILTER } from "../state/appStore";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
 import { usePresence } from "../lib/usePresence";
+
+const EMPTY_WORKLOG_OVERVIEW = summarizeWorklogOverview([]);
 
 function ProgressMeter({ value }: { value: number }) {
   return (
@@ -273,8 +275,31 @@ export function ProjectList({
   const { m } = useI18n();
   const [name, setName] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const allSummary = summarizeWorklogOverview(tasks);
-  const noProjectSummary = summarizeWorklogOverview(tasks.filter((task) => !task.project_id));
+  const { allSummary, noProjectSummary, summariesByProject } = useMemo(() => {
+    const worklogTasks: Task[] = [];
+    const tasksWithoutProject: Task[] = [];
+    const tasksByProject = new Map<string, Task[]>();
+
+    for (const task of tasks) {
+      if (!isWorklogTask(task)) continue;
+      worklogTasks.push(task);
+      if (!task.project_id) {
+        tasksWithoutProject.push(task);
+        continue;
+      }
+      const grouped = tasksByProject.get(task.project_id);
+      if (grouped) grouped.push(task);
+      else tasksByProject.set(task.project_id, [task]);
+    }
+
+    return {
+      allSummary: summarizeWorklogOverview(worklogTasks),
+      noProjectSummary: summarizeWorklogOverview(tasksWithoutProject),
+      summariesByProject: new Map(
+        [...tasksByProject].map(([projectId, projectTasks]) => [projectId, summarizeWorklogOverview(projectTasks)])
+      )
+    };
+  }, [tasks]);
 
   // Selection ring: ONE absolutely-positioned element that glides from the
   // previously active chip to the newly selected one on a spring, instead of
@@ -375,8 +400,7 @@ export function ProjectList({
         <ProgressMeter value={noProjectSummary.averageProgress} />
       </button>
       {projects.map((project, index) => {
-        const projectTasks = tasks.filter((task) => task.project_id === project.id && isWorklogTask(task));
-        const summary = summarizeWorklogOverview(projectTasks);
+        const summary = summariesByProject.get(project.id) ?? EMPTY_WORKLOG_OVERVIEW;
         return (
           <ProjectRow
             key={project.id}

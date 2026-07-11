@@ -120,21 +120,16 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
           ? `${yearOf(anchor)}年`
           : yearOf(anchor);
 
-  // What kind of change the next view animation should express: prev/next
-  // travels sideways along the nav direction, a granularity switch re-forms
-  // in place. Refs, because they only matter to the effect below.
+  // Height of the outgoing layout, captured in the click handlers
+  // (pre-render), and the cleanup timer that ends a morph. A timer, not
+  // transitionend or a WAAPI finished promise — those can silently never
+  // fire (tab hidden, animation dropped), which would leave the clip stuck.
   const viewRef = useRef<HTMLDivElement | null>(null);
-  const viewMotionRef = useRef<"nav" | "view">("nav");
-  const viewSettledRef = useRef(false);
-  // Height of the outgoing lens, captured in the click handler (pre-render),
-  // and the cleanup timer that ends a morph. A timer, not transitionend or a
-  // WAAPI finished promise — those can silently never fire (tab hidden,
-  // animation dropped), which would leave the clip stuck on.
   const viewHeightRef = useRef<number | null>(null);
   const viewMorphTimerRef = useRef(0);
 
   function shift(direction: NavDirection) {
-    viewMotionRef.current = "nav";
+    viewHeightRef.current = viewRef.current?.offsetHeight ?? null;
     setNavDir(direction);
     setAnchor((current) =>
       granularity === "week"
@@ -147,7 +142,6 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
 
   function changeGranularity(next: Granularity) {
     if (next === granularity) return;
-    viewMotionRef.current = "view";
     viewHeightRef.current = viewRef.current?.offsetHeight ?? null;
     setGranularity(next);
   }
@@ -155,43 +149,32 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
   const isThisPeriod = today >= range.start && today <= range.end;
 
   function jumpToCurrent() {
-    viewMotionRef.current = "nav";
+    viewHeightRef.current = viewRef.current?.offsetHeight ?? null;
     setNavDir(today > range.end ? 1 : -1);
     setAnchor(today);
   }
 
-  // The summary card never moves — any switch only re-inks it, digits
-  // rolling on their drums. All travel belongs to the region below it:
-  // prev/next slides .cal-view sideways from the direction you went —
-  // compositor-only, no remount — while a lens switch re-forms it in place:
-  // the wrapper's height tweens from the outgoing lens to the incoming one
-  // under an overflow clip — so the page never jumps — while the new
-  // sections cascade up via their CSS mount animations.
+  // Prev/next inside one lens keeps the frame perfectly still — cards,
+  // grids and labels hold their ground while only the data re-inks in
+  // place: digits roll on their drums, bar fills glide, heat cells
+  // cross-fade, swapped lists cascade back in. A lens switch is the only
+  // structural change, so it alone remounts the region and replays the
+  // section entrances. Either way the wrapper's height tweens from the
+  // outgoing layout to the incoming one under an overflow clip (a 5-week
+  // month, a longer worklog), so the page length glides instead of jumping.
   useLayoutEffect(() => {
-    if (!viewSettledRef.current) {
-      viewSettledRef.current = true;
-      return;
-    }
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (viewMotionRef.current === "nav") {
-      viewRef.current?.animate(
-        [{ opacity: 0.22, transform: `translateX(${navDir * 18}px)` }, { opacity: 1, transform: "none" }],
-        { duration: 320, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
-      );
-      return;
-    }
     const view = viewRef.current;
     const from = viewHeightRef.current;
     viewHeightRef.current = null;
-    if (!view) return;
+    if (!view || from === null) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     // Reset any in-flight morph before measuring the true target height.
-    // `from` was captured pre-render, so a lens flip mid-morph retargets
+    // `from` was captured pre-render, so a switch mid-morph retargets
     // from the height the user actually sees — no snap. All of this runs
     // before paint (layout effect), so the intermediate states never flash.
     window.clearTimeout(viewMorphTimerRef.current);
     view.classList.remove("is-morph");
     view.style.height = "";
-    if (from === null) return;
     const to = view.offsetHeight;
     if (Math.abs(to - from) < 2) return;
     view.classList.add("is-morph");
@@ -202,7 +185,7 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
       view.classList.remove("is-morph");
       view.style.height = "";
     }, 640);
-  }, [range.start, range.end, granularity, navDir]);
+  }, [range.start, range.end, granularity]);
 
   return (
     <main className="page-content calendar-page">
@@ -362,6 +345,15 @@ function dayChip(date: string, lang: Language): string {
   return `${weekdayShort(date, lang)} ${Number(date.split("-")[2])}`;
 }
 
+/**
+ * Days since epoch. Date figures roll on this, not on the digits they show,
+ * so travelling forward in time always spins the drum up and backward spins
+ * it down — even when the day-of-month wraps (Jan 30 → Feb 7).
+ */
+function dayOrdinal(date: string): number {
+  return Math.round(Date.parse(date) / 86400000);
+}
+
 /* ---- Shared insight building blocks (week / month / year) ---- */
 
 function StatChip({
@@ -458,17 +450,25 @@ function WeekView({ days, today, metric, stats, buckets, projects, dayStats, onO
           const isFuture = date > today;
           return (
             <button
-              key={date}
+              // Keyed by weekday position, not date: prev/next re-inks the
+              // same seven cards in place — dates and counts roll on their
+              // drums, the bar glides — instead of remounting the row.
+              key={index}
               type="button"
               className={`cal-week__card${date === today ? " is-today" : ""}${isFuture ? " is-future" : ""}`}
               onClick={() => onOpenDay(date)}
             >
               <span className="cal-week__weekday">{labels[index]}</span>
-              <span className="cal-week__date">{Number(date.split("-")[2])}</span>
+              <span className="cal-week__date">
+                <RollDigits value={dayOrdinal(date)} text={String(Number(date.split("-")[2]))} />
+              </span>
               <CompletionBar value={value} label={`${value}%`} />
               <span className="cal-week__meta">
                 <span className="cal-week__count">
-                  {dayStat.doneCount}/{dayStat.taskCount}
+                  <RollDigits
+                    value={dayStat.doneCount * 100 + dayStat.taskCount}
+                    text={`${dayStat.doneCount}/${dayStat.taskCount}`}
+                  />
                 </span>
                 <span className={`cal-week__pct tone-${dayStat.taskCount > 0 ? progressTone(value) : "empty"}`}>
                   <RollDigits value={value} text={dayStat.taskCount > 0 ? `${value}%` : "—"} />
@@ -586,19 +586,32 @@ function ProjectFocusCard({ focus, metric, noun }: { focus: ProjectFocus[]; metr
     <div className="cal-card">
       <div className="cal-card__head">
         <span className="cal-card__title">{m.calendar.projectFocus}</span>
-        <span className="cal-card__badge">{focus.length}</span>
+        <span className="cal-card__badge">
+          <RollDigits value={focus.length} text={String(focus.length)} />
+        </span>
       </div>
       <div className="cal-proj">
-        {visible.map((row) => {
+        {/* Rows keep project identity across period switches: a project seen
+            in both periods stays mounted (its digits roll, its bar glides),
+            a newcomer fades up into its rank. */}
+        {visible.map((row, index) => {
           const rowValue = completionValue(row.stats, metric);
           return (
-            <div key={row.id} className="cal-proj__row" title={m.calendar.weightShareTitle(row.name, Math.round(row.weightShare), noun)}>
+            <div
+              key={row.id}
+              className="cal-proj__row"
+              style={{ "--i": index } as CSSProperties}
+              title={m.calendar.weightShareTitle(row.name, Math.round(row.weightShare), noun)}
+            >
               <span className="cal-proj__name">
                 <span className="project-color" style={{ backgroundColor: row.color ?? "var(--chip-accent)" }} />
                 <span>{row.name}</span>
               </span>
               <span className="cal-proj__meta">
-                {row.stats.doneCount}/{row.stats.taskCount}
+                <RollDigits
+                  value={row.stats.doneCount * 100 + row.stats.taskCount}
+                  text={`${row.stats.doneCount}/${row.stats.taskCount}`}
+                />
               </span>
               <strong className="cal-proj__value">
                 <RollDigits value={rowValue} text={`${rowValue}%`} />
@@ -607,7 +620,11 @@ function ProjectFocusCard({ focus, metric, noun }: { focus: ProjectFocus[]; metr
             </div>
           );
         })}
-        {hidden > 0 ? <span className="cal-proj__more">{m.calendar.more(hidden)}</span> : null}
+        {hidden > 0 ? (
+          <span className="cal-proj__more">
+            <SwapText text={m.calendar.more(hidden)} />
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -620,7 +637,9 @@ function FocusMixCard({ mix, metric }: { mix: ImportanceBand[]; metric: Completi
     <div className="cal-card">
       <div className="cal-card__head">
         <span className="cal-card__title">{m.calendar.focusMix}</span>
-        <span className="cal-card__badge">{total}</span>
+        <span className="cal-card__badge">
+          <RollDigits value={total} text={String(total)} />
+        </span>
       </div>
       <div className="cal-mix__bar" role="img" aria-label={m.calendar.mixAria}>
         {mix
@@ -639,7 +658,9 @@ function FocusMixCard({ mix, metric }: { mix: ImportanceBand[]; metric: Completi
           <div key={band.importance} className={`cal-mix__item${band.taskCount === 0 ? " is-empty" : ""}`}>
             <i className={`cal-mix__dot imp-${band.importance}`} aria-hidden="true" />
             <span className="cal-mix__label">P{band.importance}</span>
-            <span className="cal-mix__count">{band.taskCount > 0 ? m.calendar.bandTasks(band.taskCount) : "—"}</span>
+            <span className="cal-mix__count">
+              <RollDigits value={band.taskCount} text={band.taskCount > 0 ? m.calendar.bandTasks(band.taskCount) : "—"} />
+            </span>
             <strong className="cal-mix__value">
               <RollDigits
                 value={band.taskCount > 0 ? completionValue(band.stats, metric) : 0}
@@ -676,7 +697,9 @@ function WorklogCard({ kind, title, icon, entries, emptyHint, today, projectById
       <div className="cal-card__head">
         {icon}
         <span className="cal-card__title">{title}</span>
-        <span className="cal-card__badge">{entries.length}</span>
+        <span className="cal-card__badge">
+          <RollDigits value={entries.length} text={String(entries.length)} />
+        </span>
       </div>
       {entries.length === 0 ? (
         <p className="cal-log__empty">{emptyHint}</p>
@@ -737,21 +760,35 @@ function MonthView({ anchor, days, today, metric, stats, buckets, projects, dayS
           ))}
         </div>
         <div className="cal-month__grid">
-          {weeks.flat().map((cell) => {
+          {weeks.flat().map((cell, index) => {
             const cellStats = dayStats(cell.date);
             const value = completionValue(cellStats, metric);
             const tone = cellStats.taskCount > 0 ? progressTone(value) : "empty";
             return (
               <button
-                key={cell.date}
+                // Keyed by grid position: a month flip keeps all 35/42 tiles
+                // mounted — day numbers roll over on their drums while the
+                // heat re-inks on a soft top-left → bottom-right wave.
+                key={index}
                 type="button"
                 className={`cal-cell tone-${tone}${cell.inMonth ? "" : " is-outside"}${cell.date === today ? " is-today" : ""}`}
-                style={{ "--heat": cellStats.taskCount > 0 ? value : 0 } as CSSProperties}
+                style={
+                  {
+                    "--heat": cellStats.taskCount > 0 ? value : 0,
+                    "--reink": `${((index % 7) + Math.floor(index / 7)) * 14}ms`
+                  } as CSSProperties
+                }
                 onClick={() => onOpenDay(cell.date)}
                 title={`${cell.date}: ${value}% · ${cellStats.doneCount}/${cellStats.taskCount}`}
               >
-                <span className="cal-cell__num">{Number(cell.date.split("-")[2])}</span>
-                {cellStats.taskCount > 0 ? <span className="cal-cell__count">{cellStats.taskCount}</span> : null}
+                <span className="cal-cell__num">
+                  <RollDigits value={dayOrdinal(cell.date)} text={String(Number(cell.date.split("-")[2]))} />
+                </span>
+                {cellStats.taskCount > 0 ? (
+                  <span key={cellStats.taskCount} className="cal-cell__count cal-swap">
+                    {cellStats.taskCount}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -861,7 +898,9 @@ function MonthInsights({
       <div className="cal-card cal-rhythm">
         <div className="cal-card__head">
           <span className="cal-card__title">{m.calendar.completionByWeek}</span>
-          <span className="cal-card__badge">{m.calendar.weeks(weekSeries.length)}</span>
+          <span className="cal-card__badge">
+            <RollDigits value={weekSeries.length} text={m.calendar.weeks(weekSeries.length)} />
+          </span>
         </div>
         <MiniBarSeries data={weekSeries} onSelect={onPickWeek} />
       </div>
@@ -980,16 +1019,19 @@ function YearView({ anchor, days, today, metric, stats, buckets, projects, daySt
       </div>
 
       <div className="cal-heatmap" role="img" aria-label={m.calendar.heatmapAria(yearKey)}>
+        {/* Cells are keyed by grid position, so a year flip never remounts
+            the map — every tile just re-inks to its new heat, the per-column
+            --reink delay sweeping the change across the year left to right. */}
         {heatColumns.map((column, columnIndex) => (
-          <div key={columnIndex} className="cal-heatmap__col">
-            {column.map((date) => {
+          <div key={columnIndex} className="cal-heatmap__col" style={{ "--reink": `${columnIndex * 6}ms` } as CSSProperties}>
+            {column.map((date, rowIndex) => {
               const inYear = date.slice(0, 4) === yearKey;
               const stats = dayStats(date);
               const value = completionValue(stats, metric);
               const tone = stats.taskCount > 0 ? progressTone(value) : "empty";
               return (
                 <button
-                  key={date}
+                  key={rowIndex}
                   type="button"
                   className={`cal-heatmap__cell tone-${tone}${inYear ? "" : " is-outside"}${date === today ? " is-today" : ""}`}
                   style={{ "--heat": stats.taskCount > 0 ? value : 0 } as CSSProperties}

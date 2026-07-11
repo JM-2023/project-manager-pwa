@@ -31,7 +31,10 @@ export function MiniBarSeries({ data, onSelect }: MiniBarSeriesProps) {
         const Tag = onSelect ? "button" : "div";
         return (
           <Tag
-            key={item.key}
+            // Positional key on purpose: a period switch retargets the same
+            // columns — heights glide, tones re-ink — instead of remounting
+            // the chart; item.key stays the data payload for onSelect.
+            key={index}
             type={onSelect ? "button" : undefined}
             className={`cal-series__col${item.active ? " active" : ""}`}
             style={{ "--i": index } as CSSProperties}

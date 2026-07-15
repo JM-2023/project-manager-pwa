@@ -768,14 +768,66 @@ select {
 }
 .bottom-nav button:active { transform: scale(0.94); }
 
-/* Selected nav: the accent lives in the icon/label only; the pill is a
-   quiet neutral wash with no outline. One cue, not three — tint + tinted
-   border + tinted text stacked into a glowing sticker. */
+/* Selected nav: no lingering chip. The cue is the mark coming alive — icon
+   and label turn accent-green and the glyph gains an "energised" accent
+   (see the Custom nav glyphs block below): the bulb throws rays, a check
+   writes onto the calendar, the gear turns. State lives in the drawing,
+   never in a persistent background block. */
 .bottom-nav button.active {
   color: var(--primary-dark);
-  background: var(--wash);
 }
 .bottom-nav button.active svg { transform: translateY(-1px) scale(1.04); }
+
+/* =========================================================================
+   Custom nav glyphs (components/NavIcon.tsx). Resting = calm outline; the
+   active page's icon animates a small accent in. Accents are always mounted
+   and revealed purely by `.active`, so entering/leaving a page is a smooth
+   transition with no remount.
+   ========================================================================= */
+/* fade-in accents (rings, ray group) */
+.bottom-nav .ni-accent { opacity: 0; transition: opacity var(--t) var(--ease); }
+.bottom-nav button.active .ni-accent { opacity: 1; }
+
+/* write-on accents (calendar check, briefcase latch): stroke draws itself */
+.bottom-nav .ni-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 0.44s var(--ease-out);
+}
+.bottom-nav button.active .ni-draw { stroke-dashoffset: 0; }
+
+/* pop accents (selected-day ring, search scan pulse): grow from own centre */
+.bottom-nav .ni-pop {
+  transform: scale(0.15);
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.4s var(--ease-pop), opacity var(--t) var(--ease);
+}
+.bottom-nav button.active .ni-pop { transform: scale(1); }
+
+/* the bulb's rays burst outward from the bulb centre */
+.bottom-nav .ni-rays {
+  transform: scale(0.35);
+  transform-box: view-box;
+  transform-origin: 12px 8px;
+  transition: transform 0.42s var(--ease-pop), opacity 0.22s var(--ease);
+}
+.bottom-nav button.active .ni-rays { transform: scale(1); }
+
+/* the gear turns as it engages */
+.bottom-nav .ni-gear {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.45s var(--ease-spring);
+}
+.bottom-nav button.active .ni-gear { transform: rotate(40deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav .ni-draw,
+  .bottom-nav .ni-pop,
+  .bottom-nav .ni-rays,
+  .bottom-nav .ni-gear { transition-duration: 0.01ms; }
+}
 
 .bottom-nav span {
   overflow: hidden;

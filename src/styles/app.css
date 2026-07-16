@@ -7,8 +7,8 @@
    it, never tinted). No backdrop blur, no gradient surfaces, no glows.
 
    TWO exceptions keep their original liquid-glass material: the Tier-A
-   action buttons (Add task, Export, form "+" buttons…) with their ported
-   download-button spring, and the project-list chips (--chip-*) with their
+   action buttons (Add task, Export, form "+" buttons…) with their physical
+   hover morph, and the project-list chips (--chip-*) with their
    radius swell + breathing completion meter and their original v2 indigo
    accent (--chip-accent). Both are deliberate; nothing else samples the
    backdrop. Completion meters additionally have a user-switchable skin
@@ -104,15 +104,8 @@
   --t: 0.18s;
   --t-slow: 0.3s;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring: cubic-bezier(0.34, 1.3, 0.5, 1);
-  /* Micro overshoot for small pops — the curve provides the bounce, so the
-     motion stays continuous (no keyframed mid-flight jumps). */
-  --ease-pop: cubic-bezier(0.3, 1.42, 0.52, 1);
-  /* Split-flap digit wheel: fast tip-over, damped settle. */
-  --ease-drum: cubic-bezier(0.3, 1.36, 0.44, 1);
-  /* Signature liquid swell — overshoots then settles. Glass buttons only. */
-  --spring: cubic-bezier(0.175, 0.885, 0.32, 2.2);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
 
   /* Segmented control — inset solid track, floating solid thumb. */
   --seg-track: var(--surface-3);
@@ -472,7 +465,7 @@ select {
 @keyframes fade-up { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scale-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
-@keyframes pop-in { 0% { opacity: 0; transform: scale(0.85); } 60% { transform: scale(1.03); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(-8px) scale(0.96); } }
 @keyframes overlay-fade-out { to { opacity: 0; } }
@@ -494,7 +487,7 @@ select {
 .reveal-complete .bottom-nav { animation: none; }
 /* After the first reveal, each tab switch remounts its page — a short soft
    rise keeps the swap from feeling like a hard cut. */
-.reveal-complete .page-content { animation: page-in 0.26s var(--ease-out); }
+.reveal-complete .page-content { animation: page-in 0.18s var(--ease-out); }
 @keyframes page-in { from { opacity: 0; transform: translateY(5px); } }
 
 /* Collapse-and-fade for items being removed (delete / archive / unarchive),
@@ -593,7 +586,7 @@ select {
 .date-nav-button { flex: none; }
 /* The chevron kicks along its travel direction on hover/press — feedback
    lives in the icon, so the row itself holds still. */
-.date-nav-button svg { transition: transform 0.34s var(--ease-pop); }
+.date-nav-button svg { transition: transform 0.16s var(--ease-in-out); }
 @media (hover: hover) {
   .today-date-switcher .date-nav-button:first-child:hover svg { transform: translateX(-1.5px); }
   .today-date-switcher .date-nav-button:last-child:hover svg { transform: translateX(1.5px); }
@@ -613,7 +606,7 @@ select {
   border: 0;
   border-radius: var(--r-md);
   box-shadow: none;
-  transition: background var(--t) var(--ease), transform 0.14s var(--ease);
+  transition: background var(--t) var(--ease), transform 0.14s var(--ease-out);
 }
 @media (hover: hover) { .today-title-button:hover { background: var(--wash); } }
 .today-title-button:active { transform: scale(0.97); }
@@ -649,7 +642,7 @@ select {
   /* Breathing room so ascenders/descenders survive the overflow clip. */
   padding: 0.08em 0.06em;
   margin: -0.08em -0.06em;
-  transition: width 0.32s var(--ease-out);
+  transition: width 0.18s var(--ease-out);
 }
 .roll-text > span {
   grid-area: 1 / 1;
@@ -660,10 +653,10 @@ select {
   min-width: 0;
 }
 .roll-text__ghost { pointer-events: none; }
-.roll-text__in.roll-fwd { animation: roll-in-fwd 0.32s var(--ease-out) both; }
-.roll-text__ghost.roll-fwd { animation: roll-out-fwd 0.32s var(--ease-out) both; }
-.roll-text__in.roll-back { animation: roll-in-back 0.32s var(--ease-out) both; }
-.roll-text__ghost.roll-back { animation: roll-out-back 0.32s var(--ease-out) both; }
+.roll-text__in.roll-fwd { animation: roll-in-fwd 0.18s var(--ease-out) both; }
+.roll-text__ghost.roll-fwd { animation: roll-out-fwd 0.18s var(--ease-out) both; }
+.roll-text__in.roll-back { animation: roll-in-back 0.18s var(--ease-out) both; }
+.roll-text__ghost.roll-back { animation: roll-out-back 0.18s var(--ease-out) both; }
 
 @keyframes roll-in-fwd { from { opacity: 0; transform: translateX(0.9em); } }
 @keyframes roll-out-fwd { to { opacity: 0; transform: translateX(-0.9em); } }
@@ -674,8 +667,8 @@ select {
    Each character sits on its own drum column; only columns whose character
    changed roll over, rippling outward from the units digit. The old and new
    characters ride one rigid wheel — same duration, same easing, a constant
-   ~84° apart — so a step reads as a single wheel-click that settles with the
-   easing's damped overshoot. The numbers model a cylinder of radius 0.62em:
+   ~84° apart — so a step reads as a single crisp wheel-click. The numbers
+   model a cylinder of radius 0.62em:
    y = r·sin84°, scale ≈ depth recession. Opacity windows overlap so the cell
    never reads blank mid-roll. Transform/opacity only — compositor-driven, so
    the wheel holds full frame rate at any type size. Appearing / vanishing
@@ -688,7 +681,7 @@ select {
 .roll-slot {
   display: inline-grid;
   grid-template-columns: 1fr;
-  transition: grid-template-columns 0.5s var(--ease-out) calc(var(--ri) * 0.03s);
+  transition: grid-template-columns 0.22s var(--ease-in-out) calc(var(--ri) * 0.01s);
 }
 .roll-slot.is-collapse { grid-template-columns: 0fr; }
 @starting-style {
@@ -705,7 +698,7 @@ select {
 }
 .roll-char { grid-area: 1 / 1; white-space: pre; backface-visibility: hidden; }
 .roll-char-in,
-.roll-char-out { animation: roll-char-in-up 0.56s var(--ease-drum) both; animation-delay: calc(var(--ri) * 0.03s); }
+.roll-char-out { animation: roll-char-in-up 0.22s var(--ease-in-out) both; animation-delay: calc(var(--ri) * 0.01s); }
 .roll-char-out { animation-name: roll-char-out-up; pointer-events: none; }
 .roll-char-in.is-down { animation-name: roll-char-in-down; }
 .roll-char-out.is-down { animation-name: roll-char-out-down; }
@@ -760,13 +753,13 @@ select {
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--r-md);
-  transition: color var(--t) var(--ease), background var(--t) var(--ease), transform var(--t-fast) var(--ease);
+  transition: color var(--t) var(--ease), background var(--t) var(--ease), transform 0.14s var(--ease-out);
 }
-.bottom-nav button svg { transition: transform var(--t) var(--ease-spring); }
+.bottom-nav button svg { transition: transform 0.16s var(--ease-in-out); }
 @media (hover: hover) {
   .bottom-nav button:hover { color: var(--ink); background: var(--wash); }
 }
-.bottom-nav button:active { transform: scale(0.94); }
+.bottom-nav button:active { transform: scale(0.97); }
 
 /* Selected nav: the accent lives in the icon and label only — no lingering
    background chip. One quiet cue: the current tab's icon and label turn
@@ -851,10 +844,10 @@ select {
   background: transparent;
   border: 0;
   border-radius: 50%;
-  transition: background var(--t) var(--ease), color var(--t) var(--ease), transform var(--t-fast) var(--ease);
+  transition: background var(--t) var(--ease), color var(--t) var(--ease), transform 0.14s var(--ease-out);
 }
 @media (hover: hover) { .offline-banner button:hover { background: var(--wash); color: var(--ink); } }
-.offline-banner button:active { transform: scale(0.92); }
+.offline-banner button:active { transform: scale(0.97); }
 .offline-banner button:disabled { opacity: 0.45; }
 
 @media (max-width: 640px) {
@@ -881,17 +874,16 @@ select {
 
 /* -------------------------------------------------------------------------
    TIER A — the Liquid Glass "download button", ported from the reference
-   page. The motion is the reference's exact surviving spring: padding
+   page. The hover motion keeps the reference's physical padding and radius
    12px 22px → 14px 25px and radius 16px → 20px (rest pinned to the app's
    --r-xl stop, +4px mid-swell — the reference's swell delta on the app's
-   radius scale) on cubic-bezier(.175,.885,.32,2.2), icon easing to .95.
+   radius scale), with a quick coordinated morph and icon easing to .95.
    The chip REALLY grows
    in flow — neighbouring UI gets pushed aside, that physical inflation is
    the point. A hover margin-left of -3px lets the left edge swell outwards
    too (these buttons are left-anchored, unlike the reference's centered
    layout), so the growth reads symmetric instead of right-only.
-   No translateY lift and no :active scale — the reference kills every
-   transform with !important.
+   No translateY lift; press feedback uses the app-wide subtle .97 scale.
 
    Appearance: --dl-* tokens. Dark = the reference's final render
    (transparent body + white rim over its dark page). Light = the reference
@@ -932,9 +924,10 @@ select {
     box-shadow 0.18s ease,
     background 0.18s ease,
     color 0.18s ease,
-    margin-left 0.4s var(--spring),
-    padding 0.4s var(--spring),
-    border-radius 0.4s var(--spring);
+    margin-left 0.24s var(--ease-in-out),
+    padding 0.24s var(--ease-in-out),
+    border-radius 0.24s var(--ease-in-out),
+    transform 0.14s var(--ease-out);
 }
 
 /* Layout-only placement. */
@@ -967,7 +960,7 @@ select {
   align-self: center;
 }
 
-/* Icon: the reference's 1.5rem glyph, easing down on the same spring. */
+/* Icon: the reference's 1.5rem glyph, easing down with the same quick morph. */
 .add-row-button svg,
 .primary-button svg,
 .cache-add button svg,
@@ -978,7 +971,7 @@ select {
   width: 1.5rem;
   height: 1.5rem;
   stroke-width: 2.2;
-  transition: transform 0.4s var(--spring);
+  transition: transform 0.24s var(--ease-in-out);
 }
 
 @media (hover: hover) {
@@ -1003,14 +996,14 @@ select {
   .project-create button:hover svg { transform: scale(0.95); }
 }
 
-/* Press: the shadow tightens; the reference kills every transform. */
+/* Press: the shadow tightens while the whole control compresses subtly. */
 .add-row-button:active,
 .primary-button:active,
 .secondary-button:active,
 .file-picker:active,
 .ghost-button:active,
 .cache-add button:active,
-.project-create button:active { box-shadow: var(--dl-active-shadow); }
+.project-create button:active { box-shadow: var(--dl-active-shadow); transform: scale(0.97); }
 
 .add-row-button:disabled,
 .primary-button:disabled,
@@ -1044,11 +1037,11 @@ select {
   background: transparent;
   border: 1px solid transparent;
   border-radius: var(--r-sm);
-  transition: background var(--t) var(--ease), color var(--t) var(--ease), border-color var(--t) var(--ease), transform 0.14s var(--ease);
+  transition: background var(--t) var(--ease), color var(--t) var(--ease), border-color var(--t) var(--ease), transform 0.14s var(--ease-out);
 }
 .icon-button svg { transition: transform var(--t) var(--ease); }
 @media (hover: hover) { .icon-button:hover { color: var(--ink); background: var(--wash); } }
-.icon-button:active { transform: scale(0.92); }
+.icon-button:active { transform: scale(0.97); }
 .icon-button.danger { color: var(--danger); }
 @media (hover: hover) { .icon-button.danger:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, transparent); } }
 
@@ -1230,7 +1223,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border-radius: inherit;
   background: var(--prog-color, var(--prog-done));
   /* Background-color too: a metric flip can retone the fill, not just resize it. */
-  transition: width var(--t-slow) var(--ease), background-color var(--t-slow) var(--ease);
+  transition: width 0.18s var(--ease), background-color 0.18s var(--ease);
 }
 
 @media (min-width: 600px) { .progress-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
@@ -1384,10 +1377,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
   background: #fff;
   border: 3px solid var(--prog-color);
   box-shadow: var(--shadow-xs);
-  transition: transform var(--t-fast) var(--ease), border-color var(--t) var(--ease);
+  transition: transform var(--t-fast) var(--ease-out), border-color var(--t) var(--ease);
 }
-.progress-slider:active::-webkit-slider-thumb { transform: scale(1.25); }
-.progress-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--prog-color); box-shadow: var(--shadow-xs); }
+.progress-slider:active::-webkit-slider-thumb { transform: scale(0.97); }
+.progress-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--prog-color); box-shadow: var(--shadow-xs); transition: transform var(--t-fast) var(--ease-out), border-color var(--t) var(--ease); }
+.progress-slider:active::-moz-range-thumb { transform: scale(0.97); }
 .progress-slider::-moz-range-track { height: 8px; border-radius: var(--r-xs); background: transparent; }
 
 .task-table-note-cell {
@@ -1516,7 +1510,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .project-list::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* Selection ring — a single element that glides from the previously active
-   chip to the new one on a spring (position + height set inline by
+   chip to the new one on a crisp in-out curve (position + height set inline by
    ProjectList), so selecting reads as the highlight travelling, not two
    borders flashing. Sits above the glass, never intercepts the pointer. */
 .project-active-ring {
@@ -1534,9 +1528,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 30%, transparent);
   opacity: 0;
   transition:
-    transform 0.44s var(--ease-spring),
-    height 0.44s var(--ease-spring),
-    border-radius 0.42s var(--spring),
+    transform 0.22s var(--ease-in-out),
+    height 0.22s var(--ease-in-out),
+    border-radius 0.22s var(--ease-in-out),
     opacity 0.2s var(--ease);
 }
 /* Corners follow the active chip's hover swell so ring and chip stay concentric. */
@@ -1545,8 +1539,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .project-create { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }
 
 /* The project chips are the app's second glass exception (see header): the
-   original liquid-glass material and motion, restored verbatim. Radii ride
-   the new scale — rest --r-md, swelling to --r-lg on the 0.42s spring. */
+   original liquid-glass material. Radii ride the new scale — rest --r-md,
+   swelling quickly to --r-lg on hover. */
 .project-row {
   position: relative;
   display: grid;
@@ -1564,17 +1558,16 @@ input:focus, select:focus, textarea:focus { outline: none; }
      (--chip-i set inline), capped so long lists don't drag the tail. */
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.34s var(--ease-pop);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.16s var(--ease-out);
 }
 @media (hover: hover) {
   .project-row:hover { background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
   .project-row:hover > button:first-child { color: var(--chip-accent-dark); }
 }
-/* Press dips fast; releasing springs back with a touch of overshoot (the
-   rest-state transform transition above is the pop curve). */
+/* Press dips fast and releases without overshoot. */
 .project-row:active {
-  transform: scale(0.985);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.1s var(--ease);
+  transform: scale(0.97);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.12s var(--ease-out);
 }
 .project-row .icon-button { min-width: 36px; min-height: 36px; justify-self: center; }
 .project-row.editing { grid-template-columns: minmax(0, 1fr) 44px; padding: 6px; }
@@ -1613,7 +1606,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, #fff 36%, transparent),
     0 0 10px -3px var(--prog-color);
-  transition: width var(--t-slow) var(--ease);
+  transition: width 0.18s var(--ease);
 }
 
 /* The clickable project button — the WHOLE rounded rect is the glass button.
@@ -1657,15 +1650,15 @@ button.project-row {
   box-shadow: var(--chip-shadow);
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.34s var(--ease-pop);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.16s var(--ease-out);
 }
 button.project-row .row-progress { right: 13px; left: 13px; bottom: 7px; }
 @media (hover: hover) {
   button.project-row:hover { color: var(--chip-accent-dark); background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
 }
 button.project-row:active {
-  transform: scale(0.985);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.42s var(--spring), transform 0.1s var(--ease);
+  transform: scale(0.97);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.12s var(--ease-out);
 }
 
 .project-row > button:first-child > span:not(.project-color),
@@ -1907,7 +1900,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   border: 1px solid var(--line);
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-lg);
-  animation: scale-in var(--t-slow) var(--ease-spring) both;
+  animation: scale-in var(--t-slow) var(--ease-out) both;
 }
 .pin-pad.shake { animation: shake 0.42s var(--ease); }
 .pin-brand { display: grid; justify-items: center; gap: 5px; text-align: center; }
@@ -1918,7 +1911,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   border: 1px solid var(--primary-dark);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-sm);
-  animation: pop-in var(--t-slow) var(--ease-spring) both;
+  animation: pop-in var(--t-slow) var(--ease-out) both;
 }
 .pin-brand h1 { margin: 0; font-size: 1.42rem; font-weight: 800; letter-spacing: -0.02em; }
 .pin-brand p { margin: 0; color: var(--muted); font-size: 0.88rem; font-weight: 500; transition: color var(--t) var(--ease); }
@@ -1927,8 +1920,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .pin-setup-token input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
 .pin-pad.shake .pin-brand p { color: var(--danger); }
 .pin-dots { display: flex; justify-content: center; gap: 16px; min-height: 16px; }
-.pin-dots span { width: 14px; height: 14px; border: 1.5px solid var(--line-strong); border-radius: 50%; background: transparent; transition: transform var(--t) var(--ease-spring), background var(--t) var(--ease), border-color var(--t) var(--ease); }
-.pin-dots span.filled { background: var(--primary); border-color: var(--primary); animation: pop-in var(--t) var(--ease-pop); }
+.pin-dots span { width: 14px; height: 14px; border: 1.5px solid var(--line-strong); border-radius: 50%; background: transparent; transition: transform var(--t) var(--ease-out), background var(--t) var(--ease), border-color var(--t) var(--ease); }
+.pin-dots span.filled { background: var(--primary); border-color: var(--primary); animation: pop-in var(--t) var(--ease-out); }
 .pin-dots.error span { border-color: var(--danger); }
 .pin-dots.error span.filled { background: var(--danger); border-color: var(--danger); }
 
@@ -1942,10 +1935,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-xs);
-  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 0.12s var(--ease);
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), box-shadow var(--t) var(--ease), transform 0.12s var(--ease-out);
 }
 @media (hover: hover) { .keypad button:hover:not(:disabled) { background: var(--surface-3); border-color: var(--line-strong); box-shadow: var(--shadow-sm); } }
-.keypad button:active:not(:disabled) { transform: scale(0.94); }
+.keypad button:active:not(:disabled) { transform: scale(0.97); }
 .keypad button.keypad-action { color: var(--muted); font-size: 1.15rem; background: transparent; border-color: transparent; box-shadow: none; }
 @media (hover: hover) { .keypad button.keypad-action:hover:not(:disabled) { background: var(--wash); box-shadow: none; } }
 .keypad button:disabled { opacity: 0.4; }
@@ -1985,7 +1978,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   border: 1px solid var(--line-strong);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
-  animation: task-menu-morph 0.24s var(--ease-spring) both;
+  animation: task-menu-morph 0.24s var(--ease-out) both;
 }
 @keyframes task-menu-morph { from { opacity: 0; transform: translate(3px, 5px) scale(0.92); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
 @keyframes task-menu-item { from { opacity: 0; } to { opacity: 1; } }
@@ -2003,7 +1996,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   display: flex; width: 100%; min-height: 38px; align-items: center; justify-content: flex-start; gap: 10px;
   padding: 9px 12px; color: var(--ink-soft); font-weight: 600; text-align: left; white-space: nowrap;
   background: transparent; border: 0; border-radius: calc(var(--r-lg) - 8px); box-shadow: none; transform: none;
-  transition: background 0.16s ease, color 0.16s ease;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.12s var(--ease-out);
   animation: task-menu-item 0.2s var(--ease) both;
 }
 .task-action-menu button:nth-of-type(1) { animation-delay: 0.04s; }
@@ -2016,7 +2009,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .task-action-menu button:hover { background: var(--wash-strong); color: var(--ink); }
   .task-action-menu button:hover svg { color: var(--ink); }
 }
-.task-action-menu button:active { transform: scale(0.985); }
+.task-action-menu button:active { transform: scale(0.97); }
 .task-action-menu button.danger { color: var(--danger); }
 .task-action-menu button.danger svg { color: var(--danger); }
 @media (hover: hover) { .task-action-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); } .task-action-menu button.danger:hover svg { color: var(--danger); } }
@@ -2040,7 +2033,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .archived-toggle svg { color: var(--muted); }
 @media (hover: hover) { .archived-toggle:hover { background: var(--wash); color: var(--ink); } }
 .archived-toggle__count { min-width: 22px; padding: 1px 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; text-align: center; background: var(--surface-3); border-radius: var(--r-xs); }
-.archived-toggle__chevron { transition: transform 0.34s var(--ease-spring); }
+.archived-toggle__chevron { transition: transform 0.22s var(--ease-in-out); }
 .archived-panel.is-open .archived-toggle__chevron { transform: rotate(180deg); }
 /* The list stays mounted; the wrapper's grid row tweens 0fr <-> 1fr so the
    panel unfolds and refolds smoothly. Visibility flips off after the fold so
@@ -2091,7 +2084,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 
 /* Segmented control — an inset solid track whose thumb is a real element
-   sliding on a damped spring (transform-only, so it stays compositor-smooth).
+   sliding on a crisp in-out curve (transform-only, so it stays compositor-smooth).
    The thumb corner is concentric with the 2px track padding. Shared by
    calendar view/metric, theme, hero-animation and language switches. */
 .cal-seg {
@@ -2115,7 +2108,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   border-radius: calc(var(--r-md) - 2px);
   box-shadow: var(--shadow-xs);
   transform: translateX(calc(var(--seg-i, 0) * 100%));
-  transition: transform 0.38s var(--ease-spring);
+  transition: transform 0.2s var(--ease-in-out);
 }
 .cal-seg button {
   position: relative;
@@ -2128,11 +2121,11 @@ button.project-row.active { color: var(--chip-accent-dark); }
   background: transparent;
   border: 0;
   border-radius: calc(var(--r-md) - 2px);
-  transition: color var(--t) var(--ease), background var(--t) var(--ease), transform 0.12s var(--ease);
+  transition: color var(--t) var(--ease), background var(--t) var(--ease), transform 0.12s var(--ease-out);
   white-space: nowrap;
 }
 @media (hover: hover) { .cal-seg button:hover:not(.active) { color: var(--ink-soft); } }
-.cal-seg button:active { transform: scale(0.96); }
+.cal-seg button:active { transform: scale(0.97); }
 .cal-seg button.active { color: var(--ink); }
 
 /* All calendar views share a centred max width */
@@ -2148,15 +2141,15 @@ button.project-row.active { color: var(--chip-accent-dark); }
    section entrances, lead grid first, insights following. Either way
    CalendarPage tweens .cal-view between the outgoing and incoming heights
    under this clip, so the page length glides instead of jumping. */
-.cal-view.is-morph { overflow: clip; transition: height 0.52s var(--ease-out); }
-.cal-week, .cal-month, .cal-year > * { animation: fade-up 0.42s var(--ease-out) both; }
-.cal-year > *:nth-child(2) { animation-delay: 0.06s; }
-.cal-year > *:nth-child(3) { animation-delay: 0.12s; }
-.cal-year > *:nth-child(4) { animation-delay: 0.18s; }
+.cal-view.is-morph { overflow: clip; transition: height 0.22s var(--ease-in-out); }
+.cal-week, .cal-month, .cal-year > * { animation: fade-up 0.18s var(--ease-out) both; }
+.cal-year > *:nth-child(2) { animation-delay: 0.03s; }
+.cal-year > *:nth-child(3) { animation-delay: 0.06s; }
+.cal-year > *:nth-child(4) { animation-delay: 0.09s; }
 
 /* Soft swap for secondary text (chip hints, the summary label) and the trend
    arrow: keyed by content, so it only plays when the line actually changes. */
-.cal-swap { display: inline-block; animation: swap-rise var(--t-slow) var(--ease-out); }
+.cal-swap { display: inline-block; animation: swap-rise 0.18s var(--ease-out); }
 .cal-swap--icon { display: inline-flex; }
 @keyframes swap-rise { from { opacity: 0; transform: translateY(5px); } }
 
@@ -2203,10 +2196,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
   min-height: clamp(124px, 15vw, 172px); padding: clamp(11px, 1.4vw, 16px); text-align: left;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
   /* Opacity too: paging can hand is-future to a card that stays mounted. */
-  transition: transform 0.34s var(--ease-pop), box-shadow 0.34s var(--ease-pop), border-color var(--t) var(--ease), opacity var(--t-slow) var(--ease);
+  transition: transform 0.16s var(--ease-out), box-shadow 0.16s var(--ease), border-color var(--t) var(--ease), opacity 0.18s var(--ease);
 }
 @media (hover: hover) { .cal-week__card:hover { transform: scale(1.015); box-shadow: var(--shadow-sm); border-color: var(--line-strong); } }
-.cal-week__card:active { transform: scale(0.985); transition-duration: 0.1s; }
+.cal-week__card:active { transform: scale(0.97); transition-duration: 0.12s; }
 .cal-week__card.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-xs); }
 .cal-week__card.is-future { opacity: 0.55; }
 @media (hover: hover) { .cal-week__card.is-future:hover { opacity: 1; } }
@@ -2215,27 +2208,26 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-week__meta { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .cal-week__count { color: var(--ink-soft); font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 /* Day completion figure, tinted by its progress tone but pulled toward ink for legibility. */
-.cal-week__pct { color: color-mix(in srgb, var(--prog-color, var(--muted)) 72%, var(--ink)); font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; transition: color var(--t-slow) var(--ease); }
+.cal-week__pct { color: color-mix(in srgb, var(--prog-color, var(--muted)) 72%, var(--ink)); font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; transition: color 0.18s var(--ease); }
 .cal-week__pct.tone-empty { color: var(--muted); font-weight: 650; }
 .cal-week__dots { display: flex; gap: 4px; min-height: 8px; }
 /* Dots pop in when a day gains an output/blocker; the row's min-height
    already holds their space, so a vanishing dot may simply blink out. */
-.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; animation: pop-in var(--t-slow) var(--ease-spring) both; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; animation: pop-in 0.18s var(--ease-out) both; }
 .dot-output { background: var(--prog-done); }
 .dot-blocked { background: var(--danger); }
 
 /* ---- Week insights ---- */
 .cal-insights { display: grid; gap: 12px; margin-top: 16px; }
-.cal-insights > * { animation: fade-up var(--t-slow) var(--ease) both; }
-.cal-insights > *:nth-child(1) { animation-delay: 0.05s; }
-.cal-insights > *:nth-child(2) { animation-delay: 0.1s; }
-.cal-insights > *:nth-child(3) { animation-delay: 0.15s; }
-.cal-insights > *:nth-child(4) { animation-delay: 0.2s; }
-.cal-insights > *:nth-child(5) { animation-delay: 0.25s; }
+.cal-insights > * { animation: fade-up 0.15s var(--ease-out) both; }
+.cal-insights > *:nth-child(2) { animation-delay: 0.03s; }
+.cal-insights > *:nth-child(3) { animation-delay: 0.06s; }
+.cal-insights > *:nth-child(4) { animation-delay: 0.09s; }
+.cal-insights > *:nth-child(5) { animation-delay: 0.12s; }
 
 /* Tone fills sweep in once the insight cards land. */
 @keyframes bar-sweep { from { width: 0; } }
-.cal-week .mini-bar::after, .cal-insights .mini-bar::after { animation: bar-sweep 0.55s var(--ease-out) 0.1s both; }
+.cal-week .mini-bar::after, .cal-insights .mini-bar::after { animation: bar-sweep 0.2s var(--ease-out) 0.03s both; }
 
 .cal-insights__pulse { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .cal-stat strong.trend-up { color: var(--primary); }
@@ -2269,7 +2261,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
    re-ink; a project new to the period fades up into its rank. */
 .cal-proj__row {
   display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; column-gap: 10px; row-gap: 6px;
-  animation: fade-up var(--t-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * 0.04s);
+  animation: fade-up 0.14s var(--ease-out) both; animation-delay: min(calc(var(--i, 0) * 0.03s), 0.15s);
 }
 .cal-proj__name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 0.85rem; font-weight: 650; }
 .cal-proj__name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2282,17 +2274,17 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-mix__bar {
   display: flex; gap: 2px; height: 14px; overflow: hidden;
   background: var(--surface-3); border-radius: var(--r-xs);
-  transform-origin: left; animation: grow-x 0.5s var(--ease-out) 0.12s both;
+  animation: grow-x 0.2s var(--ease-out) 0.03s both;
 }
-@keyframes grow-x { from { transform: scaleX(0); } }
+@keyframes grow-x { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0); } }
 /* Width glides as the period's mix shifts; the bar itself never remounts. */
-.cal-mix__seg { height: 100%; min-width: 3px; transition: width var(--t-slow) var(--ease); }
+.cal-mix__seg { height: 100%; min-width: 3px; transition: width 0.18s var(--ease); }
 .cal-mix__seg.imp-1, .cal-mix__dot.imp-1 { background: var(--imp-1); }
 .cal-mix__seg.imp-2, .cal-mix__dot.imp-2 { background: var(--imp-2); }
 .cal-mix__seg.imp-3, .cal-mix__dot.imp-3 { background: var(--imp-3); }
 .cal-mix__seg.imp-4, .cal-mix__dot.imp-4 { background: var(--imp-4); }
 .cal-mix__legend { display: grid; gap: 9px; margin-top: 14px; }
-.cal-mix__item { display: grid; grid-template-columns: 10px auto minmax(0, 1fr) auto; align-items: center; gap: 8px; transition: opacity var(--t-slow) var(--ease); }
+.cal-mix__item { display: grid; grid-template-columns: 10px auto minmax(0, 1fr) auto; align-items: center; gap: 8px; transition: opacity 0.18s var(--ease); }
 .cal-mix__item.is-empty { opacity: 0.45; }
 .cal-mix__dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); }
 .cal-mix__label { font-size: 0.78rem; font-weight: 750; }
@@ -2311,11 +2303,11 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-log__row {
   display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; text-align: left;
   background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-md); box-shadow: none;
-  animation: fade-up var(--t-slow) var(--ease) both; animation-delay: calc(var(--i, 0) * 0.03s);
-  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), transform var(--t) var(--ease);
+  animation: fade-up 0.14s var(--ease-out) both; animation-delay: min(calc(var(--i, 0) * 0.03s), 0.15s);
+  transition: background var(--t) var(--ease), border-color var(--t) var(--ease), transform 0.12s var(--ease-out);
 }
 @media (hover: hover) { .cal-log__row:hover { background: var(--surface-3); border-color: var(--line); } }
-.cal-log__row:active { transform: scale(0.995); }
+.cal-log__row:active { transform: scale(0.97); }
 .cal-log__row:focus-visible { background: var(--wash-strong); }
 .cal-log__chip {
   flex: none; min-width: 56px; margin-top: 1px; padding: 3px 8px; text-align: center;
@@ -2327,7 +2319,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-log__body { display: grid; gap: 3px; min-width: 0; }
 .cal-log__text { font-size: 0.85rem; font-weight: 600; line-height: 1.45; color: var(--ink); overflow-wrap: anywhere; }
 .cal-log__meta { color: var(--muted); font-size: 0.72rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cal-log__empty { margin: 2px 0 4px; color: var(--muted); font-size: 0.82rem; animation: fade-up var(--t-slow) var(--ease) both; }
+.cal-log__empty { margin: 2px 0 4px; color: var(--muted); font-size: 0.82rem; animation: fade-up 0.18s var(--ease-out) both; }
 .cal-log__more {
   display: inline-flex; align-items: center; gap: 5px; justify-self: center; margin-top: 2px; padding: 7px 14px;
   color: var(--muted); font-size: 0.78rem; font-weight: 700;
@@ -2340,25 +2332,23 @@ button.project-row.active { color: var(--chip-accent-dark); }
 
 /* ---- Heat tiles (month + year) ---- */
 .tone-empty { --prog-color: var(--line-strong); }
-/* Hover: the tile comes forward in place — a springy scale with the border
-   warming toward the day's tone — instead of the old translateY hop. The pop
-   curve overshoots slightly on the way in and the same curve eases it back;
-   transform/box-shadow only, so it stays compositor-smooth. */
+/* Hover: the tile comes forward in place with a quick scale and border tone,
+   instead of the old translateY hop. */
 .cal-cell, .cal-heatmap__cell {
   --heat-pct: calc(var(--heat, 0) * 1%);
   background: color-mix(in srgb, var(--prog-color) max(7%, var(--heat-pct)), var(--surface-2));
   border: 1px solid var(--line);
   transition:
-    transform 0.34s var(--ease-pop),
-    box-shadow 0.34s var(--ease-pop),
+    transform 0.16s var(--ease-out),
+    box-shadow 0.16s var(--ease),
     border-color var(--t) var(--ease),
     /* Tiles never remount on a period/metric switch — they re-ink. Slow
        enough to read as the grid re-inking; --reink (set per column on the
        year map, per tile on the month grid) staggers the delay so the new
        period sweeps across rather than blinking on. Delay rides only the
        background entry — press/hover feedback must stay immediate. */
-    background var(--t-slow) var(--ease) var(--reink, 0s),
-    opacity var(--t-slow) var(--ease);
+    background 0.18s var(--ease) var(--reink, 0s),
+    opacity 0.18s var(--ease);
 }
 
 /* ---- Month view ---- */
@@ -2376,7 +2366,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
     z-index: 1;
   }
 }
-.cal-cell:active { transform: scale(0.97); transition-duration: 0.1s; z-index: 1; }
+.cal-cell:active { transform: scale(0.97); transition-duration: 0.12s; z-index: 1; }
 .cal-cell.is-outside { opacity: 0.4; }
 .cal-cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
 @media (hover: hover) {
@@ -2395,7 +2385,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* Direct children only — the strong's RollDigits and the small's SwapText are
    spans too, and must keep their own type scale. */
 .cal-stat > span { color: var(--muted); font-size: 0.72rem; font-weight: 650; }
-.cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color var(--t-slow) var(--ease); }
+.cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color 0.18s var(--ease); }
 .cal-stat svg { color: var(--muted); }
 .cal-stat svg.is-flame { color: var(--warning); }
 .cal-stat svg.trend-up { color: var(--primary); }
@@ -2417,7 +2407,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* Heat tiles hold still under the pointer — no hover pop; the grid is too
    dense for a scale to read as anything but jitter. Press feedback only. */
 .cal-heatmap__cell { width: 100%; aspect-ratio: 1; border-radius: var(--r-xs); padding: 0; }
-.cal-heatmap__cell:active { transform: scale(1.08); transition-duration: 0.1s; z-index: 2; }
+.cal-heatmap__cell:active { transform: scale(0.97); transition-duration: 0.12s; z-index: 2; }
 .cal-heatmap__cell.is-outside { visibility: hidden; }
 .cal-heatmap__cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
 
@@ -2430,18 +2420,18 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* Mini bar series */
 .cal-series { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: end; gap: 7px; }
 .cal-series__col { display: grid; gap: 6px; justify-items: center; background: transparent; border: 0; padding: 0; }
-.cal-series__col[type="button"] { cursor: pointer; transition: transform 0.14s var(--ease); }
-.cal-series__col[type="button"]:active { transform: scale(0.96); }
+.cal-series__col[type="button"] { cursor: pointer; transition: transform 0.14s var(--ease-out); }
+.cal-series__col[type="button"]:active { transform: scale(0.97); }
 .cal-series__track { position: relative; display: block; width: 100%; height: clamp(76px, 12vh, 132px); border-radius: var(--r-xs); background: var(--surface-3); overflow: hidden; }
 .cal-series__fill {
   position: absolute; inset: auto 0 0 0; height: clamp(3%, var(--pct, 0%), 100%);
   background: var(--prog-color, var(--prog-done));
   border-radius: var(--r-xs) var(--r-xs) 0 0;
   /* Data / metric changes retarget the same column: height glides, tone re-inks. */
-  transition: height 0.5s var(--ease-out), background-color var(--t-slow) var(--ease);
+  transition: height 0.16s var(--ease-in-out), background-color 0.18s var(--ease);
   /* On mount the columns ripple up left to right, trailing the card's rise. */
-  animation: series-grow 0.5s var(--ease-out) both;
-  animation-delay: calc(0.12s + var(--i, 0) * 0.035s);
+  animation: series-grow 0.16s var(--ease-out) both;
+  animation-delay: calc(0.02s + var(--i, 0) * 0.01s);
 }
 @keyframes series-grow { from { height: 0; } }
 @media (hover: hover) { .cal-series__col[type="button"]:hover .cal-series__track { box-shadow: inset 0 0 0 1px var(--primary); } }
@@ -2612,22 +2602,22 @@ button.project-row.active { color: var(--chip-accent-dark); }
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 0.36s;
+  animation-duration: 0.22s;
   animation-timing-function: var(--ease);
 }
 
 /* Named seg-control thumbs ride every View Transition as their own groups.
    The freeze class above kills their CSS transition while a VT runs, so the
    group's box morph IS the slide — matched here to the thumb's normal
-   0.38s spring so a meter/theme/language switch shows the same motion. */
+   0.2s in-out curve so a meter/theme/language switch shows the same motion. */
 ::view-transition-group(seg-theme),
 ::view-transition-group(seg-hero),
 ::view-transition-group(seg-meters),
 ::view-transition-group(seg-language),
 ::view-transition-group(seg-cal-view),
 ::view-transition-group(seg-cal-metric) {
-  animation-duration: 0.38s;
-  animation-timing-function: var(--ease-spring);
+  animation-duration: 0.2s;
+  animation-timing-function: var(--ease-in-out);
 }
 
 /* =========================================================================
@@ -2647,10 +2637,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
 }
 
 :root.lang-switching::view-transition-old(root) {
-  animation: lang-refocus-out 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: lang-refocus-out 0.24s var(--ease-out) both;
 }
 :root.lang-switching::view-transition-new(root) {
-  animation: lang-refocus-in 0.44s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: lang-refocus-in 0.24s var(--ease-out) both;
 }
 
 @keyframes lang-refocus-out {

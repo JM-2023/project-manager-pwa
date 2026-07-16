@@ -7,6 +7,7 @@ import "./styles/app.css";
 
 const PRELOAD_RELOAD_KEY = "project-manager:last-preload-reload";
 const PRELOAD_RELOAD_COOLDOWN_MS = 10_000;
+const FIRST_REVEAL_SEEN_KEY = "project-manager:first-reveal-seen";
 
 // An already-open tab can request an old lazy chunk after a new deployment has
 // removed that hash. Vite emits this cancellable event before surfacing the
@@ -32,13 +33,32 @@ window.addEventListener("vite:preloadError", (event) => {
 // stale service-worker HTML without it).
 initMeterStyle();
 
-// First-entry ink reveal. When it finishes, keep a completion class on the
-// root so the base page animation does not restart and flash the UI.
-document.documentElement.classList.add("first-reveal");
-window.setTimeout(() => {
-  document.documentElement.classList.add("reveal-complete");
-  document.documentElement.classList.remove("first-reveal");
-}, 1320);
+// The ink reveal is a one-time welcome, not a reload animation. Persist the
+// marker before starting so a refresh during the reveal cannot replay it. If
+// storage is unavailable, skip the optional reveal rather than repeat it on
+// every visit.
+const root = document.documentElement;
+let shouldPlayFirstReveal = false;
+try {
+  if (window.localStorage.getItem(FIRST_REVEAL_SEEN_KEY) === null) {
+    window.localStorage.setItem(FIRST_REVEAL_SEEN_KEY, "1");
+    shouldPlayFirstReveal = true;
+  }
+} catch {
+  shouldPlayFirstReveal = false;
+}
+
+if (shouldPlayFirstReveal) {
+  root.classList.remove("reveal-complete");
+  root.classList.add("first-reveal");
+  window.setTimeout(() => {
+    root.classList.add("reveal-complete");
+    root.classList.remove("first-reveal");
+  }, 1320);
+} else {
+  root.classList.remove("first-reveal");
+  root.classList.add("reveal-complete");
+}
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

@@ -25,8 +25,9 @@ interface SegControlProps<T extends string> {
 /**
  * Segmented control with a real sliding thumb. The thumb is one absolutely
  * positioned element translated to the active column (transform-only, so the
- * damped spring stays compositor-smooth); buttons above it stay transparent
- * and only swap text colour. --seg-count sizes the thumb, --seg-i places it.
+ * crisp in-out motion stays compositor-smooth); buttons above it stay
+ * transparent and only swap text colour. --seg-count sizes the thumb,
+ * --seg-i places it.
  */
 export function SegControl<T extends string>({ options, value, onChange, ariaLabel, vtName }: SegControlProps<T>) {
   const index = Math.max(0, options.findIndex((option) => option.id === value));

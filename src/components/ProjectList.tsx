@@ -302,9 +302,9 @@ export function ProjectList({
   }, [tasks]);
 
   // Selection ring: ONE absolutely-positioned element that glides from the
-  // previously active chip to the newly selected one on a spring, instead of
-  // each chip flashing its own border on/off. First placement lands without
-  // a transition so the ring doesn't fly in from the top on mount.
+  // previously active chip to the newly selected one on a crisp in-out curve,
+  // instead of each chip flashing its own border on/off. First placement
+  // lands without a transition so the ring doesn't fly in from the top.
   const listRef = useRef<HTMLElement | null>(null);
   const ringRef = useRef<HTMLDivElement | null>(null);
   const ringArmedRef = useRef(false);

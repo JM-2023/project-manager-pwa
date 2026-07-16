@@ -112,7 +112,7 @@ export function RollDigits({ value, text, align = "right", className }: RollDigi
             }
           : state
       );
-    }, 1200);
+    }, 600);
     return () => window.clearTimeout(timer);
   }, [st.serial]);
 

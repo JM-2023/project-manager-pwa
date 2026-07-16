@@ -92,7 +92,7 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     el.animate(
       [{ opacity: 0.22, transform: `translateX(${navDir * 18}px)` }, { opacity: 1, transform: "none" }],
-      { duration: 320, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }
+      { duration: 180, easing: "cubic-bezier(0.23, 1, 0.32, 1)" }
     );
   }, [viewDate, navDir]);
 

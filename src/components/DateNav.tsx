@@ -60,7 +60,7 @@ export function RollText({ text, dir, className }: RollTextProps) {
     wrap.style.width = `${target}px`;
     settleRef.current = window.setTimeout(() => {
       wrap.style.width = "";
-    }, 400);
+    }, 240);
   }, [text]);
 
   useLayoutEffect(() => () => window.clearTimeout(settleRef.current), []);
@@ -82,7 +82,7 @@ export function RollText({ text, dir, className }: RollTextProps) {
           actually changed. Worn permanently, a later dir flip renames the
           animation and replays it on unchanged text — the calendar's fixed
           title rolled on ‹/› reversals and on pressing the title itself.
-          Ghost-out and text-in share one 0.32s clock, so the class is only
+          Ghost-out and text-in share one 0.18s clock, so the class is only
           removed after the entrance has finished. */}
       <span key={text} ref={inRef} className={`roll-text__in${ghost ? ` ${dirClass}` : ""}`}>
         {text}

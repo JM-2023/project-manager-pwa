@@ -184,7 +184,7 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
     viewMorphTimerRef.current = window.setTimeout(() => {
       view.classList.remove("is-morph");
       view.style.height = "";
-    }, 640);
+    }, 300);
   }, [range.start, range.end, granularity]);
 
   return (
@@ -775,7 +775,7 @@ function MonthView({ anchor, days, today, metric, stats, buckets, projects, dayS
                 style={
                   {
                     "--heat": cellStats.taskCount > 0 ? value : 0,
-                    "--reink": `${((index % 7) + Math.floor(index / 7)) * 14}ms`
+                    "--reink": `${((index % 7) + Math.floor(index / 7)) * 8}ms`
                   } as CSSProperties
                 }
                 onClick={() => onOpenDay(cell.date)}
@@ -1023,7 +1023,7 @@ function YearView({ anchor, days, today, metric, stats, buckets, projects, daySt
             the map — every tile just re-inks to its new heat, the per-column
             --reink delay sweeping the change across the year left to right. */}
         {heatColumns.map((column, columnIndex) => (
-          <div key={columnIndex} className="cal-heatmap__col" style={{ "--reink": `${columnIndex * 6}ms` } as CSSProperties}>
+          <div key={columnIndex} className="cal-heatmap__col" style={{ "--reink": `${columnIndex * 2}ms` } as CSSProperties}>
             {column.map((date, rowIndex) => {
               const inYear = date.slice(0, 4) === yearKey;
               const stats = dayStats(date);

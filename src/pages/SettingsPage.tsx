@@ -10,6 +10,7 @@ import { useHeroAnimation, type HeroAnimation } from "../lib/heroAnimation";
 import { useMeterStyle, type MeterStyle } from "../lib/meterStyle";
 import { useI18n, type Language } from "../lib/i18n";
 import { usePresence } from "../lib/usePresence";
+import type { SyncStatus } from "../state/appStore";
 import type { ImportResponse, ImportRow, MutationConflict, SessionResponse } from "../lib/types";
 import type { WorklogOverview } from "../lib/progress";
 
@@ -24,12 +25,39 @@ const LANGUAGE_OPTIONS: Array<{ id: Language; label: string }> = [
 ];
 
 /** Data-health headline state, worst first. */
-type HeroState = "error" | "conflict" | "pending" | "ok";
+type HeroState = "error" | "conflict" | "offline" | "loading" | "syncing" | "pending" | "queued" | "ok";
+
+interface HeroStatusInput {
+  online: boolean;
+  syncStatus: SyncStatus;
+  syncError: string | null;
+  conflictCount: number;
+  pendingCount: number;
+}
+
+export function resolveSettingsHeroState({
+  online,
+  syncStatus,
+  syncError,
+  conflictCount,
+  pendingCount
+}: HeroStatusInput): HeroState {
+  if (syncError || syncStatus === "error") return "error";
+  if (conflictCount > 0) return "conflict";
+  if (!online || syncStatus === "offline") return "offline";
+  if (syncStatus === "loading") return "loading";
+  if (syncStatus === "syncing") return "syncing";
+  if (syncStatus === "queued") return "queued";
+  if (pendingCount > 0) return "pending";
+  return "ok";
+}
 
 interface SettingsPageProps {
   taskCount: number;
   projectCount: number;
   pendingCount: number;
+  online: boolean;
+  syncStatus: SyncStatus;
   lastSync: string | null;
   lastExport: string | null;
   syncError: string | null;
@@ -47,6 +75,8 @@ export function SettingsPage({
   taskCount,
   projectCount,
   pendingCount,
+  online,
+  syncStatus,
   lastSync,
   lastExport,
   syncError,
@@ -71,21 +101,24 @@ export function SettingsPage({
   const heroAnimLabels: Record<HeroAnimation, string> = { flow: m.settings.heroFlow, shimmer: m.settings.heroShimmer };
   const meterStyleLabels: Record<MeterStyle, string> = { glass: m.settings.meterGlass, flat: m.settings.meterFlat };
 
-  const heroState: HeroState = syncError
-    ? "error"
-    : conflicts.length > 0
-      ? "conflict"
-      : pendingCount > 0
-        ? "pending"
-        : "ok";
-  const heroTitle =
-    heroState === "error"
-      ? m.settings.syncError
-      : heroState === "conflict"
-        ? m.settings.statusConflicts(conflicts.length)
-        : heroState === "pending"
-          ? m.settings.statusPending(pendingCount)
-          : m.settings.statusSynced;
+  const offline = !online || syncStatus === "offline";
+  const heroState = resolveSettingsHeroState({
+    online,
+    syncStatus,
+    syncError,
+    conflictCount: conflicts.length,
+    pendingCount
+  });
+  const heroTitle = ({
+    error: m.settings.syncError,
+    conflict: m.settings.statusConflicts(conflicts.length),
+    offline: m.offline.offline,
+    loading: m.settings.statusLoading,
+    syncing: m.offline.syncing(pendingCount),
+    pending: m.settings.statusPending(pendingCount),
+    queued: m.settings.statusQueued,
+    ok: m.settings.statusSynced
+  } satisfies Record<HeroState, string>)[heroState];
 
   const formatStamp = (iso: string | null) =>
     iso ? new Date(iso).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }) : m.settings.never;
@@ -119,7 +152,7 @@ export function SettingsPage({
           the accumulated stats as a quiet strip below it. */}
       <section className="settings-hero" data-state={heroState}>
         <div className="settings-hero__status">
-          <div className="settings-hero__lead">
+          <div className="settings-hero__lead" role="status" aria-live="polite" aria-atomic="true">
             <div className="settings-hero__headline">
               <span className="settings-hero__dot" aria-hidden="true" />
               <h2>{heroTitle}</h2>
@@ -128,7 +161,8 @@ export function SettingsPage({
               {m.settings.lastSync} {formatStamp(lastSync)} · {m.settings.lastExport} {formatStamp(lastExport)}
             </p>
             {syncError ? <p className="settings-hero__detail settings-hero__detail--error">{syncError}</p> : null}
-            {heroState !== "pending" && pendingCount > 0 ? (
+            {offline && heroState !== "offline" ? <p className="settings-hero__detail">{m.offline.offline}</p> : null}
+            {heroState !== "pending" && heroState !== "syncing" && pendingCount > 0 ? (
               <p className="settings-hero__detail">{m.settings.statusPending(pendingCount)}</p>
             ) : null}
             {conflicts.length > 0 ? (

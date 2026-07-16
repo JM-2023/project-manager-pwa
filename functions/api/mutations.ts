@@ -58,7 +58,7 @@ interface Conflict {
 interface MutationPlan {
   result: Applied | Conflict;
   statements: D1PreparedStatement[];
-  ledgerMode?: "row" | "always";
+  ledgerMode?: "row" | "always" | "deletion_guard";
 }
 
 interface PlannedCommit {
@@ -66,7 +66,7 @@ interface PlannedCommit {
   result: Applied;
   statements: D1PreparedStatement[];
   timestamp: string;
-  ledgerMode: "row" | "always";
+  ledgerMode: "row" | "always" | "deletion_guard";
   ledgerIndex?: number;
 }
 
@@ -89,6 +89,19 @@ interface FieldSpec {
 const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
 const CLIENT_READ_ONLY_SETTING_KEYS = new Set([...INTERNAL_SETTING_KEYS, EXCEL_DIRTY_SETTING_KEY]);
 const MAX_MUTATIONS = 10;
+
+type RecordEntity = Exclude<Entity, "setting">;
+
+const RECORD_TABLES: Record<RecordEntity, "projects" | "tasks" | "next_projects" | "next_ideas"> = {
+  project: "projects",
+  task: "tasks",
+  next_project: "next_projects",
+  next_idea: "next_ideas"
+};
+
+function recordTable(entity: Entity): (typeof RECORD_TABLES)[RecordEntity] | null {
+  return entity === "setting" ? null : RECORD_TABLES[entity];
+}
 
 const numberValue = (value: unknown): number => {
   const parsed = Number(value);
@@ -183,8 +196,37 @@ function recordProcessed(
   user: AuthUser,
   mutation: IncomingMutation,
   timestamp: string,
-  mode: "row" | "always"
+  mode: "row" | "always" | "deletion_guard"
 ): D1PreparedStatement {
+  if (mode === "deletion_guard") {
+    const id = String(mutation.data.id ?? "").trim();
+    const table = recordTable(mutation.entity);
+    if (!table) throw new Error("Deletion guards require a record entity");
+    return context.env.DB.prepare(
+      `INSERT INTO processed_mutations (id, user_id, created_at)
+       SELECT ?, ?, ?
+       WHERE EXISTS (
+         SELECT 1 FROM record_deletion_guards
+         WHERE user_id = ? AND entity = ? AND record_id = ? AND last_mutation_id = ?
+       )
+         AND NOT EXISTS (
+           SELECT 1 FROM ${table}
+           WHERE user_id = ? AND id = ? AND deleted_at IS NULL
+         )
+       ON CONFLICT(id) DO NOTHING`
+    ).bind(
+      mutation.id,
+      user.id,
+      timestamp,
+      user.id,
+      mutation.entity,
+      id,
+      mutation.id,
+      user.id,
+      id
+    );
+  }
+
   if (mode === "always" || mutation.operation === "purge") {
     return context.env.DB.prepare(
       "INSERT INTO processed_mutations (id, user_id, created_at) VALUES (?, ?, ?) ON CONFLICT(id) DO NOTHING"
@@ -204,12 +246,8 @@ function recordProcessed(
     ).bind(mutation.id, user.id, timestamp, user.id, key, user.id, timestamp);
   }
 
-  const table = {
-    project: "projects",
-    task: "tasks",
-    next_project: "next_projects",
-    next_idea: "next_ideas"
-  }[mutation.entity];
+  const table = recordTable(mutation.entity);
+  if (!table) throw new Error("Row ledger requires a record entity");
   const id = String(mutation.data.id ?? "").trim();
   return context.env.DB.prepare(
     `INSERT INTO processed_mutations (id, user_id, created_at)
@@ -267,10 +305,15 @@ function guardedInsert(
   conflictCondition = ""
 ): D1PreparedStatement {
   const placeholders = values.map(() => "?").join(", ");
+  const id = String(mutation.data.id ?? "").trim();
   return context.env.DB.prepare(
     `INSERT INTO ${table} (${columns.join(", ")}, sync_seq)
      SELECT ${placeholders}, ${SYNC_SEQUENCE_SQL}
      WHERE NOT EXISTS (SELECT 1 FROM processed_mutations WHERE id = ?)
+       AND NOT EXISTS (
+         SELECT 1 FROM record_deletion_guards
+         WHERE user_id = ? AND entity = ? AND record_id = ?
+       )
        ${insertCondition ? `AND (${insertCondition})` : ""}
      ON CONFLICT(id) DO UPDATE SET
        ${updateColumns.map((column) => `${column} = excluded.${column}`).join(", ")},
@@ -281,7 +324,7 @@ function guardedInsert(
        AND ${table}.deleted_at IS NULL
        AND excluded.version > ${table}.version
        ${conflictCondition ? `AND (${conflictCondition})` : ""}`
-  ).bind(...values, user.id, mutation.id, ...insertConditionArgs);
+  ).bind(...values, user.id, mutation.id, user.id, mutation.entity, id, ...insertConditionArgs);
 }
 
 function markExcelDirtyStatement(context: AppContext, user: AuthUser, timestamp: string): D1PreparedStatement {
@@ -664,6 +707,88 @@ function guardSql(): string {
   return "NOT EXISTS (SELECT 1 FROM processed_mutations WHERE id = ?)";
 }
 
+type DeletionExpectation =
+  | { kind: "any" }
+  | { kind: "not_live" }
+  | { kind: "version"; version: number };
+
+function deletionExpectation(
+  mutation: IncomingMutation,
+  existing: Record<string, unknown> | null
+): DeletionExpectation {
+  if (existing && !existing.deleted_at) {
+    return { kind: "version", version: Number(existing.version ?? 0) };
+  }
+  if (existing?.deleted_at) return { kind: "not_live" };
+  if (mutation.baseVersion !== null && mutation.baseVersion !== undefined) {
+    return { kind: "version", version: mutation.baseVersion };
+  }
+  // A create followed by a delete compacts to the create's null base version.
+  // If its delayed create transaction commits first, this delete must still
+  // be able to guard and tombstone that row at execution time.
+  return { kind: "any" };
+}
+
+function deletionGuardSql(): string {
+  return `EXISTS (
+    SELECT 1 FROM record_deletion_guards
+    WHERE user_id = ? AND entity = ? AND record_id = ? AND last_mutation_id = ?
+  )`;
+}
+
+function deletionGuardArgs(user: AuthUser, mutation: IncomingMutation, id: string): unknown[] {
+  return [user.id, mutation.entity, id, mutation.id];
+}
+
+function recordDeletionGuardStatement(
+  context: AppContext,
+  user: AuthUser,
+  mutation: IncomingMutation,
+  table: (typeof RECORD_TABLES)[RecordEntity],
+  id: string,
+  timestamp: string,
+  expectation: DeletionExpectation
+): D1PreparedStatement {
+  let rowCondition = "";
+  let rowConditionArgs: unknown[] = [];
+  if (expectation.kind === "not_live") {
+    rowCondition = `AND NOT EXISTS (
+      SELECT 1 FROM ${table} WHERE user_id = ? AND id = ? AND deleted_at IS NULL
+    )`;
+    rowConditionArgs = [user.id, id];
+  } else if (expectation.kind === "version") {
+    rowCondition = `AND (
+      NOT EXISTS (
+        SELECT 1 FROM ${table} WHERE user_id = ? AND id = ? AND deleted_at IS NULL
+      ) OR EXISTS (
+        SELECT 1 FROM ${table}
+        WHERE user_id = ? AND id = ? AND deleted_at IS NULL AND version = ?
+      )
+    )`;
+    rowConditionArgs = [user.id, id, user.id, id, expectation.version];
+  }
+
+  return context.env.DB.prepare(
+    `INSERT INTO record_deletion_guards (
+       user_id, entity, record_id, deleted_at, last_mutation_id
+     )
+     SELECT ?, ?, ?, ?, ?
+     WHERE ${guardSql()}
+       ${rowCondition}
+     ON CONFLICT(user_id, entity, record_id) DO UPDATE SET
+       deleted_at = excluded.deleted_at,
+       last_mutation_id = excluded.last_mutation_id`
+  ).bind(
+    user.id,
+    mutation.entity,
+    id,
+    timestamp,
+    mutation.id,
+    mutation.id,
+    ...rowConditionArgs
+  );
+}
+
 /** Soft-delete a row and, for parent entities, its children in the same batch. */
 function planDelete(
   context: AppContext,
@@ -674,11 +799,11 @@ function planDelete(
 ): MutationPlan {
   const id = String(mutation.data.id ?? "").trim();
   if (mutation.entity === "setting") return planSetting(context, user, mutation, timestamp);
-  if (!existing || existing.deleted_at) {
-    return { result: appliedResult(mutation, id, existing), statements: [], ledgerMode: "always" };
-  }
-  const serverVersion = Number(existing.version ?? 0);
+  const table = recordTable(mutation.entity);
+  if (!table) throw new Error("Delete requires a record entity");
+  const serverVersion = existing && !existing.deleted_at ? Number(existing.version ?? 0) : null;
   if (
+    serverVersion !== null &&
     mutation.baseVersion !== null &&
     mutation.baseVersion !== undefined &&
     mutation.baseVersion !== serverVersion
@@ -686,81 +811,158 @@ function planDelete(
     return conflict(mutation, "Record changed before deletion", true, existing);
   }
 
-  const rootTombstone = (table: string, archived: boolean): D1PreparedStatement => context.env.DB.prepare(
-    `UPDATE ${table}
+  const expectation = deletionExpectation(mutation, existing);
+  const deletionGuard = recordDeletionGuardStatement(
+    context,
+    user,
+    mutation,
+    table,
+    id,
+    timestamp,
+    expectation
+  );
+  const expectedVersion = expectation.kind === "version" ? expectation.version : null;
+  const rootTombstone = (rootTable: string, archived: boolean): D1PreparedStatement => context.env.DB.prepare(
+    `UPDATE ${rootTable}
      SET deleted_at = COALESCE(deleted_at, ?), updated_at = ?, version = version + 1,
          ${archived ? "archived = 1," : ""} sync_seq = ${SYNC_SEQUENCE_SQL}
-     WHERE user_id = ? AND id = ? AND deleted_at IS NULL AND version = ? AND ${guardSql()}`
-  ).bind(timestamp, timestamp, user.id, user.id, id, serverVersion, mutation.id);
+     WHERE user_id = ? AND id = ? AND deleted_at IS NULL
+       ${expectedVersion === null ? "" : "AND version = ?"}
+       AND ${guardSql()}
+       AND ${deletionGuardSql()}`
+  ).bind(
+    timestamp,
+    timestamp,
+    user.id,
+    user.id,
+    id,
+    ...(expectedVersion === null ? [] : [expectedVersion]),
+    mutation.id,
+    ...deletionGuardArgs(user, mutation, id)
+  );
   const childTombstone = (
-    table: "tasks" | "next_ideas",
+    childTable: "tasks" | "next_ideas",
     foreignKey: "project_id" | "next_project_id",
     rootTable: "projects" | "next_projects"
   ): D1PreparedStatement => {
-    const archiveAssignment = table === "tasks" ? "archived = 1," : "";
+    const archiveAssignment = childTable === "tasks" ? "archived = 1," : "";
     return context.env.DB.prepare(
-      `UPDATE ${table}
+      `UPDATE ${childTable}
        SET deleted_at = COALESCE(deleted_at, ?), updated_at = ?, version = version + 1,
            ${archiveAssignment} sync_seq = ${SYNC_SEQUENCE_SQL}
        WHERE user_id = ? AND ${foreignKey} = ? AND ${guardSql()}
+         AND ${deletionGuardSql()}
          AND EXISTS (
            SELECT 1 FROM ${rootTable}
            WHERE user_id = ? AND id = ? AND sync_seq = ${SYNC_SEQUENCE_SQL} AND updated_at = ?
          )`
-    ).bind(timestamp, timestamp, user.id, user.id, id, mutation.id, user.id, id, user.id, timestamp);
+    ).bind(
+      timestamp,
+      timestamp,
+      user.id,
+      user.id,
+      id,
+      mutation.id,
+      ...deletionGuardArgs(user, mutation, id),
+      user.id,
+      id,
+      user.id,
+      timestamp
+    );
   };
 
   if (mutation.entity === "project") {
     return {
       result: appliedResult(mutation, id, existing),
-      statements: [rootTombstone("projects", true), childTombstone("tasks", "project_id", "projects")]
+      statements: [deletionGuard, rootTombstone("projects", true), childTombstone("tasks", "project_id", "projects")],
+      ledgerMode: "deletion_guard"
     };
   }
   if (mutation.entity === "task") {
-    return { result: appliedResult(mutation, id, existing), statements: [rootTombstone("tasks", true)] };
+    return {
+      result: appliedResult(mutation, id, existing),
+      statements: [deletionGuard, rootTombstone("tasks", true)],
+      ledgerMode: "deletion_guard"
+    };
   }
   if (mutation.entity === "next_project") {
     return {
       result: appliedResult(mutation, id, existing),
-      statements: [rootTombstone("next_projects", true), childTombstone("next_ideas", "next_project_id", "next_projects")]
+      statements: [
+        deletionGuard,
+        rootTombstone("next_projects", true),
+        childTombstone("next_ideas", "next_project_id", "next_projects")
+      ],
+      ledgerMode: "deletion_guard"
     };
   }
-  return { result: appliedResult(mutation, id, existing), statements: [rootTombstone("next_ideas", false)] };
+  return {
+    result: appliedResult(mutation, id, existing),
+    statements: [deletionGuard, rootTombstone("next_ideas", false)],
+    ledgerMode: "deletion_guard"
+  };
 }
 
 /** Compatibility path for old clients. Any hard delete rotates the epoch. */
 function planPurge(context: AppContext, user: AuthUser, mutation: IncomingMutation, timestamp: string): MutationPlan {
   const id = String(mutation.data.id ?? "").trim();
+  if (mutation.entity === "setting") {
+    return planSetting(context, user, { ...mutation, operation: "delete" }, timestamp);
+  }
+  const table = recordTable(mutation.entity);
+  if (!table) throw new Error("Purge requires a record entity");
+  const deletionGuard = recordDeletionGuardStatement(
+    context,
+    user,
+    mutation,
+    table,
+    id,
+    timestamp,
+    { kind: "any" }
+  );
   const guardedDelete = (table: string, idColumn = "id"): D1PreparedStatement => context.env.DB.prepare(
-    `DELETE FROM ${table} WHERE user_id = ? AND ${idColumn} = ? AND ${guardSql()}`
-  ).bind(user.id, id, mutation.id);
+    `DELETE FROM ${table}
+     WHERE user_id = ? AND ${idColumn} = ? AND ${guardSql()} AND ${deletionGuardSql()}`
+  ).bind(user.id, id, mutation.id, ...deletionGuardArgs(user, mutation, id));
 
   if (mutation.entity === "project") {
     const detachMigrationSource = context.env.DB.prepare(
       `UPDATE next_projects
        SET source_project_id = NULL, updated_at = ?, version = version + 1, sync_seq = ${SYNC_SEQUENCE_SQL}
-       WHERE user_id = ? AND source_project_id = ? AND ${guardSql()}`
-    ).bind(timestamp, user.id, user.id, id, mutation.id);
+       WHERE user_id = ? AND source_project_id = ? AND ${guardSql()} AND ${deletionGuardSql()}`
+    ).bind(
+      timestamp,
+      user.id,
+      user.id,
+      id,
+      mutation.id,
+      ...deletionGuardArgs(user, mutation, id)
+    );
     return {
       result: appliedResult(mutation, id),
-      statements: [detachMigrationSource, guardedDelete("tasks", "project_id"), guardedDelete("projects")],
-      ledgerMode: "always"
+      statements: [deletionGuard, detachMigrationSource, guardedDelete("tasks", "project_id"), guardedDelete("projects")],
+      ledgerMode: "deletion_guard"
     };
   }
   if (mutation.entity === "task") {
-    return { result: appliedResult(mutation, id), statements: [guardedDelete("tasks")], ledgerMode: "always" };
+    return {
+      result: appliedResult(mutation, id),
+      statements: [deletionGuard, guardedDelete("tasks")],
+      ledgerMode: "deletion_guard"
+    };
   }
   if (mutation.entity === "next_project") {
     return {
       result: appliedResult(mutation, id),
-      statements: [guardedDelete("next_ideas", "next_project_id"), guardedDelete("next_projects")],
-      ledgerMode: "always"
+      statements: [deletionGuard, guardedDelete("next_ideas", "next_project_id"), guardedDelete("next_projects")],
+      ledgerMode: "deletion_guard"
     };
   }
-  if (mutation.entity === "next_idea") {
-    return { result: appliedResult(mutation, id), statements: [guardedDelete("next_ideas")], ledgerMode: "always" };
-  }
-  return planSetting(context, user, { ...mutation, operation: "delete" }, timestamp);
+  return {
+    result: appliedResult(mutation, id),
+    statements: [deletionGuard, guardedDelete("next_ideas")],
+    ledgerMode: "deletion_guard"
+  };
 }
 
 export async function planMutation(

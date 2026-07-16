@@ -103,7 +103,13 @@ function nextActionText(tasks: Task[]): string {
 export function buildWorkbook(data: ExportDataResponse) {
   const workbook = utils.book_new();
   const projectsForNames = data.projects.filter((project) => !project.deleted_at);
-  const nextProjectsForExport = data.nextProjects.filter((project) => !project.deleted_at && project.archived === 0);
+  // Snapshot transport uses immutable-id keyset pagination. Keep the workbook's
+  // long-standing presentation order independent of the transport order.
+  const nextProjectsForExport = data.nextProjects
+    .filter((project) => !project.deleted_at && project.archived === 0)
+    .sort((left, right) =>
+      left.sort_order - right.sort_order || left.name.localeCompare(right.name) || left.id.localeCompare(right.id)
+    );
   const nextIdeasForExport = sortedNextIdeas(data.nextIdeas.filter((idea) => !idea.deleted_at));
   const projectNames = new Map(projectsForNames.map((project) => [project.id, project.name]));
   const nextProjectNames = new Map(nextProjectsForExport.map((project) => [project.id, project.name]));

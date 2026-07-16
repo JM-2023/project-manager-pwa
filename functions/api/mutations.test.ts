@@ -355,10 +355,53 @@ describe("convergent mutation plans", () => {
     );
     const statements = plan.statements as unknown as StubStatement[];
 
-    expect(statements).toHaveLength(2);
-    expect(statements.every((statement) => statement.sql.trimStart().startsWith("UPDATE"))).toBe(true);
-    expect(statements.every((statement) => statement.sql.includes("sync_seq"))).toBe(true);
+    expect(statements).toHaveLength(3);
+    expect(statements[0].sql).toContain("INSERT INTO record_deletion_guards");
+    expect(statements.slice(1).every((statement) => statement.sql.trimStart().startsWith("UPDATE"))).toBe(true);
+    expect(statements.slice(1).every((statement) => statement.sql.includes("sync_seq"))).toBe(true);
+    expect(plan.ledgerMode).toBe("deletion_guard");
     expectAllPlaceholdersBound(statements);
+  });
+
+  it("prevents a delete-first row from being recreated by a delayed different-id mutation", async () => {
+    const remove: IncomingMutation = {
+      id: "mutation-delete-newer",
+      entity: "project",
+      operation: "delete",
+      baseVersion: null,
+      data: { id: "project-delete-first" }
+    };
+    const deletion = await planMutation(stubContext(), user, remove, timestamp);
+    const deletionStatements = deletion.statements as unknown as StubStatement[];
+
+    expect(deletion.result).toMatchObject({ recordId: "project-delete-first" });
+    expect(deletion.ledgerMode).toBe("deletion_guard");
+    expect(deletionStatements).toHaveLength(3);
+    expect(deletionStatements[0].sql).toContain("INSERT INTO record_deletion_guards");
+    expect(deletionStatements[0].sql).toContain("ON CONFLICT(user_id, entity, record_id) DO UPDATE");
+    expect(deletionStatements[0].args).toEqual(expect.arrayContaining([
+      "project",
+      "project-delete-first",
+      "mutation-delete-newer"
+    ]));
+    expectAllPlaceholdersBound(deletionStatements);
+
+    const delayedCreate = await planMutation(stubContext(), user, {
+      id: "mutation-create-older",
+      entity: "project",
+      operation: "upsert",
+      baseVersion: null,
+      data: { id: "project-delete-first", name: "Must stay deleted", version: 1 }
+    }, timestamp);
+    const createStatement = delayedCreate.statements[0] as unknown as StubStatement;
+
+    expect(createStatement.sql).toContain("NOT EXISTS (\n         SELECT 1 FROM record_deletion_guards");
+    expect(createStatement.args).toEqual(expect.arrayContaining([
+      "mutation-create-older",
+      "project",
+      "project-delete-first"
+    ]));
+    expectAllPlaceholdersBound([createStatement]);
   });
 
   it("rejects a stale delete so a delayed pagehide request cannot remove newer work", async () => {
@@ -390,10 +433,12 @@ describe("convergent mutation plans", () => {
     const plan = await planMutation(stubContext(), user, mutation, timestamp);
     const statements = plan.statements as unknown as StubStatement[];
 
-    expect(statements).toHaveLength(3);
-    expect(statements[0].sql).toContain("source_project_id = NULL");
-    expect(statements[1].sql).toContain("DELETE FROM tasks");
-    expect(statements[2].sql).toContain("DELETE FROM projects");
+    expect(statements).toHaveLength(4);
+    expect(statements[0].sql).toContain("INSERT INTO record_deletion_guards");
+    expect(statements[1].sql).toContain("source_project_id = NULL");
+    expect(statements[2].sql).toContain("DELETE FROM tasks");
+    expect(statements[3].sql).toContain("DELETE FROM projects");
+    expect(plan.ledgerMode).toBe("deletion_guard");
     expectAllPlaceholdersBound(statements);
   });
 });

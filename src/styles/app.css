@@ -1765,6 +1765,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
   animation-delay: 0.02s;
 }
 .settings-hero[data-state="ok"] { --hero-state: var(--primary); }
+.settings-hero[data-state="syncing"] { --hero-state: var(--primary); }
+.settings-hero[data-state="offline"],
+.settings-hero[data-state="loading"],
+.settings-hero[data-state="queued"],
 .settings-hero[data-state="pending"] { --hero-state: var(--warning); }
 .settings-hero[data-state="error"],
 .settings-hero[data-state="conflict"] { --hero-state: var(--danger); }

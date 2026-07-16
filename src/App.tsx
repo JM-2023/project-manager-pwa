@@ -938,6 +938,8 @@ export function App() {
           taskCount={visibleTasks(state.tasks).length}
           projectCount={visibleProjects(state.projects).length}
           pendingCount={state.pendingCount}
+          online={state.online}
+          syncStatus={state.syncStatus}
           lastSync={state.lastSync}
           lastExport={state.lastExport}
           syncError={state.error}

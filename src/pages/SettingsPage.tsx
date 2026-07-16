@@ -23,6 +23,9 @@ const LANGUAGE_OPTIONS: Array<{ id: Language; label: string }> = [
   { id: "zh", label: "中文" }
 ];
 
+/** Data-health headline state, worst first. */
+type HeroState = "error" | "conflict" | "pending" | "ok";
+
 interface SettingsPageProps {
   taskCount: number;
   projectCount: number;
@@ -68,6 +71,33 @@ export function SettingsPage({
   const heroAnimLabels: Record<HeroAnimation, string> = { flow: m.settings.heroFlow, shimmer: m.settings.heroShimmer };
   const meterStyleLabels: Record<MeterStyle, string> = { glass: m.settings.meterGlass, flat: m.settings.meterFlat };
 
+  const heroState: HeroState = syncError
+    ? "error"
+    : conflicts.length > 0
+      ? "conflict"
+      : pendingCount > 0
+        ? "pending"
+        : "ok";
+  const heroTitle =
+    heroState === "error"
+      ? m.settings.syncError
+      : heroState === "conflict"
+        ? m.settings.statusConflicts(conflicts.length)
+        : heroState === "pending"
+          ? m.settings.statusPending(pendingCount)
+          : m.settings.statusSynced;
+
+  const formatStamp = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" }) : m.settings.never;
+
+  const stats: Array<{ label: string; value: string }> = [
+    { label: m.settings.recordDays, value: String(worklogOverview.recordDays) },
+    { label: m.settings.taskCount, value: String(worklogOverview.taskCount) },
+    { label: m.settings.avgProgress, value: `${worklogOverview.averageProgress}%` },
+    { label: m.settings.outputDays, value: String(worklogOverview.outputDays) },
+    { label: m.settings.projects, value: String(projectCount) }
+  ];
+
   function handleForceResync() {
     const confirmed = window.confirm(m.settings.forceResyncConfirm);
     if (confirmed) {
@@ -76,166 +106,159 @@ export function SettingsPage({
   }
 
   return (
-    <main className="page-content">
+    <main className="page-content settings-page">
       <header className="page-header">
         <div className="page-header__title">
           <h1>{m.settings.title}</h1>
           <p>{session?.user.email ?? m.settings.signedIn}</p>
         </div>
-        <ThemeToggle />
       </header>
 
-      <section className="settings-grid">
-        <div className="metric">
-          <span>{m.settings.recordDays}</span>
-          <strong>{worklogOverview.recordDays}</strong>
-        </div>
-        <div className="metric">
-          <span>{m.settings.taskCount}</span>
-          <strong>{worklogOverview.taskCount}</strong>
-        </div>
-        <div className="metric">
-          <span>{m.settings.avgProgress}</span>
-          <strong>{worklogOverview.averageProgress}%</strong>
-        </div>
-        <div className="metric">
-          <span>{m.settings.outputDays}</span>
-          <strong>{worklogOverview.outputDays}</strong>
-        </div>
-        <div className="metric">
-          <span>{m.settings.projects}</span>
-          <strong>{projectCount}</strong>
-        </div>
-        <div className="metric">
-          <span>{m.settings.pending}</span>
-          <strong>{pendingCount}</strong>
-        </div>
-        <div className="metric wide">
-          <span>{m.settings.lastSync}</span>
-          <strong>{lastSync ? new Date(lastSync).toLocaleString(locale) : m.settings.never}</strong>
-        </div>
-        <div className="metric wide">
-          <span>{m.settings.lastExport}</span>
-          <strong>{lastExport ? new Date(lastExport).toLocaleString(locale) : m.settings.never}</strong>
-        </div>
-        {conflicts.length > 0 ? (
-          <div className="metric wide">
-            <span>{m.settings.conflicts}</span>
-            <strong>{conflicts.length}</strong>
-            <div className="settings-conflict-list" aria-label={m.settings.conflictDetails}>
-              {conflicts.map((conflict) => (
-                <small key={`${conflict.id}:${conflict.reason}`}>
-                  {[conflict.entity, conflict.recordId, conflict.reason].filter(Boolean).join(" · ")}
-                </small>
-              ))}
+      {/* The page leads with the one thing that matters here: is the data
+          safe? One surface — status headline + evidence above the divider,
+          the accumulated stats as a quiet strip below it. */}
+      <section className="settings-hero" data-state={heroState}>
+        <div className="settings-hero__status">
+          <div className="settings-hero__lead">
+            <div className="settings-hero__headline">
+              <span className="settings-hero__dot" aria-hidden="true" />
+              <h2>{heroTitle}</h2>
             </div>
+            <p className="settings-hero__meta">
+              {m.settings.lastSync} {formatStamp(lastSync)} · {m.settings.lastExport} {formatStamp(lastExport)}
+            </p>
+            {syncError ? <p className="settings-hero__detail settings-hero__detail--error">{syncError}</p> : null}
+            {heroState !== "pending" && pendingCount > 0 ? (
+              <p className="settings-hero__detail">{m.settings.statusPending(pendingCount)}</p>
+            ) : null}
+            {conflicts.length > 0 ? (
+              <div className="settings-hero__conflicts" aria-label={m.settings.conflictDetails}>
+                {conflicts.map((conflict) => (
+                  <small key={`${conflict.id}:${conflict.reason}`}>
+                    {[conflict.entity, conflict.recordId, conflict.reason].filter(Boolean).join(" · ")}
+                  </small>
+                ))}
+              </div>
+            ) : null}
           </div>
-        ) : null}
-        {syncError ? (
-          <div className="metric wide">
-            <span>{m.settings.syncError}</span>
-            <strong>{syncError}</strong>
-          </div>
-        ) : null}
-      </section>
-
-      <section className="settings-section">
-        <h2>{m.settings.appearance}</h2>
-        <div className="settings-row">
-          <span>{m.settings.heroAnim}</span>
-          <SegControl
-            ariaLabel={m.settings.heroAnim}
-            value={heroAnim}
-            onChange={setHeroAnim}
-            vtName="seg-hero"
-            options={HERO_ANIM_OPTIONS.map((option) => ({ id: option, label: heroAnimLabels[option] }))}
-          />
-        </div>
-        <p className="settings-hint">{m.settings.heroHint}</p>
-        <div className="settings-row">
-          <span>{m.settings.meterStyle}</span>
-          <SegControl
-            ariaLabel={m.settings.meterStyle}
-            value={meterStyle}
-            onChange={setMeterStyle}
-            vtName="seg-meters"
-            options={METER_STYLE_OPTIONS.map((option) => ({ id: option, label: meterStyleLabels[option] }))}
-          />
-        </div>
-        <p className="settings-hint">{m.settings.meterHint}</p>
-      </section>
-
-      <section className="settings-section">
-        <h2>{m.settings.language}</h2>
-        <div className="settings-row">
-          <span>{m.settings.appLanguage}</span>
-          <SegControl
-            ariaLabel={m.settings.appLanguage}
-            value={lang}
-            onChange={setLang}
-            vtName="seg-language"
-            options={LANGUAGE_OPTIONS.map((option) => ({
-              id: option.id,
-              label: option.label,
-              lang: option.id === "zh" ? "zh-CN" : "en"
-            }))}
-          />
-        </div>
-        <p className="settings-hint">{m.settings.languageHint}</p>
-      </section>
-
-      <section className="settings-section">
-        <h2>{m.settings.excel}</h2>
-        <div className="export-actions">
-          <ImportWizard onImport={onImport} />
-          <ExportButton r2Enabled={r2Enabled} onExported={onExported} />
-        </div>
-      </section>
-
-      <section className="settings-section">
-        <h2>{m.settings.backup}</h2>
-        <BackupControls onRestored={onForceResync} />
-        <p className="settings-hint">{m.settings.backupHint}</p>
-      </section>
-
-      <section className="settings-section">
-        <h2>{m.settings.sync}</h2>
-        <div className="export-actions">
           <button type="button" className="secondary-button" onClick={onSync}>
             <RefreshCcw size={17} aria-hidden="true" />
             <span>{m.settings.syncNow}</span>
           </button>
-          <button type="button" className="ghost-button" onClick={handleForceResync}>
-            <RotateCcw size={16} aria-hidden="true" />
-            <span>{m.settings.forceResync}</span>
-          </button>
         </div>
-        <p className="settings-hint">{m.settings.forceResyncHint}</p>
-      </section>
-
-      {passcodeEnabled ? (
-        <section className="settings-section">
-          <h2>{m.settings.security}</h2>
-          <button type="button" className="secondary-button" onClick={() => setChangingPasscode(true)}>
-            <KeyRound size={17} aria-hidden="true" />
-            <span>{m.settings.changePasscode}</span>
-          </button>
-          <p className="settings-hint">{m.settings.passcodeHint}</p>
-        </section>
-      ) : null}
-
-      <section className="settings-section">
-        <h2>{m.settings.iphone}</h2>
-        <div className="install-note">
-          <Smartphone size={20} aria-hidden="true" />
-          <p>{m.settings.installNote}</p>
+        <div className="settings-hero__stats">
+          {stats.map((stat) => (
+            <div key={stat.label} className="settings-stat">
+              <strong>{stat.value}</strong>
+              <span>{stat.label}</span>
+            </div>
+          ))}
         </div>
       </section>
 
-      <button type="button" className="ghost-button danger" onClick={onLogout}>
-        <LogOut size={16} aria-hidden="true" />
-        <span>{m.settings.signOut}</span>
-      </button>
+      <section className="settings-group">
+        <h2 className="settings-group__label">{m.settings.groupPreferences}</h2>
+        <div className="settings-card">
+          <div className="settings-card__section">
+            <div className="settings-row">
+              <span>{m.theme.label}</span>
+              <ThemeToggle />
+            </div>
+          </div>
+          <div className="settings-card__section">
+            <div className="settings-row">
+              <span>{m.settings.heroAnim}</span>
+              <SegControl
+                ariaLabel={m.settings.heroAnim}
+                value={heroAnim}
+                onChange={setHeroAnim}
+                vtName="seg-hero"
+                options={HERO_ANIM_OPTIONS.map((option) => ({ id: option, label: heroAnimLabels[option] }))}
+              />
+            </div>
+            <p className="settings-hint">{m.settings.heroHint}</p>
+          </div>
+          <div className="settings-card__section">
+            <div className="settings-row">
+              <span>{m.settings.meterStyle}</span>
+              <SegControl
+                ariaLabel={m.settings.meterStyle}
+                value={meterStyle}
+                onChange={setMeterStyle}
+                vtName="seg-meters"
+                options={METER_STYLE_OPTIONS.map((option) => ({ id: option, label: meterStyleLabels[option] }))}
+              />
+            </div>
+            <p className="settings-hint">{m.settings.meterHint}</p>
+          </div>
+          <div className="settings-card__section">
+            <div className="settings-row">
+              <span>{m.settings.appLanguage}</span>
+              <SegControl
+                ariaLabel={m.settings.appLanguage}
+                value={lang}
+                onChange={setLang}
+                vtName="seg-language"
+                options={LANGUAGE_OPTIONS.map((option) => ({
+                  id: option.id,
+                  label: option.label,
+                  lang: option.id === "zh" ? "zh-CN" : "en"
+                }))}
+              />
+            </div>
+            <p className="settings-hint">{m.settings.languageHint}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="settings-group">
+        <h2 className="settings-group__label">{m.settings.groupData}</h2>
+        <div className="settings-card">
+          <div className="settings-card__section">
+            <div className="export-actions">
+              <ImportWizard onImport={onImport} />
+              <ExportButton r2Enabled={r2Enabled} onExported={onExported} />
+            </div>
+          </div>
+          <div className="settings-card__section">
+            <BackupControls onRestored={onForceResync} />
+            <p className="settings-hint">{m.settings.backupHint}</p>
+          </div>
+          <div className="settings-card__section">
+            <button type="button" className="ghost-button" onClick={handleForceResync}>
+              <RotateCcw size={16} aria-hidden="true" />
+              <span>{m.settings.forceResync}</span>
+            </button>
+            <p className="settings-hint">{m.settings.forceResyncHint}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="settings-group">
+        <h2 className="settings-group__label">{m.settings.groupAccount}</h2>
+        <div className="settings-card">
+          {passcodeEnabled ? (
+            <div className="settings-card__section">
+              <button type="button" className="secondary-button" onClick={() => setChangingPasscode(true)}>
+                <KeyRound size={17} aria-hidden="true" />
+                <span>{m.settings.changePasscode}</span>
+              </button>
+              <p className="settings-hint">{m.settings.passcodeHint}</p>
+            </div>
+          ) : null}
+          <div className="settings-card__section">
+            <button type="button" className="ghost-button danger" onClick={onLogout}>
+              <LogOut size={16} aria-hidden="true" />
+              <span>{m.settings.signOut}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <p className="settings-footnote">
+        <Smartphone size={18} aria-hidden="true" />
+        <span>{m.settings.installNote}</span>
+      </p>
 
       {passcodeOverlay.mounted ? (
         <ChangePasscode

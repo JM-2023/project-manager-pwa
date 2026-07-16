@@ -1099,11 +1099,10 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 
 /* =========================================================================
-   Panels / cards (filters, settings, mapping) — solid surfaces that sit on
-   the page: hairline + contact shadow only.
+   Panels / cards (filters, mapping) — solid surfaces that sit on the page:
+   hairline + contact shadow only.
    ========================================================================= */
 .search-filters,
-.settings-section,
 .mapping-panel {
   padding: 16px;
   margin-bottom: 16px;
@@ -1741,34 +1740,128 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .search-next-item strong { color: var(--ink); font-size: 0.95rem; line-height: 1.35; overflow-wrap: anywhere; }
 
 /* =========================================================================
-   Settings metrics — informational stat cards; not interactive, so no hover
-   response. They sit on the page: hairline + contact shadow.
+   Settings page — one question leads: "is my data safe?"
+   --------------------------------------------------------------------------
+   The data-health hero is the page's single lead surface (the only shadow-sm
+   here): a state-coloured dot + headline verdict, the last-sync/last-export
+   evidence under it, and the sync action beside it; the accumulated stats sit
+   below a full-bleed hairline as one quiet typographic strip — figures, not
+   a grid of equal cards. Everything else is three grouped surfaces (Data /
+   Preferences / Account) at shadow-xs, each an unpadded card whose sections
+   carry their own padding so the dividers between them run edge to edge, and
+   an unframed install footnote at the very bottom. Spacing is relational:
+   4/8 inside a fact, 16 around a section, 32 between regions. The only
+   nested surface is the import-mapping panel — a genuinely independent
+   embedded object. Radii stay on the card that owns the border (--r-lg);
+   rows inside are straight-edged.
    ========================================================================= */
-.settings-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
-.metric {
-  display: grid; gap: 6px; min-height: 80px; padding: 14px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
+.settings-hero {
+  margin-bottom: 32px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-sm);
   animation: fade-up var(--t-slow) var(--ease) both;
+  animation-delay: 0.02s;
 }
-.metric:nth-child(1) { animation-delay: 0.02s; } .metric:nth-child(2) { animation-delay: 0.05s; }
-.metric:nth-child(3) { animation-delay: 0.08s; } .metric:nth-child(4) { animation-delay: 0.11s; }
-.metric:nth-child(5) { animation-delay: 0.14s; } .metric:nth-child(6) { animation-delay: 0.17s; }
-.metric:nth-child(7) { animation-delay: 0.20s; } .metric:nth-child(8) { animation-delay: 0.23s; }
-.metric.wide { grid-column: span 3; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 0; padding: 15px 17px; }
-.metric.wide span { font-size: 0.82rem; }
-.metric.wide strong { font-size: 1.05rem; text-align: right; }
-.metric span { color: var(--muted); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.01em; }
-.metric strong { overflow-wrap: anywhere; font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.settings-hero[data-state="ok"] { --hero-state: var(--primary); }
+.settings-hero[data-state="pending"] { --hero-state: var(--warning); }
+.settings-hero[data-state="error"],
+.settings-hero[data-state="conflict"] { --hero-state: var(--danger); }
 
-.settings-section h2 { margin: 0 0 12px; font-size: 1.05rem; font-weight: 750; letter-spacing: -0.01em; }
-.settings-section > .secondary-button,
-.settings-section > .ghost-button { margin-bottom: 10px; }
-.settings-hint { margin: 8px 2px 0; font-size: 0.82rem; line-height: 1.55; color: var(--muted); }
+.settings-hero__status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
+  padding: 20px;
+}
+.settings-hero__lead { flex: 1 1 300px; min-width: 0; display: grid; gap: 8px; justify-items: start; }
+.settings-hero__headline { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.settings-hero__dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--hero-state, var(--primary)); }
+.settings-hero__headline h2 {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+.settings-hero__meta { margin: 0; color: var(--muted); font-size: 0.85rem; font-weight: 550; }
+.settings-hero__detail { margin: 0; color: var(--ink-soft); font-size: 0.85rem; font-weight: 600; overflow-wrap: anywhere; }
+.settings-hero__detail--error { color: var(--danger); }
+.settings-hero__conflicts { display: grid; gap: 4px; justify-items: start; }
+.settings-hero__conflicts small { color: var(--danger); font-size: 0.8rem; font-weight: 600; overflow-wrap: anywhere; }
+
+/* The stats strip: bare figures on the hero surface, separated from the
+   status block by a straight full-bleed hairline. */
+.settings-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--line);
+}
+.settings-stat { display: grid; gap: 2px; }
+.settings-stat strong { font-size: 1.35rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.settings-stat span { color: var(--muted); font-size: 0.74rem; font-weight: 650; letter-spacing: 0.01em; }
+
+/* Region = an overline label sitting tight (8px) over its one surface;
+   regions keep each other at arm's length (32px). Entrances follow the
+   document order: hero, then each group, then the footnote (nth-child
+   counts the page-header, hero and groups inside .settings-page). */
+.settings-group { animation: fade-up var(--t-slow) var(--ease) both; }
+.settings-group + .settings-group { margin-top: 32px; }
+.settings-group:nth-child(3) { animation-delay: 0.06s; }
+.settings-group:nth-child(4) { animation-delay: 0.1s; }
+.settings-group:nth-child(5) { animation-delay: 0.14s; }
+.settings-group__label {
+  margin: 0 0 8px;
+  padding-inline: 2px;
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* One surface per region. The card itself is unpadded; sections pad
+   themselves so the dividers between them are straight lines running edge
+   to edge, and the border + radius live together on the card. */
+.settings-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-xs);
+}
+.settings-card__section { padding: 16px; }
+.settings-card__section + .settings-card__section { border-top: 1px solid var(--line); }
+.settings-card .export-actions { margin-bottom: 0; }
+/* The import-mapping panel is the one legitimate nested surface — an
+   embedded object, not chrome. In the card it drops its page-level float
+   (no shadow, tint instead) and takes the next radius stop down. */
+.settings-card .mapping-panel { margin: 0; background: var(--surface-2); border-radius: var(--r-md); box-shadow: none; }
+
+.settings-hint { margin: 8px 0 0; font-size: 0.82rem; line-height: 1.55; color: var(--muted); }
 
 /* A label + control pair inside a settings section (e.g. the hero-animation
    segmented toggle). Wraps so the control drops below the label when narrow. */
 .settings-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; }
 .settings-row > span { font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+
+/* Install note — a footnote, not a region: no surface, just quiet text. */
+.settings-footnote {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 32px 2px 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.55;
+  animation: fade-up var(--t-slow) var(--ease) both;
+  animation-delay: 0.18s;
+}
+.settings-footnote svg { flex: none; margin-top: 1px; color: var(--primary); }
 
 /* File picker */
 .file-picker { position: relative; width: fit-content; }
@@ -1782,7 +1875,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .mapping-row span { overflow: hidden; color: var(--muted); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 .import-preview { padding: 12px; margin: 12px 0; background: var(--surface-3); border: 1px solid var(--line); border-radius: var(--r-md); }
 .import-preview strong { font-weight: 750; }
-.import-preview p, .inline-message, .empty-state, .install-note p { margin: 6px 0 0; color: var(--muted); }
+.import-preview p, .inline-message, .empty-state { margin: 6px 0 0; color: var(--muted); }
 /* Result notes surface, they don't pop. */
 .inline-message { animation: msg-in 0.3s var(--ease-out); }
 @keyframes msg-in { from { opacity: 0; transform: translateY(-3px); } }
@@ -1792,8 +1885,6 @@ button.project-row.active { color: var(--chip-accent-dark); }
   color: var(--muted); font-weight: 500; background: var(--surface-2); border: 1px dashed var(--line-strong); border-radius: var(--r-lg);
   animation: fade-in var(--t-slow) var(--ease) both;
 }
-.install-note { display: flex; align-items: flex-start; gap: 10px; color: var(--muted); }
-.install-note svg { flex: none; color: var(--primary); }
 
 /* =========================================================================
    Login — PIN pad. A solid floating card (it owns the whole screen, so the
@@ -2456,7 +2547,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .bottom-nav button { min-height: 68px; }
   .bottom-nav span { font-size: 0.72rem; }
 
-  .search-filters, .settings-section, .mapping-panel { padding: 18px; }
+  .search-filters, .mapping-panel { padding: 18px; }
   .task-list { grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); align-items: start; }
 
   .project-page { grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
@@ -2466,9 +2557,15 @@ button.project-row.active { color: var(--chip-accent-dark); }
   }
 
   .filter-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  .settings-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  .metric.wide { grid-column: span 2; }
   .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 360px; }
+
+  /* Settings reads as a document, not a dashboard: cap the measure instead
+     of letting the surfaces stretch across the 1680px shell, and let the
+     regions breathe a little wider inside. */
+  .page-content.settings-page { width: min(880px, 100%); }
+  .settings-hero__status { padding: 24px 24px 20px; }
+  .settings-hero__stats { padding: 18px 24px; }
+  .settings-card__section { padding: 18px 20px; }
 }
 
 @media (max-width: 430px) {
@@ -2477,8 +2574,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .progress-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
   .progress-summary div { min-height: 60px; padding: 11px 13px; }
   .progress-summary strong { font-size: 1.05rem; }
-  .settings-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .metric.wide { grid-column: 1 / -1; }
+  .settings-hero__status { padding: 18px 16px; }
+  .settings-hero__stats { padding: 14px 16px; gap: 10px 24px; }
   .cal-summary { grid-template-columns: 1fr; gap: 14px; }
   .cal-week { grid-auto-flow: column; grid-auto-columns: minmax(132px, 1fr); grid-template-columns: none; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 8px; }
   .cal-week__card { scroll-snap-align: start; }

@@ -2673,7 +2673,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
   --mtr-cap-shadow:
     inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
-  --mtr-cap-img: linear-gradient(90deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0));
+  /* The design lays a 50% white sheen across this fill. On a capsule that is
+     only 7px tall with no vertical falloff, that wash covers most of a short
+     bar — a 25% bar is almost entirely the pale end of it, on top of a tone
+     (--prog-low) that is already the palest step. Kept as a sheen, dropped to
+     20% so the tone survives it. */
+  --mtr-cap-img: linear-gradient(90deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0));
   --mtr-cap-fill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
 }
 

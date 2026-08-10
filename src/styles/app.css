@@ -1679,9 +1679,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
   height: 0;
   z-index: 1;
   pointer-events: none;
-  border: 1.25px solid color-mix(in srgb, var(--chip-accent) 55%, var(--chip-rim));
+  /* The accent at full strength, the way the design states a selected chip.
+     Mixing it 55% toward the rim dropped it to rgb(191,144,141) once composited
+     — a dusty pink rather than the accent. */
+  border: 1.25px solid var(--primary);
   border-radius: var(--r-md);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--chip-accent) 30%, transparent);
   opacity: 0;
   transition:
     transform 0.22s var(--ease-in-out),
@@ -1826,6 +1828,9 @@ button.project-row:active {
 .project-row > button:first-child > span:not(.project-color),
 button.project-row > span { flex: 1; min-width: 0; }
 .project-row strong, button.project-row strong { font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+/* On the selected chip the whole line goes accent, the figure included — an
+   explicit colour on strong would otherwise keep it in the soft ink. */
+.project-row.active strong, button.project-row.active strong { color: var(--chip-accent-dark); }
 .project-row span:not(.project-color), button.project-row span:not(.project-color) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-color { width: 10px; height: 10px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
 

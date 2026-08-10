@@ -1415,7 +1415,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   min-width: 0;
   min-height: 38px;
   padding: 6px 16px !important;
-  font-weight: 800;
+  font-weight: 700;
   text-align: center;
   text-align-last: center;
   /* Lean the digit on the ink so the airy end of the scale (4) stays legible
@@ -1426,9 +1426,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border: 1px solid color-mix(in srgb, var(--importance-color) 32%, var(--line-strong));
   border-radius: var(--r-sm);
 }
-.task-table-importance.imp-2 { font-weight: 750; }
-.task-table-importance.imp-3,
-.task-table-importance.imp-4 { font-weight: 700; }
+/* One flat weight across all four levels: the colour ramp already carries
+   the depth, and a second ramp on top of it just muddies the read. */
 
 .tone-none { --prog-color: var(--prog-none); }
 .tone-low { --prog-color: var(--prog-low); }
@@ -1439,8 +1438,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
 /* Progress slider */
 .task-table-progress { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; }
 .task-table-progress .progress-badge {
-  font-size: 0.82rem;
-  font-weight: 800;
+  font-size: 0.8125rem;
+  font-weight: 700;
   letter-spacing: -0.01em;
   color: var(--prog-color);
   transition: color var(--t) var(--ease);
@@ -1765,7 +1764,7 @@ button.project-row:active {
 
 .project-row > button:first-child > span:not(.project-color),
 button.project-row > span { flex: 1; min-width: 0; }
-.project-row strong, button.project-row strong { font-weight: 800; color: var(--chip-accent-dark); font-variant-numeric: tabular-nums; }
+.project-row strong, button.project-row strong { font-weight: 700; color: var(--chip-accent-dark); font-variant-numeric: tabular-nums; }
 .project-row span:not(.project-color), button.project-row span:not(.project-color) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-color { width: 11px; height: 11px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
 
@@ -1796,7 +1795,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cache-section__body { display: grid; gap: 10px; padding: 2px 16px 16px; animation: fade-in var(--t) var(--ease) both; }
 .cache-count {
   flex: none; display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px;
-  color: var(--primary-dark); background: var(--primary-tint); border-radius: var(--r-sm); font-size: 0.76rem; font-weight: 750;
+  color: var(--primary-dark); background: var(--primary-tint); border-radius: var(--r-sm); font-size: 0.75rem; font-weight: 700;
 }
 .cache-section__remove { flex: none; width: 32px; min-width: 32px; height: 32px; color: var(--muted); background: transparent; border-color: transparent; box-shadow: none; opacity: 0.65; transition: opacity var(--t) var(--ease), color var(--t) var(--ease), background var(--t) var(--ease); }
 @media (hover: hover) { .cache-section__head:hover .cache-section__remove { opacity: 1; } .cache-section__remove:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); } }
@@ -1804,7 +1803,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cache-confirm .icon-button { width: 32px; min-width: 32px; height: 32px; }
 .cache-confirm .icon-button.danger { color: var(--danger); }
 .cache-rename { display: grid; gap: 5px; }
-.cache-rename span { color: var(--muted); font-size: 0.78rem; font-weight: 750; }
+.cache-rename span { color: var(--muted); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
 .cache-rename input {
   width: 100%; min-height: 42px; padding: 9px 12px;
   color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-md);
@@ -1883,8 +1882,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .settings-hero__dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--hero-state, var(--primary)); }
 .settings-hero__headline h2 {
   margin: 0;
-  font-size: 1.3rem;
-  font-weight: 800;
+  font-size: 1.25rem;
+  font-weight: 650;
   line-height: 1.15;
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
@@ -1905,7 +1904,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   border-top: 1px solid var(--line);
 }
 .settings-stat { display: grid; gap: 2px; }
-.settings-stat strong { font-size: 1.35rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.settings-stat strong { font-size: 1.375rem; font-weight: 650; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .settings-stat span { color: var(--muted); font-size: 0.74rem; font-weight: 650; letter-spacing: 0.01em; }
 
 /* Region = an overline label sitting tight (8px) over its one surface;
@@ -1921,9 +1920,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
   margin: 0 0 8px;
   padding-inline: 2px;
   color: var(--muted);
-  font-size: 0.76rem;
+  font-size: 0.6875rem;
   font-weight: 750;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
@@ -2018,7 +2017,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   box-shadow: var(--shadow-sm);
   animation: pop-in var(--t-slow) var(--ease-out) both;
 }
-.pin-brand h1 { margin: 0; font-size: 1.42rem; font-weight: 800; letter-spacing: -0.02em; }
+.pin-brand h1 { margin: 0; font-size: 1.375rem; font-weight: 650; letter-spacing: -0.02em; }
 .pin-brand p { margin: 0; color: var(--muted); font-size: 0.88rem; font-weight: 500; transition: color var(--t) var(--ease); }
 .pin-setup-token { display: grid; gap: 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; }
 .pin-setup-token input { width: 100%; min-height: 42px; padding: 9px 11px; color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); }
@@ -2273,7 +2272,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 }
 .cal-summary__hero { display: grid; align-content: center; gap: 8px; }
 .cal-summary__label { color: var(--muted); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.01em; }
-.cal-summary__value { font-size: 2.4rem; font-weight: 800; letter-spacing: -0.03em; line-height: 0.95; font-variant-numeric: tabular-nums; }
+.cal-summary__value { font-size: 3rem; font-weight: 650; letter-spacing: -0.03em; line-height: 0.95; font-variant-numeric: tabular-nums; }
 .cal-summary__hero .mini-bar { height: 10px; margin-top: 4px; }
 
 .cal-summary__stats {
@@ -2312,11 +2311,11 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-week__card.is-future { opacity: 0.55; }
 @media (hover: hover) { .cal-week__card.is-future:hover { opacity: 1; } }
 .cal-week__weekday { color: var(--muted); font-size: 0.66rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-.cal-week__date { font-size: clamp(1.5rem, 2.4vw, 2.1rem); font-weight: 800; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.cal-week__date { font-size: clamp(1.5rem, 2.4vw, 2.1rem); font-weight: 650; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .cal-week__meta { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
 .cal-week__count { color: var(--ink-soft); font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 /* Day completion figure, tinted by its progress tone but pulled toward ink for legibility. */
-.cal-week__pct { color: color-mix(in srgb, var(--prog-color, var(--muted)) 72%, var(--ink)); font-size: 0.74rem; font-weight: 800; font-variant-numeric: tabular-nums; transition: color 0.18s var(--ease); }
+.cal-week__pct { color: color-mix(in srgb, var(--prog-color, var(--muted)) 72%, var(--ink)); font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; transition: color 0.18s var(--ease); }
 .cal-week__pct.tone-empty { color: var(--muted); font-weight: 650; }
 .cal-week__dots { display: flex; gap: 4px; min-height: 8px; }
 /* Dots pop in when a day gains an output/blocker; the row's min-height
@@ -2355,7 +2354,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-card__title { color: var(--muted); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.01em; }
 .cal-card__badge {
   margin-left: auto; padding: 2px 9px;
-  color: var(--ink-soft); font-size: 0.72rem; font-weight: 750; font-variant-numeric: tabular-nums;
+  color: var(--ink-soft); font-size: 0.72rem; font-weight: 700; font-variant-numeric: tabular-nums;
   background: var(--surface-3); border-radius: var(--r-xs);
 }
 
@@ -2374,7 +2373,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-proj__name { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 0.85rem; font-weight: 650; }
 .cal-proj__name > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-proj__meta { color: var(--muted); font-size: 0.74rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cal-proj__value { min-width: 40px; font-size: 0.85rem; font-weight: 800; text-align: right; font-variant-numeric: tabular-nums; }
+.cal-proj__value { min-width: 40px; font-size: 0.85rem; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
 .cal-proj__row .mini-bar { grid-column: 1 / -1; margin-top: 0; }
 .cal-proj__more { color: var(--muted); font-size: 0.74rem; font-weight: 650; }
 
@@ -2395,9 +2394,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-mix__item { display: grid; grid-template-columns: 10px auto minmax(0, 1fr) auto; align-items: center; gap: 8px; transition: opacity 0.18s var(--ease); }
 .cal-mix__item.is-empty { opacity: 0.45; }
 .cal-mix__dot { width: 9px; height: 9px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1); }
-.cal-mix__label { font-size: 0.78rem; font-weight: 750; }
+.cal-mix__label { font-size: 0.78rem; font-weight: 700; }
 .cal-mix__count { color: var(--muted); font-size: 0.74rem; font-weight: 650; font-variant-numeric: tabular-nums; }
-.cal-mix__value { justify-self: end; font-size: 0.8rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cal-mix__value { justify-self: end; font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* Worklog digests (weekly output / blockers). The blocker card carries its
    state as a flat danger-tinted surface — one solid colour, no wash. */
@@ -2419,7 +2418,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-log__row:focus-visible { background: var(--wash-strong); }
 .cal-log__chip {
   flex: none; min-width: 56px; margin-top: 1px; padding: 3px 8px; text-align: center;
-  font-size: 0.7rem; font-weight: 750; font-variant-numeric: tabular-nums;
+  font-size: 0.7rem; font-weight: 700; font-variant-numeric: tabular-nums;
   background: var(--st-done-bg); color: var(--st-done-fg); border-radius: var(--r-xs);
 }
 .cal-log-card.is-blocker .cal-log__chip { background: var(--st-blocked-bg); color: var(--st-blocked-fg); }
@@ -2481,7 +2480,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .cal-cell.is-today:hover { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm); }
 }
 .cal-cell__num { font-size: 0.84rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-.cal-cell__count { position: absolute; right: 7px; bottom: 6px; font-size: 0.68rem; font-weight: 800; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.cal-cell__count { position: absolute; right: 7px; bottom: 6px; font-size: 0.68rem; font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 
 /* ---- Year view ---- */
 .cal-year { display: grid; gap: 20px; }
@@ -2493,7 +2492,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* Direct children only — the strong's RollDigits and the small's SwapText are
    spans too, and must keep their own type scale. */
 .cal-stat > span { color: var(--muted); font-size: 0.72rem; font-weight: 650; }
-.cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color 0.18s var(--ease); }
+.cal-stat strong { font-size: 1.375rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color 0.18s var(--ease); }
 .cal-stat svg { color: var(--muted); }
 .cal-stat svg.is-flame { color: var(--warning); }
 .cal-stat svg.trend-up { color: var(--prog-done); }

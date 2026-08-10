@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DateSwitcher, type NavDirection } from "../components/DateNav";
 import { ProgressSummary } from "../components/ProgressSummary";
 import { TaskTable, type PendingRowExit } from "../components/TaskTable";
-import { addDays, formatShortDate, toDateInput, weekdayLong, weekdayLongNames } from "../lib/dates";
+import { addDays, formatDayLabel, formatShortDate, toDateInput, weekdayLong, weekdayLongNames } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { getTaskProgress, importancePriority, isProjectCacheTask, summarizeProgress } from "../lib/progress";
 import { useToday } from "../lib/useToday";
@@ -105,7 +105,7 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
       <header className="page-header today-page-header">
         <DateSwitcher
           title={dayTitle}
-          sub={formatShortDate(viewDate, lang)}
+          sub={formatDayLabel(viewDate, lang)}
           titleSizer={[m.today.title, ...weekdayLongNames(lang)]}
           dir={navDir}
           onPrev={() => goTo(addDays(viewDate, -1), -1)}

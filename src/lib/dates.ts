@@ -52,6 +52,24 @@ export function formatShortDate(value?: string | null, lang: Language = "en"): s
   return `${month}/${day}/${year.slice(2)}`;
 }
 
+/**
+ * The day line under the Today / Calendar title. Unlike formatShortDate (a
+ * compact numeric stamp for prose and cells) this is the human way to say a
+ * date — "Aug 11", "8月11日" — because it sits directly under the weekday
+ * name and the two lines are read together.
+ */
+export function formatDayLabel(value?: string | null, lang: Language = "en"): string {
+  const input = toDateInput(value);
+  if (!input) {
+    return lang === "zh" ? "无日期" : "No date";
+  }
+  const [, month, day] = input.split("-");
+  if (lang === "zh") {
+    return `${Number(month)}月${Number(day)}日`;
+  }
+  return new Date(`${input}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 export function isDueTodayOrEarlier(value?: string | null): boolean {
   const input = toDateInput(value);
   return Boolean(input && input <= todayDate());

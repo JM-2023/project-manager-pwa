@@ -20,6 +20,11 @@ export function BottomNav({ current, onChange }: BottomNavProps) {
   const { m } = useI18n();
   return (
     <nav className="bottom-nav" aria-label={m.nav.label}>
+      {/* Rail-mode wordmark. Decorative — the nav is already named by its
+          aria-label, so this must not be announced as a second landmark. */}
+      <span className="nav-brand" aria-hidden="true">
+        PM
+      </span>
       {items.map(({ id, label, Icon }) => (
         <button key={id} type="button" className={current === id ? "active" : ""} onClick={() => onChange(id)}>
           <Icon size={21} aria-hidden="true" />

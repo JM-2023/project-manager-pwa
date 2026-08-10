@@ -1,27 +1,29 @@
 /* =========================================================================
-   Project Manager PWA — solid-surface design system (v3.2)
+   Project Manager PWA — bone-paper design system (v3.3)
    --------------------------------------------------------------------------
-   One solid background per theme, held everywhere. Depth comes from solid
-   surfaces separated by hairline borders; shadows are a four-stop elevation
-   scale (contact line + tight low-alpha ambient, never larger than what casts
-   it, never tinted). No backdrop blur, no gradient surfaces, no glows.
+   One solid background per theme, held everywhere: a warm bone-paper ground
+   under white cards. Depth comes from solid surfaces separated by hairline
+   borders; shadows are a four-stop elevation scale (contact line + tight
+   low-alpha ambient, never larger than what casts it, never tinted). No
+   backdrop blur on surfaces, no gradient surfaces, no glows.
 
-   TWO exceptions keep their original liquid-glass material: the Tier-A
-   action buttons (Add task, Export, form "+" buttons…) with their physical
-   hover morph, and the project-list chips (--chip-*) with their
-   radius swell + breathing completion meter and their original v2 indigo
-   accent (--chip-accent). Both are deliberate; nothing else samples the
-   backdrop. Completion meters additionally have a user-switchable skin
-   (html[data-meters], see the Meter material section): "glass" restores the
-   v2.1.29 liquid tubes/sheens, "flat" is the solid treatment.
+   TWO exceptions keep a liquid-glass material: the Tier-A action buttons
+   (Add task, Export, form "+" buttons…) — a transparent body carried by a
+   rim, a real backdrop sample and an SVG rim distortion, growing physically
+   on hover (--lgb-*) — and the project-list chips (--chip-*) with their
+   radius swell + breathing completion meter. Both are deliberate; nothing
+   else samples the backdrop. Completion meters additionally have a
+   user-switchable skin (html[data-meters], see the Meter material section):
+   "glass" restores the v2.1.29 liquid tubes/sheens, "flat" is the solid one.
 
-   Accent is a premium emerald family — the same green the weighted-progress
-   hero liquid is painted in (#10b981 at the crest). Radii are one small
-   scale (4/6/8/12/16) kept concentric: an inner corner is its parent minus
-   the padding between them (seg thumb, menu rows, table header), or simply
-   the next stop down. True circles (dots, ×-buttons, slider thumbs) may be
-   full capsules. The glass buttons ride the same scale: rest at --r-xl,
-   swelling +4px on hover; the project chips morph --r-md → --r-lg.
+   The accent is ONE restrained brick-rose used at two depths — depth, not a
+   second hue. Completion greens are kept for finished work only, so "done"
+   still reads as its own event against the rose. Radii are one small scale
+   (4/6/8/12/16) kept concentric: an inner corner is its parent minus the
+   padding between them (seg thumb, menu rows, table header), or simply the
+   next stop down. True circles (dots, ×-buttons, slider thumbs) may be full
+   capsules. The glass buttons ride the same scale: rest at --r-xl, swelling
+   +4px on hover; the project chips morph --r-md → --r-lg.
 
    All colour flows through tokens; dark theme is a token swap layered on
    prefers-color-scheme with a manual [data-theme] override on top.
@@ -36,61 +38,60 @@
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 
-  /* Brand accent — premium emerald, one family app-wide (the family the
-     weighted-progress hero liquid is painted in) */
-  --primary: #059669;
-  --primary-dark: #047857;
+  /* Brand accent — one restrained brick-rose, carried at two depths */
+  --primary: #a85454;
+  --primary-dark: #8a3b3b;
   --primary-ink: #ffffff;
-  --primary-tint: #ecfdf5;
-  --primary-tint-strong: #d1fae5;
+  --primary-tint: #f4eae8;
+  --primary-tint-strong: #ead6d3;
 
-  /* Neutrals / surfaces — a barely-there cool-gray page under white cards */
-  --bg: #f3f4f7;
+  /* Neutrals / surfaces — one bone-paper ground under white cards */
+  --bg: #f5f3ee;
   --surface: #ffffff;
-  --surface-2: #f8f9fb;
-  --surface-3: #eef0f4;
+  --surface-2: #faf8f4;
+  --surface-3: #efede7;
   --field-bg: #ffffff;
-  --table-head-bg: #f6f7fa;
+  --table-head-bg: #f7f5f1;
 
-  --ink: #161922;
-  --ink-soft: #4a5160;
-  --muted: #717a8a;
-  --line: #e6e8ee;
-  --line-strong: #d3d7e0;
+  --ink: #191816;
+  --ink-soft: #4a4740;
+  --muted: #7c776e;
+  --line: #e6e2d9;
+  --line-strong: #d4cfc3;
 
-  --warning: #d97706;
-  --danger: #b5483f;
+  --warning: #8a6a3a;
+  --danger: #8a3b3b;
 
   /* Worklog chips (done / blocked are the only states the calendar colours) */
-  --st-done-bg: #ecfdf5;    --st-done-fg: #047857;
-  --st-blocked-bg: #f8eeec; --st-blocked-fg: #b5483f;
+  --st-done-bg: #e5f1ec;    --st-done-fg: #0e7c5a;
+  --st-blocked-bg: #f4eae8; --st-blocked-fg: #8a3b3b;
 
-  /* Progress tone scale — warm while under way, finishing in the original
-     completion greens (kept from v2; they sit beside the emerald accent). */
-  --prog-none: #c8cdd8;
-  --prog-low: #f97316;
-  --prog-mid: #d97706;
-  --prog-high: #22c55e;
-  --prog-done: #16a34a;
+  /* Progress tone scale — under way in the accent family, finishing in the
+     completion greens the hero liquid is painted in. */
+  --prog-none: #c9c4bc;
+  --prog-low: #c08585;
+  --prog-mid: #a85454;
+  --prog-high: #3e9c7c;
+  --prog-done: #0e7c5a;
 
   /* Importance scale — a single blue hue, deep (1) to airy (4). One hue keeps
      the rail reading as "depth" rather than four unrelated colours; the stops
      sit ~18 L* apart so adjacent levels are tellable at a glance. */
-  --imp-1: #1e3a8a;
-  --imp-2: #2563eb;
-  --imp-3: #60a5fa;
-  --imp-4: #b7d6fd;
+  --imp-1: #1b3a6b;
+  --imp-2: #2f6bb8;
+  --imp-3: #78a9e0;
+  --imp-4: #bcd5f0;
 
   /* Focus ring */
-  --ring: rgba(16, 185, 129, 0.25);
+  --ring: rgba(168, 84, 84, 0.22);
 
   /* Elevation — four stops, each a contact line plus a tight, low-alpha
      ambient that stays smaller than what casts it. Hairline borders do the
      separating; xs/sm sit on the page, shadow/lg are for floating layers. */
-  --shadow-xs: 0 1px 2px rgba(20, 27, 45, 0.05);
-  --shadow-sm: 0 1px 2px rgba(20, 27, 45, 0.05), 0 2px 6px -2px rgba(20, 27, 45, 0.07);
-  --shadow: 0 1px 2px rgba(20, 27, 45, 0.05), 0 6px 14px -6px rgba(20, 27, 45, 0.12);
-  --shadow-lg: 0 2px 6px rgba(20, 27, 45, 0.06), 0 14px 30px -10px rgba(20, 27, 45, 0.18);
+  --shadow-xs: 0 1px 2px rgba(35, 30, 22, 0.05);
+  --shadow-sm: 0 1px 2px rgba(35, 30, 22, 0.05), 0 2px 6px -2px rgba(35, 30, 22, 0.07);
+  --shadow: 0 1px 2px rgba(35, 30, 22, 0.05), 0 6px 14px -6px rgba(35, 30, 22, 0.12);
+  --shadow-lg: 0 2px 6px rgba(35, 30, 22, 0.06), 0 14px 30px -10px rgba(35, 30, 22, 0.18);
 
   /* Radii — one small scale, kept concentric (see header note). */
   --r-xs: 4px;
@@ -111,25 +112,19 @@
   --seg-track: var(--surface-3);
   --seg-thumb: var(--surface);
 
-  /* Glass action buttons (the one preserved glass material, ported from the
-     Liquid Glass reference page). Light = clear glass: specular highlight +
-     translucent white tint + real frost. Dark = the reference's final render:
-     transparent body + white rim, no frost pass. */
-  --dl-rim: rgba(10, 16, 28, 0.12);
-  --dl-fill:
-    radial-gradient(180px 260px at 50% 0%, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0) 60%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.28));
-  --dl-sampling: saturate(200%) blur(20px);
-  --dl-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 6px 16px -6px rgba(0, 0, 0, 0.22),
-    0 1px 3px rgba(0, 0, 0, 0.12);
-  --dl-hover-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  --dl-active-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.2);
-  --dl-danger-rim: rgba(255, 90, 90, 0.35);
-  --dl-danger-fill:
-    radial-gradient(160px 200px at 50% 0%, rgba(255, 120, 120, 0.35), rgba(255, 255, 255, 0) 60%),
-    linear-gradient(180deg, rgba(255, 120, 120, 0.18), rgba(255, 120, 120, 0.1));
+  /* Tier-A liquid-glass action button. The body is genuinely transparent —
+     the shape is carried by a rim, a real backdrop sample, and the
+     #glass-distortion SVG filter bending the backdrop at that rim (the
+     ::before layer). It grows physically on hover; nothing is painted on.
+     Light and dark differ only in rim strength and shadow depth. */
+  --lgb-rim: rgba(10, 16, 28, 0.16);
+  --lgb-danger-rim: rgba(138, 59, 59, 0.38);
+  --lgb-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 12px 35px rgba(35, 30, 22, 0.16),
+    0 2px 8px rgba(35, 30, 22, 0.1);
+  --lgb-hover-shadow: 0 12px 35px rgba(35, 30, 22, 0.14), 0 2px 8px rgba(35, 30, 22, 0.08);
+  --lgb-active-shadow: 0 10px 24px rgba(35, 30, 22, 0.16);
 
   /* Liquid-glass chip — the project rows' original material (the second and
      last glass exception, kept alongside the dl buttons). A static specular
@@ -148,41 +143,40 @@
     radial-gradient(130px 160px at 26% -8%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 62%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6)),
     var(--chip-iris);
-  --chip-rim: rgba(20, 27, 45, 0.12);
+  --chip-rim: rgba(35, 30, 22, 0.12);
   /* Chip elevation rides the app's four-stop scale (rest = sm, hover = the
      default stop) — the glass keeps its inset material, but its cast shadow
      is height like everyone else's: small blur, small offset, low alpha,
      never larger than the chip itself. */
   --chip-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
-    0 1px 2px rgba(20, 27, 45, 0.05),
-    0 2px 6px -2px rgba(20, 27, 45, 0.07);
+    inset 0 -7px 15px -8px rgba(35, 30, 22, 0.06),
+    0 1px 2px rgba(35, 30, 22, 0.05),
+    0 2px 6px -2px rgba(35, 30, 22, 0.07);
   --chip-hover-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -7px 15px -8px rgba(20, 27, 45, 0.06),
-    0 1px 2px rgba(20, 27, 45, 0.05),
-    0 6px 14px -6px rgba(20, 27, 45, 0.12);
+    inset 0 -7px 15px -8px rgba(35, 30, 22, 0.06),
+    0 1px 2px rgba(35, 30, 22, 0.05),
+    0 6px 14px -6px rgba(35, 30, 22, 0.12);
 
-  /* Chip accent — the project chips keep their original v2 indigo identity
-     (colour dots, % figures, active ring) beside the app's emerald. Part of
-     the preserved chip material, not a second app accent. */
-  --chip-accent: #4f46e5;
-  --chip-accent-dark: #4338ca;
-  --chip-ring: rgba(79, 70, 229, 0.25);
+  /* Chip accent — the chips' colour dots, % figures and active ring now sit
+     in the app's one accent family rather than a second hue. */
+  --chip-accent: var(--primary);
+  --chip-accent-dark: var(--primary-dark);
+  --chip-ring: var(--ring);
 
   /* Meter material (the liquid-glass mode of the progress bars / heat tiles;
      see the Meter material section) */
-  --meter-rim: rgba(20, 27, 45, 0.1);
+  --meter-rim: rgba(35, 30, 22, 0.1);
   --meter-sheen: rgba(255, 255, 255, 0.36);
   --meter-sheen-soft: rgba(255, 255, 255, 0.04);
 
   /* Tier C wash (hover for transparent controls) */
-  --wash: rgba(20, 27, 45, 0.05);
-  --wash-strong: rgba(20, 27, 45, 0.08);
+  --wash: rgba(35, 30, 22, 0.05);
+  --wash-strong: rgba(35, 30, 22, 0.08);
 
   /* Legibility shadow for the text sitting on the hero's liquid canvas */
-  --hero-text-shadow: 0 1px 1px rgba(255, 255, 255, 0.45);
+  --hero-text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
 
   background: var(--bg);
   color: var(--ink);
@@ -193,43 +187,43 @@
   :root:not([data-theme="light"]) {
     color-scheme: dark;
 
-    --primary: #34d399;
-    --primary-dark: #6ee7b7;
-    --primary-ink: #022c22;
-    --primary-tint: #143229;
-    --primary-tint-strong: #1d4a3a;
+    --primary: #d08c8c;
+    --primary-dark: #e4a9a9;
+    --primary-ink: #221012;
+    --primary-tint: #33231f;
+    --primary-tint-strong: #4a312c;
 
-    --bg: #0c0e13;
-    --surface: #16191f;
-    --surface-2: #1b1e26;
-    --surface-3: #222633;
-    --field-bg: #11141a;
-    --table-head-bg: #1b1e26;
+    --bg: #131211;
+    --surface: #1c1b18;
+    --surface-2: #221f1c;
+    --surface-3: #2a2723;
+    --field-bg: #171614;
+    --table-head-bg: #221f1c;
 
-    --ink: #e9ebf1;
-    --ink-soft: #b3bacb;
-    --muted: #818aa0;
-    --line: #272c38;
-    --line-strong: #39404f;
+    --ink: #edeae4;
+    --ink-soft: #bab4a9;
+    --muted: #8b857a;
+    --line: #2e2b26;
+    --line-strong: #413d36;
 
-    --warning: #fbbf24;
-    --danger: #e2837a;
+    --warning: #c9a46a;
+    --danger: #de9494;
 
-    --st-done-bg: #143229;    --st-done-fg: #6ee7b7;
-    --st-blocked-bg: #2c1a17; --st-blocked-fg: #e2837a;
+    --st-done-bg: #122a22;    --st-done-fg: #5fc2a0;
+    --st-blocked-bg: #2c1b1a; --st-blocked-fg: #de9494;
 
-    --prog-none: #46505f;
-    --prog-low: #fb923c;
-    --prog-mid: #fbbf24;
-    --prog-high: #4ade80;
-    --prog-done: #22c55e;
+    --prog-none: #4c4740;
+    --prog-low: #c08585;
+    --prog-mid: #d08c8c;
+    --prog-high: #5fc2a0;
+    --prog-done: #34d399;
 
-    --imp-1: #3b7bf3;
-    --imp-2: #6fa6f8;
-    --imp-3: #a5c8fb;
-    --imp-4: #d6e5fd;
+    --imp-1: #8fbef5;
+    --imp-2: #5c97dc;
+    --imp-3: #3d6ea8;
+    --imp-4: #2a4970;
 
-    --ring: rgba(52, 211, 153, 0.32);
+    --ring: rgba(208, 140, 140, 0.3);
 
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.5);
@@ -239,17 +233,14 @@
     --seg-track: var(--field-bg);
     --seg-thumb: var(--surface-3);
 
-    --dl-rim: rgba(255, 255, 255, 0.35);
-    --dl-fill: none;
-    --dl-danger-fill: none;
-    --dl-sampling: none;
-    --dl-shadow:
+    --lgb-rim: rgba(255, 255, 255, 0.35);
+    --lgb-danger-rim: rgba(255, 90, 90, 0.35);
+    --lgb-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 6px 16px -6px rgba(0, 0, 0, 0.22),
-      0 1px 3px rgba(0, 0, 0, 0.12);
-    --dl-hover-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-    --dl-active-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.2);
-    --dl-danger-rim: rgba(255, 90, 90, 0.35);
+      0 12px 35px rgba(0, 0, 0, 0.25),
+      0 2px 8px rgba(0, 0, 0, 0.15);
+    --lgb-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.12);
+    --lgb-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 
     /* Dark chips: no white specular hotspot — translucent body + iris only. */
     --chip-fill:
@@ -270,9 +261,9 @@
       0 1px 2px rgba(0, 0, 0, 0.5),
       0 6px 14px -6px rgba(0, 0, 0, 0.55);
 
-    --chip-accent: #818cf8;
-    --chip-accent-dark: #aab2fc;
-    --chip-ring: rgba(129, 140, 248, 0.3);
+    --chip-accent: var(--primary);
+    --chip-accent-dark: var(--primary-dark);
+    --chip-ring: var(--ring);
 
     --meter-rim: rgba(255, 255, 255, 0.1);
     --meter-sheen: rgba(255, 255, 255, 0.12);
@@ -289,43 +280,43 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  --primary: #34d399;
-  --primary-dark: #6ee7b7;
-  --primary-ink: #022c22;
-  --primary-tint: #143229;
-  --primary-tint-strong: #1d4a3a;
+  --primary: #d08c8c;
+  --primary-dark: #e4a9a9;
+  --primary-ink: #221012;
+  --primary-tint: #33231f;
+  --primary-tint-strong: #4a312c;
 
-  --bg: #0c0e13;
-  --surface: #16191f;
-  --surface-2: #1b1e26;
-  --surface-3: #222633;
-  --field-bg: #11141a;
-  --table-head-bg: #1b1e26;
+  --bg: #131211;
+  --surface: #1c1b18;
+  --surface-2: #221f1c;
+  --surface-3: #2a2723;
+  --field-bg: #171614;
+  --table-head-bg: #221f1c;
 
-  --ink: #e9ebf1;
-  --ink-soft: #b3bacb;
-  --muted: #818aa0;
-  --line: #272c38;
-  --line-strong: #39404f;
+  --ink: #edeae4;
+  --ink-soft: #bab4a9;
+  --muted: #8b857a;
+  --line: #2e2b26;
+  --line-strong: #413d36;
 
-  --warning: #fbbf24;
-  --danger: #e2837a;
+  --warning: #c9a46a;
+  --danger: #de9494;
 
-  --st-done-bg: #143229;    --st-done-fg: #6ee7b7;
-  --st-blocked-bg: #2c1a17; --st-blocked-fg: #e2837a;
+  --st-done-bg: #122a22;    --st-done-fg: #5fc2a0;
+  --st-blocked-bg: #2c1b1a; --st-blocked-fg: #de9494;
 
-  --prog-none: #46505f;
-  --prog-low: #fb923c;
-  --prog-mid: #fbbf24;
-  --prog-high: #4ade80;
-  --prog-done: #22c55e;
+  --prog-none: #4c4740;
+  --prog-low: #c08585;
+  --prog-mid: #d08c8c;
+  --prog-high: #5fc2a0;
+  --prog-done: #34d399;
 
-  --imp-1: #3b7bf3;
-  --imp-2: #6fa6f8;
-  --imp-3: #a5c8fb;
-  --imp-4: #d6e5fd;
+  --imp-1: #8fbef5;
+  --imp-2: #5c97dc;
+  --imp-3: #3d6ea8;
+  --imp-4: #2a4970;
 
-  --ring: rgba(52, 211, 153, 0.32);
+  --ring: rgba(208, 140, 140, 0.3);
 
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.45);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5), 0 2px 6px -2px rgba(0, 0, 0, 0.5);
@@ -335,17 +326,14 @@
   --seg-track: var(--field-bg);
   --seg-thumb: var(--surface-3);
 
-  --dl-rim: rgba(255, 255, 255, 0.35);
-  --dl-fill: none;
-  --dl-danger-fill: none;
-  --dl-sampling: none;
-  --dl-shadow:
+  --lgb-rim: rgba(255, 255, 255, 0.35);
+  --lgb-danger-rim: rgba(255, 90, 90, 0.35);
+  --lgb-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    0 6px 16px -6px rgba(0, 0, 0, 0.22),
-    0 1px 3px rgba(0, 0, 0, 0.12);
-  --dl-hover-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  --dl-active-shadow: 0 4px 10px -4px rgba(0, 0, 0, 0.2);
-  --dl-danger-rim: rgba(255, 90, 90, 0.35);
+    0 12px 35px rgba(0, 0, 0, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  --lgb-hover-shadow: 0 12px 35px rgba(0, 0, 0, 0.22), 0 2px 8px rgba(0, 0, 0, 0.12);
+  --lgb-active-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
 
   /* Dark chips: no white specular hotspot — translucent body + iris only. */
   --chip-fill:
@@ -366,9 +354,9 @@
     0 1px 2px rgba(0, 0, 0, 0.5),
     0 6px 14px -6px rgba(0, 0, 0, 0.55);
 
-  --chip-accent: #818cf8;
-  --chip-accent-dark: #aab2fc;
-  --chip-ring: rgba(129, 140, 248, 0.3);
+  --chip-accent: var(--primary);
+  --chip-accent-dark: var(--primary-dark);
+  --chip-ring: var(--ring);
 
   --meter-rim: rgba(255, 255, 255, 0.1);
   --meter-sheen: rgba(255, 255, 255, 0.12);
@@ -383,7 +371,7 @@
 * { box-sizing: border-box; }
 
 ::selection {
-  background: var(--primary-tint-strong);
+  background: var(--primary-tint);
   color: var(--primary-dark);
 }
 
@@ -450,13 +438,23 @@ button.project-row:focus-visible {
 .cache-section__head:focus-visible,
 .task-action-menu button:focus-visible { background: var(--wash-strong); }
 
+/* The chevron is a data URI, so it can't read --muted — the two themes carry
+   their own baked stroke. Keep these in step with --muted if it moves. */
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23717a8a' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%237C776E' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 11px center;
   padding-right: 32px !important;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
+  }
+}
+:root[data-theme="dark"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
 }
 
 /* =========================================================================
@@ -499,8 +497,8 @@ select {
   pointer-events: none;
   opacity: 0;
   transform: scale(0.98);
-  /* Rows in the wide table mode carry min-height: 56px — left in place it
-     clamps the height transition at 56px and the "collapse" becomes a hard
+  /* Rows in the wide table mode carry min-height: 54px — left in place it
+     clamps the height transition at 54px and the "collapse" becomes a hard
      pop when the row unmounts. */
   min-height: 0 !important;
   padding-top: 0 !important;
@@ -524,15 +522,17 @@ select {
 /* =========================================================================
    App shell + page scaffolding
    ========================================================================= */
+/* Clearance for the fixed bottom bar is carried by .page-content's own
+   bottom padding (110px), not by the shell — so a page can scroll its last
+   row clear of the bar without the shell reserving the space twice. */
 .app-shell {
   min-height: 100vh;
-  padding-bottom: calc(96px + env(safe-area-inset-bottom));
 }
 
 .page-content {
-  width: min(980px, 100%);
+  width: 100%;
   margin: 0 auto;
-  padding: calc(20px + env(safe-area-inset-top)) 16px 28px;
+  padding: calc(20px + env(safe-area-inset-top)) 14px 110px;
   animation: fade-up var(--t-slow) var(--ease) both;
 }
 
@@ -541,13 +541,13 @@ select {
   align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
-  margin: 6px 0 20px;
+  margin: 0 0 24px;
 }
 
 .page-header h1 {
   margin: 0;
-  font-size: 1.85rem;
-  font-weight: 800;
+  font-size: 1.625rem;
+  font-weight: 650;
   line-height: 1.05;
   letter-spacing: -0.03em;
   color: var(--ink);
@@ -556,8 +556,9 @@ select {
 .page-header p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.9rem;
-  font-weight: 550;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   text-align: right;
 }
 
@@ -620,8 +621,8 @@ select {
 
 .dt-sub {
   color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 600;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
   transition: color var(--t) var(--ease);
@@ -737,18 +738,22 @@ select {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 4px;
-  padding: 9px 10px calc(10px + env(safe-area-inset-bottom));
+  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
   background: var(--surface);
   border-top: 1px solid var(--line);
 }
+
+/* Rail-only wordmark (see the 900px block) — on the bottom bar it would
+   just eat a sixth of the row. */
+.nav-brand { display: none; }
 
 .bottom-nav button {
   position: relative;
   display: grid;
   min-width: 0;
-  min-height: 54px;
+  min-height: 52px;
   place-items: center;
-  gap: 3px;
+  gap: 5px;
   color: var(--muted);
   background: transparent;
   border: 1px solid transparent;
@@ -773,11 +778,12 @@ select {
   overflow: hidden;
   max-width: 100%;
   font-size: 0.66rem;
-  font-weight: 650;
+  font-weight: 550;
   letter-spacing: 0.01em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.bottom-nav button.active span { font-weight: 700; }
 
 /* =========================================================================
    Sync pill — a floating solid status chip. Elevation (shadow-lg) is earned:
@@ -873,22 +879,23 @@ select {
 }
 
 /* -------------------------------------------------------------------------
-   TIER A — the Liquid Glass "download button", ported from the reference
-   page. The hover motion keeps the reference's physical padding and radius
-   12px 22px → 14px 25px and radius 16px → 20px (rest pinned to the app's
-   --r-xl stop, +4px mid-swell — the reference's swell delta on the app's
-   radius scale), with a quick coordinated morph and icon easing to .95.
-   The chip REALLY grows
-   in flow — neighbouring UI gets pushed aside, that physical inflation is
-   the point. A hover margin-left of -3px lets the left edge swell outwards
-   too (these buttons are left-anchored, unlike the reference's centered
-   layout), so the growth reads symmetric instead of right-only.
-   No translateY lift; press feedback uses the app-wide subtle .97 scale.
+   TIER A — the Liquid Glass action button. The body is genuinely EMPTY:
+   nothing is painted on it. What you see is a rim, the backdrop sampled
+   through a light blur, and #glass-distortion bending that backdrop at the
+   rim — so the control reads as a piece of glass laid on the page rather
+   than a tinted chip. The sampling + distortion live on a ::before layer
+   because `filter` on the element itself would distort its own label too.
 
-   Appearance: --dl-* tokens. Dark = the reference's final render
-   (transparent body + white rim over its dark page). Light = the reference
-   button's own base glass recipe (specular + white gradient + frost).
-   This is the app's ONE glass material — everything else is solid.
+   Hover is a physical inflation: 12/22 → 14/25 padding and 20px → 24px
+   radius on a springy overshoot, so the chip REALLY grows in flow and
+   neighbouring UI gets pushed aside. That is the point. A hover
+   margin-left of -3px lets the left edge swell outwards too (these buttons
+   are left-anchored), so the growth reads symmetric instead of right-only.
+   Press does not scale: the shadow tightens and the glass settles.
+
+   Appearance: --lgb-* tokens; light and dark differ only in rim strength
+   and shadow depth. This is the app's ONE glass button material — the
+   project chips are the only other backdrop sampler.
    ------------------------------------------------------------------------- */
 .add-row-button,
 .primary-button,
@@ -899,7 +906,10 @@ select {
 .project-create button {
   --py: 12px; --px: 22px;
   --py-h: 14px; --px-h: 25px;
-  --rad: var(--r-xl); --rad-h: calc(var(--r-xl) + 4px);
+  --rad: 20px; --rad-h: 24px;
+  /* The overshoot the morph rides — the glass settles past its target and
+     springs back, which is what makes the growth read as physical. */
+  --lgb-spring: cubic-bezier(0.175, 0.885, 0.32, 2.2);
   position: relative;
   isolation: isolate;
   display: inline-flex;
@@ -908,26 +918,55 @@ select {
   gap: 0.7rem;
   padding: var(--py) var(--px);
   color: var(--ink);
-  font-size: 1.02rem;
+  font-size: 0.94rem;
   font-weight: 700;
   letter-spacing: 0.01em;
   text-decoration: none;
   cursor: pointer;
-  background: var(--dl-fill);
-  -webkit-backdrop-filter: var(--dl-sampling);
-  backdrop-filter: var(--dl-sampling);
-  border: 1.5px solid var(--dl-rim);
+  background: transparent;
+  border: 1.5px solid var(--lgb-rim);
   border-radius: var(--rad);
-  box-shadow: var(--dl-shadow);
+  box-shadow: var(--lgb-shadow);
   overflow: hidden;
   transition:
     box-shadow 0.18s ease,
-    background 0.18s ease,
     color 0.18s ease,
-    margin-left 0.24s var(--ease-in-out),
-    padding 0.24s var(--ease-in-out),
-    border-radius 0.24s var(--ease-in-out),
-    transform 0.14s var(--ease-out);
+    margin-left 0.4s var(--lgb-spring),
+    padding 0.4s var(--lgb-spring),
+    border-radius 0.4s var(--lgb-spring);
+}
+
+/* The glass itself. Sits under the label (z-index 0 vs. the content's 2) and
+   takes no pointer events, so it is purely optical. */
+.add-row-button::before,
+.primary-button::before,
+.secondary-button::before,
+.file-picker::before,
+.ghost-button::before,
+.cache-add button::before,
+.project-create button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  filter: url(#glass-distortion);
+}
+
+/* Label and icon ride above the glass. `:not(input)` keeps the file
+   picker's own hidden, absolutely-positioned input out of the flow. */
+.add-row-button > *:not(input),
+.primary-button > *:not(input),
+.secondary-button > *:not(input),
+.file-picker > *:not(input),
+.ghost-button > *:not(input),
+.cache-add button > *:not(input),
+.project-create button > *:not(input) {
+  position: relative;
+  z-index: 2;
 }
 
 /* Layout-only placement. */
@@ -960,7 +999,7 @@ select {
   align-self: center;
 }
 
-/* Icon: the reference's 1.5rem glyph, easing down with the same quick morph. */
+/* Icon: a 20px outline glyph, easing down on the same spring as the body. */
 .add-row-button svg,
 .primary-button svg,
 .cache-add button svg,
@@ -968,10 +1007,10 @@ select {
 .secondary-button svg,
 .file-picker svg,
 .ghost-button svg {
-  width: 1.5rem;
-  height: 1.5rem;
-  stroke-width: 2.2;
-  transition: transform 0.24s var(--ease-in-out);
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke-width: 1.75;
+  transition: transform 0.4s var(--lgb-spring);
 }
 
 @media (hover: hover) {
@@ -985,7 +1024,7 @@ select {
     margin-left: -3px;
     padding: var(--py-h) var(--px-h);
     border-radius: var(--rad-h);
-    box-shadow: var(--dl-hover-shadow);
+    box-shadow: var(--lgb-hover-shadow);
   }
   .add-row-button:hover svg,
   .primary-button:hover svg,
@@ -996,14 +1035,15 @@ select {
   .project-create button:hover svg { transform: scale(0.95); }
 }
 
-/* Press: the shadow tightens while the whole control compresses subtly. */
+/* Press: the shadow tightens and the glass settles — no scale, the padding
+   spring is already carrying the physicality. */
 .add-row-button:active,
 .primary-button:active,
 .secondary-button:active,
 .file-picker:active,
 .ghost-button:active,
 .cache-add button:active,
-.project-create button:active { box-shadow: var(--dl-active-shadow); transform: scale(0.97); }
+.project-create button:active { box-shadow: var(--lgb-active-shadow); }
 
 .add-row-button:disabled,
 .primary-button:disabled,
@@ -1018,12 +1058,11 @@ select {
   box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.08);
 }
 
-/* Sign out — the reference's .is-destructive: red rim + red-tinted glass
-   (light); in dark the fill token collapses to none, matching the render. */
+/* Sign out — the destructive variant. Same empty glass; the rim and the
+   label carry the warning, nothing is filled in. */
 .ghost-button.danger {
   color: var(--danger);
-  border-color: var(--dl-danger-rim);
-  background: var(--dl-danger-fill);
+  border-color: var(--lgb-danger-rim);
 }
 
 /* -------------------------------------------------------------------------
@@ -1112,46 +1151,51 @@ input:focus, select:focus, textarea:focus { outline: none; }
    ========================================================================= */
 .task-list { display: grid; gap: 12px; }
 
+/* ONE card, not a dashboard of tiles: the weighted figure owns the upper
+   pane and its liquid canvas, and the day's supporting facts sit under a
+   hairline as a quiet strip. The card clips its own corners so the canvas
+   can run edge to edge behind the headline. */
 .progress-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
-.progress-summary > div {
-  display: grid;
-  gap: 6px;
-  align-content: center;
-  min-height: 70px;
-  padding: 13px 15px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-xs);
-  animation: fade-up var(--t-slow) var(--ease) both;
-}
-
-/* Hero metric — a solid pane; the weighted percent floods in as liquid drawn
-   on one canvas (HeroPulse.tsx). The pane itself is just surface + hairline;
-   the canvas is the feature. */
-.progress-summary > div:first-child {
-  position: relative;
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  min-height: 104px;
-  padding: 20px 26px;
-  overflow: hidden;
-  isolation: isolate;
-  color: var(--ink);
+  margin-bottom: 32px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
+  animation: fade-up var(--t-slow) var(--ease) both;
 }
+
+.summary-hero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 132px;
+  padding: 24px 26px;
+  isolation: isolate;
+  color: var(--ink);
+}
+.summary-hero__body { display: grid; gap: 6px; }
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+
+.summary-stat {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 16px 20px;
+  border-right: 1px solid var(--line);
+}
+.summary-stat:last-child { border-right: 0; }
+/* Only the meter cell centres — the other two hang from the top so their
+   figures sit on one line with it. */
+.summary-stat--meter { align-content: normal; }
+.summary-stat.is-blocked strong { color: var(--danger); }
 
 /* The entire weighted-progress fill is drawn on one canvas (HeroPulse.tsx) so
    the solid emerald and the dissolving dot-matrix are a single object with no
@@ -1167,41 +1211,51 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border-radius: inherit;
   pointer-events: none;
 }
+/* Both hero lines sit on the canvas, so they carry the legibility shadow.
+   The eyebrow is set as a label (small, tracked, uppercase) precisely so the
+   52px figure below it has nothing to compete with. */
 .summary-hero__label {
   position: relative;
   overflow: visible;
   max-width: none;
-  color: var(--ink);
-  font-size: 0.95rem;
+  color: var(--ink-soft);
+  font-size: 0.7rem;
   font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
   text-overflow: clip;
   text-shadow: var(--hero-text-shadow);
 }
 .summary-hero__value {
   position: relative;
-  font-size: 1.6rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
+  font-size: 3.25rem;
+  font-weight: 650;
+  line-height: 0.95;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
   color: var(--ink);
   text-shadow: var(--hero-text-shadow);
 }
 
-.progress-summary > div:nth-child(1) { animation-delay: 0.02s; }
-.progress-summary > div:nth-child(2) { animation-delay: 0.06s; }
-.progress-summary > div:nth-child(3) { animation-delay: 0.10s; }
-.progress-summary > div:nth-child(4) { animation-delay: 0.14s; }
-.progress-summary > div:nth-child(5) { animation-delay: 0.18s; }
-
-.progress-summary span {
+.summary-stat span {
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 650;
-  letter-spacing: 0.01em;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.progress-summary strong { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em; }
+.summary-stat strong {
+  font-size: 1.5rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  transition: color var(--t) var(--ease);
+}
+/* The meter is not a label — reset the strip's ellipsis/nowrap for it. */
+.summary-stat .mini-bar { overflow: hidden; white-space: normal; }
 
 /* Mini progress bar — flat track, flat tone fill. The fill width still
    animates on data change; the entrance sweep lives with the calendar. */
@@ -1226,7 +1280,16 @@ input:focus, select:focus, textarea:focus { outline: none; }
   transition: width 0.18s var(--ease), background-color 0.18s var(--ease);
 }
 
-@media (min-width: 600px) { .progress-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+/* Three cells need ~160px each before the uppercase labels start clipping;
+   under that they fold to two and the third wraps to its own row. */
+@media (max-width: 519px) {
+  .summary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .summary-stat:nth-child(2) { border-right: 0; }
+  .summary-stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  /* Half-width cells can't hold "Core task progress" on one tracked line, and
+     an ellipsis on a three-word label is worse than a second line. */
+  .summary-stat span { white-space: normal; text-overflow: clip; line-height: 1.3; }
+}
 
 /* =========================================================================
    Task table
@@ -1247,8 +1310,10 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table > .task-table-row { margin-bottom: 12px; }
 .task-table-header { display: none; }
 
-/* Card layout (narrow). Importance is encoded as a flat tint of the row's
-   surface — one solid colour, no gradient wash. */
+/* Card layout (narrow). Importance is encoded as a flat tint — the SAME 4%
+   wash the wide table uses, laid straight on the page so a row reads
+   identically in both modes. The hairline and the contact shadow are what
+   make it a card; the tint only says how important it is. */
 .task-table-row {
   --importance-color: var(--line-strong);
   position: relative;
@@ -1257,7 +1322,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   gap: 10px;
   padding: 15px;
   overflow: visible;
-  background: color-mix(in srgb, var(--importance-color) 6%, var(--surface));
+  background: color-mix(in srgb, var(--importance-color) 4%, transparent);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-xs);
@@ -1397,8 +1462,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table-note-cell .icon-button { align-self: stretch; min-width: 44px; color: var(--muted); }
 .task-table-note-cell .icon-button.danger { color: var(--danger); }
 
-/* Wide spreadsheet layout */
-@container tasktable (min-width: 1080px) {
+/* Wide spreadsheet layout. The switch is a CONTAINER query, so the same
+   table is a spreadsheet on Today and a card stack inside the Projects split
+   view without either page having to know. 881px is the narrowest width at
+   which the nine tracks below still hold their minimums. */
+@container tasktable (min-width: 881px) {
   .task-table {
     gap: 0;
     overflow: visible;
@@ -1407,29 +1475,32 @@ input:focus, select:focus, textarea:focus { outline: none; }
     border-radius: var(--r-lg);
     box-shadow: var(--shadow-xs);
   }
+  /* Nine tracks, sized so the whole grid still fits an 881px container: the
+     fixed columns hold a chip or a control, the flexible ones share what is
+     left in proportion to how much prose they carry. */
   .task-table-header {
     display: grid;
     position: sticky; top: 0; z-index: 1;
-    grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
+    grid-template-columns: 70px 108px minmax(124px, 1.5fr) 116px minmax(104px, 1fr) minmax(98px, 0.9fr) minmax(104px, 1fr) minmax(124px, 1.2fr);
     color: var(--muted);
     background: var(--table-head-bg);
     border-bottom: 1px solid var(--line);
     /* Concentric with the table's 1px border. */
     border-radius: calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0;
-    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.03em; text-transform: uppercase;
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   }
-  .task-table-header.with-date { grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
+  .task-table-header.with-date { grid-template-columns: 66px 96px minmax(110px, 1.4fr) 104px 94px minmax(92px, 1fr) minmax(88px, 0.9fr) minmax(92px, 1fr) minmax(108px, 1.2fr); }
   /* Labels stay inside their own cell at any width: long ones ("Today's
      output") ellipsize instead of running into the next column. */
-  .task-table-header span { min-height: 38px; min-width: 0; padding: 12px 9px; border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .task-table-header span { min-height: 36px; min-width: 0; padding: 11px 9px; border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .task-table-header span:last-child { border-right: 0; }
 
   .task-table > .task-table-row { margin-bottom: 0; }
   .task-table-row {
     --task-row-intrinsic-block-size: 160px;
     display: grid;
-    grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr);
-    gap: 0; min-height: 56px; padding: 0;
+    grid-template-columns: 70px 108px minmax(124px, 1.5fr) 116px minmax(104px, 1fr) minmax(98px, 0.9fr) minmax(104px, 1fr) minmax(124px, 1.2fr);
+    gap: 0; min-height: 54px; padding: 0;
     overflow: visible;
     background: color-mix(in srgb, var(--importance-color) 4%, transparent);
     border: 0; border-bottom: 1px solid var(--line);
@@ -1438,32 +1509,33 @@ input:focus, select:focus, textarea:focus { outline: none; }
   }
   @media (hover: hover) {
     .task-table-row:hover {
-      background: color-mix(in srgb, var(--importance-color) 8%, transparent);
+      background: color-mix(in srgb, var(--importance-color) 9%, transparent);
       box-shadow: none;
     }
   }
-  .task-table-row.with-date { grid-template-columns: 104px 120px minmax(140px, 1.5fr) 116px 116px minmax(110px, 1fr) minmax(100px, 0.9fr) minmax(110px, 1fr) minmax(140px, 1.2fr); }
+  .task-table-row.with-date { grid-template-columns: 66px 96px minmax(110px, 1.4fr) 104px 94px minmax(92px, 1fr) minmax(88px, 0.9fr) minmax(92px, 1fr) minmax(108px, 1.2fr); }
   .task-table-row:last-child { border-bottom: 0; border-bottom-left-radius: calc(var(--r-lg) - 1px); border-bottom-right-radius: calc(var(--r-lg) - 1px); }
   .tt-label { display: none; }
   /* Importance chip stays a centred, contained chip in the table view. */
   .tt-importance { align-items: center; justify-content: center; padding: 0 9px; }
   .tt-importance > .task-table-importance {
-    min-height: 30px; min-width: 38px; padding: 3px 8px !important;
+    min-height: 30px; min-width: 38px; padding: 3px 9px !important;
+    color: color-mix(in srgb, var(--importance-color) 78%, var(--ink));
     background-color: color-mix(in srgb, var(--importance-color) 16%, var(--surface));
-    border: 1px solid color-mix(in srgb, var(--importance-color) 30%, transparent);
+    border: 1px solid color-mix(in srgb, var(--importance-color) 34%, var(--line));
     border-radius: var(--r-sm);
-    transition: background-color var(--t) var(--ease), border-color var(--t) var(--ease);
+    transition: background-color var(--t) var(--ease), border-color var(--t) var(--ease), color var(--t) var(--ease);
   }
   /* Keep the chip's tint on focus instead of snapping to a plain white field. */
   .tt-importance > .task-table-importance:focus {
     background-color: color-mix(in srgb, var(--importance-color) 24%, var(--surface));
-    border-color: color-mix(in srgb, var(--importance-color) 45%, transparent);
+    border-color: color-mix(in srgb, var(--importance-color) 48%, var(--line));
     border-radius: var(--r-sm);
   }
   .tt-cell { display: flex; gap: 0; border-right: 1px solid var(--line); }
   .tt-notes { border-right: 0; }
   .tt-cell > select, .tt-cell > input, .tt-cell > textarea {
-    min-height: 56px; padding: 10px 9px;
+    min-height: 54px; padding: 10px 9px;
     background-color: transparent; border: 0; border-radius: 0; overflow: hidden; resize: none;
   }
   .tt-date > input[type="date"] { padding-left: 7px; padding-right: 4px; font-size: 0.82rem; }
@@ -1471,11 +1543,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .tt-cell > select:focus, .tt-cell > input:focus, .tt-cell > textarea:focus, .task-table-note-cell textarea:focus {
     position: relative; z-index: 1; background-color: var(--field-bg); border-radius: var(--r-xs); box-shadow: none;
   }
-  .task-table-progress { width: 100%; min-height: 56px; padding: 9px 11px; }
+  .task-table-progress { width: 100%; min-height: 54px; padding: 9px 11px; }
   .tt-notes .task-table-note-cell { width: 100%; grid-template-columns: minmax(0, 1fr) 52px; gap: 0; overflow: visible; }
   .tt-notes .task-table-note-cell .task-menu { padding-right: 4px; }
   .task-table-note-cell textarea {
-    min-height: 56px; padding: 10px 9px; background-color: transparent; border: 0; border-right: 1px solid var(--line);
+    min-height: 54px; padding: 10px 9px; background-color: transparent; border: 0; border-right: 1px solid var(--line);
     border-radius: 0; overflow: hidden; resize: none;
   }
 }
@@ -1757,7 +1829,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: 0.02s;
 }
-.settings-hero[data-state="ok"] { --hero-state: var(--primary); }
+/* "Synced" is a COMPLETION state, so it takes the completion green, not the
+   accent — the accent is brick-rose and would read as a warning here. The
+   accent is right for "syncing", which is work in progress. */
+.settings-hero[data-state="ok"] { --hero-state: var(--prog-done); }
 .settings-hero[data-state="syncing"] { --hero-state: var(--primary); }
 .settings-hero[data-state="offline"],
 .settings-hero[data-state="loading"],
@@ -1862,7 +1937,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 
 /* File picker */
 .file-picker { position: relative; width: fit-content; }
-.file-picker input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.file-picker input { position: absolute; inset: 0; z-index: 2; opacity: 0; cursor: pointer; }
 
 /* Import mapping */
 .mapping-grid { display: grid; gap: 8px; max-height: 280px; padding-right: 4px; overflow: auto; }
@@ -2178,16 +2253,19 @@ button.project-row.active { color: var(--chip-accent-dark); }
   align-content: center;
 }
 .cal-summary__stats div {
-  display: grid; gap: 3px; justify-items: center; align-content: center; text-align: center;
-  padding: 12px 8px;
+  display: grid; gap: 4px; justify-items: center; align-content: center; text-align: center;
+  padding: 14px 8px;
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
 }
 /* Child combinator on purpose: the counter digits are RollDigits spans inside
    the strong, and a descendant selector would paint them hint-gray at 0.7rem. */
-.cal-summary__stats div > span { color: var(--muted); font-size: 0.7rem; font-weight: 650; }
-.cal-summary__stats strong { font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.cal-summary__stats div > span {
+  color: var(--muted); font-size: 0.7rem; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase;
+}
+.cal-summary__stats strong { font-size: 1.375rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 
 /* ---- Week view ---- */
 .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(7px, 1vw, 12px); }
@@ -2230,7 +2308,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-week .mini-bar::after, .cal-insights .mini-bar::after { animation: bar-sweep 0.2s var(--ease-out) 0.03s both; }
 
 .cal-insights__pulse { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
-.cal-stat strong.trend-up { color: var(--primary); }
+.cal-stat strong.trend-up { color: var(--prog-done); }
 .cal-stat strong.trend-down { color: var(--danger); }
 .cal-stat small { color: var(--muted); font-size: 0.7rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -2297,7 +2375,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   background: color-mix(in srgb, var(--danger) 4%, var(--surface));
   border-color: color-mix(in srgb, var(--danger) 22%, var(--line));
 }
-.cal-log-card.is-output .cal-card__head svg { color: var(--primary); }
+.cal-log-card.is-output .cal-card__head svg { color: var(--prog-done); }
 .cal-log-card.is-blocker .cal-card__head svg { color: var(--danger); }
 .cal-log { display: grid; gap: 8px; }
 .cal-log__row {
@@ -2388,7 +2466,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-stat strong { font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color 0.18s var(--ease); }
 .cal-stat svg { color: var(--muted); }
 .cal-stat svg.is-flame { color: var(--warning); }
-.cal-stat svg.trend-up { color: var(--primary); }
+.cal-stat svg.trend-up { color: var(--prog-done); }
 .cal-stat svg.trend-down { color: var(--danger); }
 
 .cal-heatmap {
@@ -2518,7 +2596,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
    Responsive layout
    ========================================================================= */
 @media (min-width: 720px) {
-  .project-page { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 16px; }
+  .project-page { display: grid; grid-template-columns: 288px minmax(0, 1fr); gap: 32px; }
   .project-page .page-header { grid-column: 1 / -1; }
   .project-page .task-list,
   .project-page .task-table-wrap,
@@ -2526,48 +2604,72 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .project-page .project-list { grid-row: 2 / span 3; }
 }
 
-@media (min-width: 960px) {
-  .app-shell { min-height: 100vh; padding-bottom: 0; padding-left: 96px; }
-  .page-content { width: min(1680px, 100%); padding: calc(26px + env(safe-area-inset-top)) 32px 40px; }
-  .page-header { align-items: center; margin-bottom: 22px; }
-  .page-header h1 { font-size: 2.15rem; }
+/* The rail takes over at 900px — the same breakpoint the design's
+   [data-rail] flips at, and the point where a 288px project sidebar plus a
+   task table stop competing for the same width. */
+@media (min-width: 900px) {
+  .app-shell { padding-left: 92px; }
+  .page-content { width: min(1280px, 100%); padding: calc(32px + env(safe-area-inset-top)) 32px 56px; }
+  .page-header { align-items: center; margin-bottom: 32px; }
+  .page-header h1 { font-size: 2.125rem; }
+
+  /* Calendar is a chart page: a narrower measure keeps the week cards and
+     the heatmap from stretching into thin ribbons. Next and Settings read as
+     documents, so they cap much shorter still. */
+  .page-content.calendar-page { width: min(1120px, 100%); }
+  .page-content.cache-page,
+  .page-content.settings-page { width: min(760px, 100%); }
 
   .bottom-nav {
-    top: 0; right: auto; width: 96px; height: 100vh;
-    grid-template-columns: 1fr; grid-auto-rows: 76px; align-content: start; gap: 6px;
-    padding: calc(20px + env(safe-area-inset-top)) 11px 20px;
+    top: 0; right: auto; width: 92px; height: 100vh;
+    /* Row 1 is the wordmark and sizes to itself; every nav item after it
+       rides the 72px auto-row. overflow-y keeps a short landscape viewport
+       from clipping the last tab. */
+    grid-template-columns: 1fr; grid-template-rows: auto; grid-auto-rows: 72px;
+    align-content: start; gap: 4px; overflow-y: auto;
+    padding: calc(20px + env(safe-area-inset-top)) 10px 20px;
     border-top: 0; border-right: 1px solid var(--line);
   }
-  .bottom-nav button { min-height: 68px; }
+  .bottom-nav button { min-height: 64px; }
   .bottom-nav span { font-size: 0.72rem; }
+  /* The wordmark only exists in rail mode; on the bottom bar it would just
+     eat a sixth of the row. */
+  .nav-brand {
+    display: grid;
+    place-items: center;
+    height: 34px;
+    margin-bottom: 14px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
 
   .search-filters, .mapping-panel { padding: 18px; }
   .task-list { grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); align-items: start; }
 
-  .project-page { grid-template-columns: 300px minmax(0, 1fr); gap: 20px; }
   .project-page .project-list {
-    position: sticky; top: 26px; align-self: start; max-height: calc(100vh - 52px);
+    position: sticky; top: 32px; align-self: start; max-height: calc(100vh - 64px);
     overflow-y: auto; overflow-x: hidden; padding: 8px; margin: -8px;
   }
 
   .filter-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 360px; }
 
-  /* Settings reads as a document, not a dashboard: cap the measure instead
-     of letting the surfaces stretch across the 1680px shell, and let the
-     regions breathe a little wider inside. */
-  .page-content.settings-page { width: min(880px, 100%); }
-  .settings-hero__status { padding: 24px 24px 20px; }
-  .settings-hero__stats { padding: 18px 24px; }
-  .settings-card__section { padding: 18px 20px; }
+  .settings-hero__status { padding: 22px 22px 20px; }
+  .settings-hero__stats { padding: 16px 22px; }
+  .settings-card__section { padding: 16px 20px; }
 }
 
 @media (max-width: 430px) {
   .page-content { padding-right: 11px; padding-left: 11px; }
   .task-controls, .filter-grid { grid-template-columns: 1fr; }
-  .progress-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
-  .progress-summary div { min-height: 60px; padding: 11px 13px; }
-  .progress-summary strong { font-size: 1.05rem; }
+  .progress-summary { margin-bottom: 20px; }
+  .summary-hero { min-height: 112px; padding: 18px 18px 20px; }
+  .summary-hero__value { font-size: 2.75rem; }
+  .summary-stat { padding: 13px 15px; }
+  .summary-stat strong { font-size: 1.3rem; }
   .settings-hero__status { padding: 18px 16px; }
   .settings-hero__stats { padding: 14px 16px; gap: 10px 24px; }
   .cal-summary { grid-template-columns: 1fr; gap: 14px; }

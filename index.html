@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#f3f4f7" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0c0e13" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f5f3ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#131211" media="(prefers-color-scheme: dark)" />
     <meta name="robots" content="noindex, nofollow, noarchive, noimageindex" />
     <meta name="googlebot" content="noindex, nofollow, noarchive, noimageindex" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -16,6 +16,29 @@
     <script src="/theme-init.js"></script>
   </head>
   <body>
+    <!--
+      Rim distortion for the Tier-A liquid-glass action buttons. The filter
+      builds a ring from SourceAlpha (dilate minus erode), blends it with soft
+      fractal noise, and displaces only that ring — so the backdrop bends at
+      the button's edge the way real glass bends light, while the middle stays
+      undistorted. Lives in the document (not a component) so it is available
+      the first time a button paints and is never torn down by a remount.
+    -->
+    <svg width="0" height="0" style="position: absolute; pointer-events: none" aria-hidden="true" focusable="false">
+      <filter id="glass-distortion" x="0%" y="0%" width="100%" height="100%" filterUnits="objectBoundingBox" primitiveUnits="userSpaceOnUse">
+        <feTurbulence type="fractalNoise" baseFrequency="0.005 0.008" numOctaves="1" seed="5" result="noise" />
+        <feGaussianBlur in="noise" stdDeviation="1.2" result="softNoise" />
+        <feMorphology in="SourceAlpha" operator="dilate" radius="1.5" result="edgeOuter" />
+        <feMorphology in="SourceAlpha" operator="erode" radius="8" result="edgeInner" />
+        <feComposite in="edgeOuter" in2="edgeInner" operator="out" result="edgeRing" />
+        <feGaussianBlur in="edgeRing" stdDeviation="1" result="edgeFeather" />
+        <feBlend in="softNoise" in2="edgeFeather" mode="multiply" result="edgeMap" />
+        <feDisplacementMap in="SourceGraphic" in2="edgeMap" scale="18" xChannelSelector="R" yChannelSelector="G" result="displaced" />
+        <feComposite in="displaced" in2="edgeFeather" operator="in" result="rimOnly" />
+        <feComposite in="SourceGraphic" in2="edgeInner" operator="in" result="center" />
+        <feComposite in="rimOnly" in2="center" operator="over" />
+      </filter>
+    </svg>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -86,7 +86,7 @@ let transitionToken = 0;
  * frame once and cross-fades it into the new one as a compositor-only opacity
  * animation (tuned in app.css) — one snapshot instead of per-frame colour
  * transitions on every element, so the fade holds the display's full frame
- * rate. Layered tokens (the glass buttons' --dl-fill, shadow stacks) can't
+ * rate. Layered tokens (the chips' --chip-fill, shadow stacks) can't
  * interpolate via CSS transitions anyway; the snapshot fade covers them too.
  * Falls back to an instant swap when the API is missing, reduced motion is
  * on, or the resolved theme doesn't visually change (e.g. light -> system on

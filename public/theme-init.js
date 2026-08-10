@@ -9,7 +9,7 @@
       document.documentElement.setAttribute("data-theme", t);
       // Pin the browser chrome color to the pinned theme; the media-query
       // metas only track the OS scheme.
-      var color = t === "dark" ? "#0c0e13" : "#f3f4f7";
+      var color = t === "dark" ? "#131211" : "#f5f3ee";
       var metas = document.querySelectorAll('meta[name="theme-color"]');
       for (var i = 0; i < metas.length; i += 1) {
         metas[i].setAttribute("content", color);

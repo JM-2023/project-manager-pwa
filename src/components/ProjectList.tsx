@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, Check, ChevronDown, MoreHorizontal, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArchiveRestore, Check, ChevronDown, MoreHorizontal, Plus } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Project, Task } from "../lib/types";
 import { useI18n } from "../lib/i18n";
@@ -195,11 +195,9 @@ function ProjectRow({ project, summary, active, index, onSelect, onArchive, onDe
                   className={confirm === "delete" ? "danger" : ""}
                   onClick={runConfirm}
                 >
-                  {confirm === "archive" ? <Archive size={15} aria-hidden="true" /> : <Trash2 size={15} aria-hidden="true" />}
                   <span>{confirm === "archive" ? m.projectList.confirmArchive : m.projectList.confirmDelete}</span>
                 </button>
                 <button type="button" role="menuitem" onClick={() => setConfirm(null)}>
-                  <X size={15} aria-hidden="true" />
                   <span>{m.common.cancel}</span>
                 </button>
               </>
@@ -207,17 +205,13 @@ function ProjectRow({ project, summary, active, index, onSelect, onArchive, onDe
               <>
                 {onRename ? (
                   <button type="button" role="menuitem" onClick={startRename}>
-                    <Pencil size={15} aria-hidden="true" />
                     <span>{m.common.rename}</span>
                   </button>
                 ) : null}
                 <button type="button" role="menuitem" onClick={() => setConfirm("archive")}>
-                  <Archive size={15} aria-hidden="true" />
                   <span>{m.common.archive}</span>
                 </button>
-                <span className="task-action-menu__sep" role="separator" />
                 <button type="button" role="menuitem" className="danger" onClick={() => setConfirm("delete")}>
-                  <Trash2 size={15} aria-hidden="true" />
                   <span>{m.common.delete}</span>
                 </button>
               </>
@@ -423,7 +417,6 @@ export function ProjectList({
           onClick={() => setShowArchived((open) => !open)}
           aria-expanded={showArchived}
         >
-          <Archive size={15} aria-hidden="true" />
           <span>{m.projectList.archived}</span>
           <span className="archived-toggle__count">{archivedProjects.length}</span>
           <ChevronDown className="archived-toggle__chevron" size={16} aria-hidden="true" />

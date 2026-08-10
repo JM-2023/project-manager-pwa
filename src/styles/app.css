@@ -1606,7 +1606,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
     background-position: right 9px center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .tt-date > input[type="date"] { padding-left: 6px; padding-right: 6px; font-size: 0.8125rem; }
+  .tt-date > input[type="date"] { padding-left: 6px; padding-right: 6px; font-size: 0.8125rem; color: var(--ink-soft); }
   .tt-date > input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 1px; padding: 2px 0; }
   .tt-cell > select:focus, .tt-cell > input:focus, .tt-cell > textarea:focus, .task-table-note-cell textarea:focus {
     position: relative; z-index: 1; background-color: var(--field-bg); border-radius: var(--r-xs); box-shadow: none;
@@ -1616,8 +1616,22 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .tt-notes .task-table-note-cell .task-menu { padding-right: 3px; }
   /* The trigger is a bare glyph inside the table — no chip, no rim. */
   .tt-notes .task-table-note-cell .icon-button { min-width: 0; border: 0; }
+  /* The hairline is drawn by the CELL, not by the textarea's own border.
+     AutoTextarea writes an explicit height, which overrides the grid stretch,
+     so a border on the textarea stops wherever its content stops — leaving a
+     gap in any row made taller by another cell. Pinned to the menu column's
+     edge, it always spans the full row. */
+  .task-table-note-cell { position: relative; }
+  .tt-notes .task-table-note-cell::before {
+    content: "";
+    position: absolute;
+    top: 0; bottom: 0; right: 46px;
+    width: 1px;
+    background: var(--line);
+    pointer-events: none;
+  }
   .task-table-note-cell textarea {
-    min-height: 54px; padding: 10px 9px; background-color: transparent; border: 0; border-right: 1px solid var(--line);
+    min-height: 54px; padding: 10px 9px; background-color: transparent; border: 0;
     border-radius: 0; overflow: hidden; resize: none;
   }
 }
@@ -2132,7 +2146,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   right: 0; bottom: 0; left: auto; top: auto;
   z-index: 60;
   display: grid; gap: 2px;
-  min-width: 208px; padding: 8px;
+  min-width: 200px; padding: 8px;
   transform-origin: bottom right;
   color: var(--ink);
   background: var(--surface);
@@ -2154,8 +2168,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
 @keyframes task-menu-morph-out { to { opacity: 0; transform: translate(2px, 4px) scale(0.94); } }
 
 .task-action-menu button {
-  display: flex; width: 100%; min-height: 38px; align-items: center; justify-content: flex-start; gap: 10px;
-  padding: 9px 12px; color: var(--ink-soft); font-weight: 600; text-align: left; white-space: nowrap;
+  display: flex; width: 100%; min-height: 36px; align-items: center; justify-content: flex-start; gap: 0;
+  padding: 8px 12px; color: var(--ink-soft); font-size: 0.875rem; font-weight: 600; text-align: left; white-space: nowrap;
   background: transparent; border: 0; border-radius: calc(var(--r-lg) - 8px); box-shadow: none; transform: none;
   transition: background 0.16s ease, color 0.16s ease, transform 0.12s var(--ease-out);
   animation: task-menu-item 0.2s var(--ease) both;
@@ -2165,17 +2179,13 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .task-action-menu button:nth-of-type(3) { animation-delay: 0.1s; }
 .task-action-menu button:nth-of-type(4) { animation-delay: 0.13s; }
 .task-action-menu button:nth-of-type(5) { animation-delay: 0.16s; }
-.task-action-menu button svg { flex: none; width: 16px; height: 16px; color: var(--muted); stroke-width: 1.75; transition: color 0.16s ease; }
 @media (hover: hover) {
   .task-action-menu button:hover { background: var(--wash-strong); color: var(--ink); }
-  .task-action-menu button:hover svg { color: var(--ink); }
 }
 .task-action-menu button:active { transform: scale(0.97); }
 .task-action-menu button.danger { color: var(--danger); }
-.task-action-menu button.danger svg { color: var(--danger); }
-@media (hover: hover) { .task-action-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); } .task-action-menu button.danger:hover svg { color: var(--danger); } }
-.task-action-menu__sep { display: block; height: 1px; margin: 5px 8px; background: var(--line); }
-.task-action-menu__prompt { display: block; padding: 6px 12px 4px; color: var(--muted); font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
+@media (hover: hover) { .task-action-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); } }
+.task-action-menu__prompt { display: block; padding: 6px 12px 4px; color: var(--muted); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
 
 .project-row .task-menu { justify-self: center; }
 .project-row .task-menu-trigger { width: 36px; min-width: 36px; min-height: 36px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; border-radius: var(--r-sm); box-shadow: none; }

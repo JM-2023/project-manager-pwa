@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowLeftToLine, ArrowRight, ArrowRightToLine, MoreHorizontal, Trash2, X } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -566,7 +566,7 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
       <div className="tt-cell tt-notes">
         <span className="tt-label">{m.common.notes}</span>
         <div className="task-table-note-cell">
-          <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.noteAria} />
+          <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} placeholder={m.common.notes} aria-label={m.taskTable.noteAria} />
           <div className={`task-menu${menuOpen ? " is-open" : ""}`} ref={menuRef}>
             <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label={m.taskTable.taskActions} aria-haspopup="menu" aria-expanded={menuOpen}>
               <MoreHorizontal size={17} aria-hidden="true" />
@@ -595,35 +595,27 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
                         beginRemove();
                       }}
                     >
-                      <Trash2 size={15} aria-hidden="true" />
                       <span>{m.taskTable.confirmDelete}</span>
                     </button>
                     <button type="button" role="menuitem" onClick={() => setConfirmingDelete(false)}>
-                      <X size={15} aria-hidden="true" />
                       <span>{m.common.cancel}</span>
                     </button>
                   </>
                 ) : (
                   <>
                     <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
-                      <ArrowLeftToLine size={15} aria-hidden="true" />
                       <span>{m.taskTable.copyToYesterday}</span>
                     </button>
                     <button type="button" role="menuitem" onClick={() => copyTask(1)}>
-                      <ArrowRightToLine size={15} aria-hidden="true" />
                       <span>{m.taskTable.copyToTomorrow}</span>
                     </button>
                     <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
-                      <ArrowLeft size={15} aria-hidden="true" />
                       <span>{m.taskTable.moveToYesterday}</span>
                     </button>
                     <button type="button" role="menuitem" onClick={() => moveTask(1)}>
-                      <ArrowRight size={15} aria-hidden="true" />
                       <span>{m.taskTable.moveToTomorrow}</span>
                     </button>
-                    <span className="task-action-menu__sep" role="separator" />
                     <button type="button" role="menuitem" className="danger" onClick={() => setConfirmingDelete(true)}>
-                      <Trash2 size={15} aria-hidden="true" />
                       <span>{m.taskTable.deleteTask}</span>
                     </button>
                   </>

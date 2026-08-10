@@ -568,7 +568,9 @@ select {
 .page-header__title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .page-header__title p { text-align: left; }
 
-.today-page-header { align-items: center; }
+/* Today's header keeps the page-wide flex-end baseline: the day title and the
+   right-hand count sit on the same line rather than centring against each
+   other, which is what makes the two-line title block read as one column. */
 
 /* =========================================================================
    Date switcher — the page-head cluster on Today and Calendar: ‹ › arrows
@@ -752,6 +754,7 @@ select {
   display: grid;
   min-width: 0;
   min-height: 52px;
+  padding: 6px 2px;
   place-items: center;
   gap: 5px;
   color: var(--muted);
@@ -774,7 +777,9 @@ select {
 }
 .bottom-nav button.active svg { transform: translateY(-1px) scale(1.04); }
 
-.bottom-nav span {
+/* Scoped to the buttons: an unscoped `.bottom-nav span` also caught the rail
+   wordmark and overrode its weight and tracking. */
+.bottom-nav button span {
   overflow: hidden;
   max-width: 100%;
   font-size: 0.66rem;
@@ -991,12 +996,27 @@ select {
   margin: 0;
 }
 
+/* COMPACT variant — the icon-only "+" that sits in a composer row beside a
+   text field. It carries the same glass, at a size that fits the row: at the
+   full 12/22 metrics it stood 47px tall against a 42px input and its hover
+   swell had nowhere to go, so the growth read as being blocked rather than
+   physical. Swell is 10/13 → 12/16 with the radius following, matching the
+   proportion the full-size chip uses. */
 .cache-add button,
 .project-create button {
+  --py: 10px; --px: 13px;
+  --py-h: 12px; --px-h: 16px;
+  --rad: 18px; --rad-h: 22px;
   width: max-content;
-  min-width: 56px;
   justify-self: center;
   align-self: center;
+}
+/* The compact chip is centred in its cell, so it swells symmetrically on its
+   own — the left-edge nudge the left-anchored full-size chips need would
+   double up here. */
+@media (hover: hover) {
+  .cache-add button:hover,
+  .project-create button:hover { margin-left: 0; }
 }
 
 /* Icon: a 20px outline glyph, easing down on the same spring as the body. */
@@ -1012,6 +1032,10 @@ select {
   stroke-width: 1.75;
   transition: transform 0.4s var(--lgb-spring);
 }
+/* Compact composer chips take an 18px glyph. Ordered after the rule above so
+   it wins on source order rather than needing extra specificity. */
+.cache-add button svg,
+.project-create button svg { width: 1.125rem; height: 1.125rem; }
 
 @media (hover: hover) {
   .add-row-button:hover,
@@ -1254,8 +1278,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
   font-variant-numeric: tabular-nums;
   transition: color var(--t) var(--ease);
 }
-/* The meter is not a label — reset the strip's ellipsis/nowrap for it. */
-.summary-stat .mini-bar { overflow: hidden; white-space: normal; }
+/* The meter is not a label — reset the strip's ellipsis/nowrap for it. The
+   grid's 8px gap already spaces it, so drop the bar's own top margin. */
+.summary-stat .mini-bar { overflow: hidden; white-space: normal; margin-top: 0; }
 
 /* Mini progress bar — flat track, flat tone fill. The fill width still
    animates on data change; the entrance sweep lives with the calendar. */
@@ -1608,7 +1633,12 @@ input:focus, select:focus, textarea:focus { outline: none; }
 /* Corners follow the active chip's hover swell so ring and chip stay concentric. */
 .project-list:has(> .project-row.active:hover) .project-active-ring { border-radius: var(--r-lg); }
 
-.project-create { display: grid; grid-template-columns: minmax(0, 1fr) 76px; gap: 8px; }
+/* `auto` rather than a fixed 76px track: the button sizes itself, so its
+   hover swell widens the track instead of straining against it. */
+.project-create { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+/* Slightly shorter than the app's standard field: this one sits at the head of
+   a column of 46px chips, and 42px keeps the composer from out-weighing them. */
+.project-create input { min-height: 42px; padding: 10px 12px; }
 
 /* The project chips are the app's second glass exception (see header): the
    original liquid-glass material. Radii ride the new scale — rest --r-md,
@@ -1780,7 +1810,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-md);
 }
 .cache-rename input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
-.cache-add { display: grid; grid-template-columns: minmax(0, 1fr) 64px; gap: 8px; overflow: visible; }
+.cache-add { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; overflow: visible; }
 .cache-add input {
   width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px;
   color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-md);
@@ -2625,7 +2655,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
     /* Row 1 is the wordmark and sizes to itself; every nav item after it
        rides the 72px auto-row. overflow-y keeps a short landscape viewport
        from clipping the last tab. */
-    grid-template-columns: 1fr; grid-template-rows: auto; grid-auto-rows: 72px;
+    grid-template-columns: 1fr; grid-template-rows: auto; grid-auto-rows: 64px;
     align-content: start; gap: 4px; overflow-y: auto;
     padding: calc(20px + env(safe-area-inset-top)) 10px 20px;
     border-top: 0; border-right: 1px solid var(--line);
@@ -2649,9 +2679,15 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .search-filters, .mapping-panel { padding: 18px; }
   .task-list { grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); align-items: start; }
 
+  /* Sticky, but NOT a scroll container. `overflow-y: auto` forces overflow-x
+     to compute to hidden (one axis can't scroll while the other stays
+     visible), and that clipped the composer button's hover swell and its cast
+     shadow flat against the column edge — the sidebar looked like it was
+     boxing the control in. The design has no scroller here either; a long
+     project list scrolls with the page instead. */
   .project-page .project-list {
-    position: sticky; top: 32px; align-self: start; max-height: calc(100vh - 64px);
-    overflow-y: auto; overflow-x: hidden; padding: 8px; margin: -8px;
+    position: sticky; top: 32px; align-self: start;
+    overflow: visible; padding: 8px; margin: -8px;
   }
 
   .filter-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }

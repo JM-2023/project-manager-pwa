@@ -463,10 +463,12 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
           <span ref={progressBadgeRef} className="progress-badge">
             {Math.round(progressDisplayRef.current)}%
           </span>
-          {/* No step attribute: a stepped input quantizes programmatic writes,
-              which would snap the thumb out of the damped glide. The drag is
+          <span className="progress-meter">
+            <span className="progress-meter__fill" />
+            {/* No step attribute: a stepped input quantizes programmatic writes,
+              which would snap the fill out of the damped glide. The drag is
               free and the target snaps to the 25% detents; keys step manually. */}
-          <input
+            <input
             ref={progressSliderRef}
             type="range"
             className="progress-slider"
@@ -522,7 +524,8 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
             onKeyUp={() => commitProgress(progressTargetRef.current)}
             aria-label={m.taskTable.progressHeader}
             aria-valuetext={`${progress}%`}
-          />
+            />
+          </span>
         </div>
       </div>
 
@@ -545,7 +548,14 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
 
       <label className="tt-cell tt-blocker">
         <span className="tt-label">{m.taskTable.blocker}</span>
-        <AutoTextarea value={blocker} onChange={(event) => setBlocker(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.blocker} />
+        <AutoTextarea
+          className={blocker ? "is-filled" : undefined}
+          value={blocker}
+          onChange={(event) => setBlocker(event.target.value)}
+          onBlur={commitText}
+          rows={1}
+          aria-label={m.taskTable.blocker}
+        />
       </label>
 
       <label className="tt-cell tt-next">

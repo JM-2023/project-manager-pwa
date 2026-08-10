@@ -1287,14 +1287,18 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 /* Mini progress bar — flat track, flat tone fill. The fill width still
    animates on data change; the entrance sweep lives with the calendar. */
+/* Same material as the task table's meter — both are built from the shared
+   --mtr-* tokens, so the skin switch moves them together and neither can
+   drift into its own recipe. */
 .mini-bar {
   position: relative;
   display: block;
   width: 100%;
-  height: 8px;
+  height: var(--mtr-h);
   margin-top: 2px;
-  border-radius: var(--r-xs);
-  background: var(--surface-3);
+  border-radius: var(--mtr-r);
+  background: var(--mtr-track-bg);
+  box-shadow: var(--mtr-track-shadow);
   overflow: hidden;
 }
 .mini-bar::after {
@@ -1303,7 +1307,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
   height: 100%;
   width: clamp(0%, var(--pct, 0%), 100%);
   border-radius: inherit;
-  background: var(--prog-color, var(--prog-done));
+  background-color: var(--prog-color, var(--prog-done));
+  background-image: var(--mtr-fill-img);
+  box-shadow: var(--mtr-fill-shadow);
   /* Background-color too: a metric flip can retone the fill, not just resize it. */
   transition: width 0.18s var(--ease), background-color 0.18s var(--ease);
 }
@@ -1419,6 +1425,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   min-height: 38px;
   padding: 6px 16px !important;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   text-align: center;
   text-align-last: center;
   /* Lean the digit on the ink so the airy end of the scale (4) stays legible
@@ -1438,43 +1445,59 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .tone-high { --prog-color: var(--prog-high); }
 .tone-done { --prog-color: var(--prog-done); }
 
-/* Progress slider */
-.task-table-progress { display: flex; flex-direction: column; justify-content: center; gap: 7px; min-width: 0; }
+/* Progress meter. The bar is a track + fill pair wearing the shared meter
+   material; the range input is a transparent hit area laid over it, taller
+   than the bar so the 9px tube is still easy to grab. No visible thumb — the
+   fill edge IS the handle. */
+.task-table-progress { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; }
 .task-table-progress .progress-badge {
   font-size: 0.8125rem;
   font-weight: 700;
-  letter-spacing: -0.01em;
   color: var(--prog-color);
   transition: color var(--t) var(--ease);
+}
+.progress-meter {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--mtr-h);
+  border-radius: var(--mtr-r);
+  background: var(--mtr-track-bg);
+  box-shadow: var(--mtr-track-shadow);
+}
+.progress-meter__fill {
+  position: absolute;
+  inset: 0;
+  width: clamp(0%, var(--pct, 0%), 100%);
+  border-radius: inherit;
+  background-color: var(--prog-color, var(--prog-done));
+  background-image: var(--mtr-fill-img);
+  box-shadow: var(--mtr-fill-shadow);
+  /* No width transition: the damped rAF loop in TaskTable animates --pct
+     itself, which is what gives the drag its weight. */
+  transition: background-color var(--t) var(--ease);
 }
 .task-table-row .progress-slider {
   -webkit-appearance: none;
   appearance: none;
-  width: 100%; min-width: 0; min-height: 0; height: 8px;
+  position: absolute;
+  left: 0;
+  top: -7px;
+  width: 100%; min-width: 0; min-height: 0; height: 22px;
   padding: 0; margin: 0; border: 0;
-  border-radius: var(--r-xs);
-  background-color: var(--surface-3);
-  background-image: linear-gradient(var(--prog-color), var(--prog-color));
-  background-repeat: no-repeat;
-  background-size: var(--pct, 0%) 100%;
+  background: none;
+  opacity: 0;
   cursor: pointer;
-  /* No background-size transition: the damped rAF loop in TaskTable animates
-     --pct itself, giving the drag its weight. */
 }
-.task-table-row .progress-slider:focus { box-shadow: none; background-color: var(--surface-3); }
-.progress-slider::-webkit-slider-thumb {
-  -webkit-appearance: none; appearance: none;
-  width: 16px; height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  border: 3px solid var(--prog-color);
-  box-shadow: var(--shadow-xs);
-  transition: transform var(--t-fast) var(--ease-out), border-color var(--t) var(--ease);
+/* The input paints nothing, so the focus ring has to go on the bar it drives
+   — otherwise keyboard focus is invisible. */
+.progress-meter:has(.progress-slider:focus-visible) {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
 }
-.progress-slider:active::-webkit-slider-thumb { transform: scale(0.97); }
-.progress-slider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 3px solid var(--prog-color); box-shadow: var(--shadow-xs); transition: transform var(--t-fast) var(--ease-out), border-color var(--t) var(--ease); }
-.progress-slider:active::-moz-range-thumb { transform: scale(0.97); }
-.progress-slider::-moz-range-track { height: 8px; border-radius: var(--r-xs); background: transparent; }
+.progress-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; }
+.progress-slider::-moz-range-thumb { width: 22px; height: 22px; border: 0; background: transparent; }
+.progress-slider::-moz-range-track { height: 22px; background: transparent; }
 
 .task-table-note-cell {
   display: grid;
@@ -1514,7 +1537,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
     border-bottom: 1px solid var(--line);
     /* Concentric with the table's 1px border. */
     border-radius: calc(var(--r-lg) - 1px) calc(var(--r-lg) - 1px) 0 0;
-    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   }
   .task-table-header.with-date { grid-template-columns: 66px 96px minmax(110px, 1.4fr) 104px 94px minmax(92px, 1fr) minmax(88px, 0.9fr) minmax(92px, 1fr) minmax(108px, 1.2fr); }
   /* Labels stay inside their own cell at any width: long ones ("Today's
@@ -1544,7 +1567,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .task-table-row:last-child { border-bottom: 0; border-bottom-left-radius: calc(var(--r-lg) - 1px); border-bottom-right-radius: calc(var(--r-lg) - 1px); }
   .tt-label { display: none; }
   /* Importance chip stays a centred, contained chip in the table view. */
-  .tt-importance { align-items: center; justify-content: center; padding: 0 9px; }
+  .tt-importance { align-items: center; justify-content: center; padding: 8px 9px; }
   .tt-importance > .task-table-importance {
     min-height: 30px; min-width: 38px; padding: 3px 9px !important;
     color: color-mix(in srgb, var(--importance-color) 78%, var(--ink));
@@ -1565,14 +1588,29 @@ input:focus, select:focus, textarea:focus { outline: none; }
     min-height: 54px; padding: 10px 9px;
     background-color: transparent; border: 0; border-radius: 0; overflow: hidden; resize: none;
   }
-  .tt-date > input[type="date"] { padding-left: 7px; padding-right: 4px; font-size: 0.82rem; }
+  /* Prose columns read a step down from the task title and in the softer ink,
+     so the row's one loud thing stays the task itself. */
+  .tt-cell > textarea, .task-table-note-cell textarea {
+    font-size: 14px; line-height: 1.4; color: var(--ink-soft);
+  }
+  .tt-task .task-table-title { font-size: 15px; font-weight: 650; line-height: 1.35; color: var(--ink); }
+  /* A filled blocker is the one prose cell that earns full ink. */
+  .tt-blocker > textarea.is-filled { color: var(--ink); font-weight: 650; }
+  .tt-project > select {
+    font-size: 14px; line-height: 1.35; color: var(--ink-soft);
+    background-position: right 9px center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .tt-date > input[type="date"] { padding-left: 6px; padding-right: 6px; font-size: 13px; }
   .tt-date > input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 1px; padding: 2px 0; }
   .tt-cell > select:focus, .tt-cell > input:focus, .tt-cell > textarea:focus, .task-table-note-cell textarea:focus {
     position: relative; z-index: 1; background-color: var(--field-bg); border-radius: var(--r-xs); box-shadow: none;
   }
-  .task-table-progress { width: 100%; min-height: 54px; padding: 9px 11px; }
-  .tt-notes .task-table-note-cell { width: 100%; grid-template-columns: minmax(0, 1fr) 52px; gap: 0; overflow: visible; }
-  .tt-notes .task-table-note-cell .task-menu { padding-right: 4px; }
+  .task-table-progress { width: 100%; min-height: 54px; padding: 9px 12px; }
+  .tt-notes .task-table-note-cell { width: 100%; grid-template-columns: minmax(0, 1fr) 46px; gap: 0; overflow: visible; }
+  .tt-notes .task-table-note-cell .task-menu { padding-right: 3px; }
+  /* The trigger is a bare glyph inside the table — no chip, no rim. */
+  .tt-notes .task-table-note-cell .icon-button { min-width: 0; border: 0; }
   .task-table-note-cell textarea {
     min-height: 54px; padding: 10px 9px; background-color: transparent; border: 0; border-right: 1px solid var(--line);
     border-radius: 0; overflow: hidden; resize: none;
@@ -1690,26 +1728,23 @@ input:focus, select:focus, textarea:focus { outline: none; }
   position: absolute;
   right: 7px; bottom: 6px; left: 7px;
   height: 7px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--ink) 4%, transparent), color-mix(in srgb, var(--ink) 8%, transparent));
-  border-radius: 999px;
+  background: var(--mtr-cap-bg);
+  border-radius: var(--mtr-cap-r);
   overflow: hidden;
   pointer-events: none;
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent),
-    inset 0 -1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+  box-shadow: var(--mtr-cap-shadow);
 }
 .row-progress::after {
   content: "";
   position: absolute;
   top: 0; bottom: 0; left: 0;
   width: var(--pct, 0%);
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--prog-color) 44%, transparent), color-mix(in srgb, var(--prog-color) 88%, transparent));
+  /* Solid tone with a sheen laid over it — not a translucent ramp of the
+     tone, which reads as a different, washed-out colour. */
+  background-color: var(--prog-color, var(--prog-done));
+  background-image: var(--mtr-cap-img);
   border-radius: inherit;
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, #fff 36%, transparent),
-    0 0 10px -3px var(--prog-color);
+  box-shadow: var(--mtr-cap-fill-shadow);
   transition: width 0.18s var(--ease);
 }
 
@@ -2350,11 +2385,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-insights__pulse { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .cal-stat strong.trend-up { color: var(--prog-done); }
 .cal-stat strong.trend-down { color: var(--danger); }
-.cal-stat small { color: var(--muted); font-size: 0.7rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cal-stat small { color: var(--muted); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
 
 /* Month rhythm — weekly completion bars, centred inside a full-width card */
 .cal-rhythm .cal-series { max-width: 560px; margin-inline: auto; }
-.cal-rhythm .cal-series__track { height: clamp(64px, 9vh, 104px); }
 
 .cal-insights__duo { display: grid; gap: 12px; }
 @media (min-width: 720px) { .cal-insights__duo { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; } }
@@ -2456,39 +2490,38 @@ button.project-row.active { color: var(--chip-accent-dark); }
   --heat-pct: calc(var(--heat, 0) * 1%);
   background: color-mix(in srgb, var(--prog-color) max(7%, var(--heat-pct)), var(--surface-2));
   border: 1px solid var(--line);
+  /* Tiles never remount on a period/metric switch — they re-ink. Slow enough
+     to read as the grid re-inking; --reink (set per column on the year map,
+     per tile on the month grid) staggers the delay so the new period sweeps
+     across rather than blinking on. Delay rides only the background entry —
+     press feedback must stay immediate. */
   transition:
-    transform 0.16s var(--ease-out),
-    box-shadow 0.16s var(--ease),
+    transform 0.12s var(--ease-out),
     border-color var(--t) var(--ease),
-    /* Tiles never remount on a period/metric switch — they re-ink. Slow
-       enough to read as the grid re-inking; --reink (set per column on the
-       year map, per tile on the month grid) staggers the delay so the new
-       period sweeps across rather than blinking on. Delay rides only the
-       background entry — press/hover feedback must stay immediate. */
-    background 0.18s var(--ease) var(--reink, 0s),
-    opacity 0.18s var(--ease);
+    background 0.18s var(--ease) var(--reink, 0s);
 }
+/* The year map is 371 tiles at ~15px. Nothing but the ink may move: no
+   box-shadow, no opacity fade — at that density any of it reads as jitter. */
+.cal-heatmap__cell { transition: background 0.18s var(--ease) var(--reink, 0s); }
 
 /* ---- Month view ---- */
-.cal-month { display: grid; gap: clamp(5px, 0.7vw, 8px); }
-.cal-month__head, .cal-month__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: clamp(5px, 0.7vw, 8px); }
-.cal-month__head span { padding: 2px 0; color: var(--muted); font-size: 0.66rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.05em; }
+.cal-month { display: grid; gap: 6px; }
+.cal-month__head, .cal-month__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal-month__head span { padding: 2px 0; color: var(--muted); font-size: 10px; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.06em; }
 .cal-cell {
-  position: relative; display: block; min-height: clamp(52px, 6.5vw, 78px); padding: 7px 8px; text-align: left; border-radius: var(--r-md);
+  position: relative; display: block; min-height: 66px; padding: 7px 8px; text-align: left; border-radius: var(--r-md);
 }
+/* Hover states the tile's edge and nothing else. A scale-up here made the
+   whole grid twitch under a moving pointer, and the tiles are a data surface
+   before they are buttons. Press still confirms. */
 @media (hover: hover) {
-  .cal-cell:hover {
-    transform: scale(1.045);
-    border-color: color-mix(in srgb, var(--prog-color) 42%, var(--line-strong));
-    box-shadow: var(--shadow-sm);
-    z-index: 1;
-  }
+  .cal-cell:hover { border-color: var(--line-strong); }
 }
 .cal-cell:active { transform: scale(0.97); transition-duration: 0.12s; z-index: 1; }
 .cal-cell.is-outside { opacity: 0.4; }
 .cal-cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
 @media (hover: hover) {
-  .cal-cell.is-today:hover { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm); }
+  .cal-cell.is-today:hover { border-color: var(--primary); }
 }
 .cal-cell__num { font-size: 0.84rem; font-weight: 700; font-variant-numeric: tabular-nums; }
 .cal-cell__count { position: absolute; right: 7px; bottom: 6px; font-size: 0.68rem; font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
@@ -2502,7 +2535,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 }
 /* Direct children only — the strong's RollDigits and the small's SwapText are
    spans too, and must keep their own type scale. */
-.cal-stat > span { color: var(--muted); font-size: 0.72rem; font-weight: 650; }
+.cal-stat > span { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 .cal-stat strong { font-size: 1.375rem; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; transition: color 0.18s var(--ease); }
 .cal-stat svg { color: var(--muted); }
 .cal-stat svg.is-flame { color: var(--warning); }
@@ -2510,7 +2543,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-stat svg.trend-down { color: var(--danger); }
 
 .cal-heatmap {
-  display: flex; gap: clamp(3px, 0.4vw, 5px); overflow-x: auto; padding: 14px;
+  display: flex; gap: 4px; overflow-x: auto; padding: 14px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
 }
 /* 53 week columns flex between 13-18px so a year fits the card wherever it
@@ -2519,13 +2552,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
    container clips both ends of overflowing content and the left side can't
    even be scrolled to (scrollLeft can't go negative). Auto margins collapse
    to 0 once the row overflows, so narrow screens scroll edge to edge. */
-.cal-heatmap__col { flex: 1 1 13px; min-width: 13px; max-width: 18px; display: grid; grid-auto-rows: auto; gap: clamp(3px, 0.4vw, 5px); }
+.cal-heatmap__col { flex: 1 1 13px; min-width: 11px; max-width: 17px; display: grid; grid-auto-rows: auto; gap: 4px; }
 .cal-heatmap__col:first-child { margin-inline-start: auto; }
 .cal-heatmap__col:last-child { margin-inline-end: auto; }
 /* Heat tiles hold still under the pointer — no hover pop; the grid is too
    dense for a scale to read as anything but jitter. Press feedback only. */
 .cal-heatmap__cell { width: 100%; aspect-ratio: 1; border-radius: var(--r-xs); padding: 0; }
-.cal-heatmap__cell:active { transform: scale(0.97); transition-duration: 0.12s; z-index: 2; }
 .cal-heatmap__cell.is-outside { visibility: hidden; }
 .cal-heatmap__cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
 
@@ -2540,21 +2572,22 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-series__col { display: grid; gap: 6px; justify-items: center; background: transparent; border: 0; padding: 0; }
 .cal-series__col[type="button"] { cursor: pointer; transition: transform 0.14s var(--ease-out); }
 .cal-series__col[type="button"]:active { transform: scale(0.97); }
-.cal-series__track { position: relative; display: block; width: 100%; height: clamp(76px, 12vh, 132px); border-radius: var(--r-xs); background: var(--surface-3); overflow: hidden; }
+.cal-series__track { position: relative; display: block; width: 100%; height: 104px; border-radius: var(--r-xs); background: var(--surface-3); overflow: hidden; }
 .cal-series__fill {
   position: absolute; inset: auto 0 0 0; height: clamp(3%, var(--pct, 0%), 100%);
   background: var(--prog-color, var(--prog-done));
   border-radius: var(--r-xs) var(--r-xs) 0 0;
   /* Data / metric changes retarget the same column: height glides, tone re-inks. */
-  transition: height 0.16s var(--ease-in-out), background-color 0.18s var(--ease);
+  transition: height 0.18s cubic-bezier(0.77, 0, 0.175, 1), background-color 0.18s var(--ease);
   /* On mount the columns ripple up left to right, trailing the card's rise. */
   animation: series-grow 0.16s var(--ease-out) both;
   animation-delay: calc(0.02s + var(--i, 0) * 0.01s);
 }
 @keyframes series-grow { from { height: 0; } }
-@media (hover: hover) { .cal-series__col[type="button"]:hover .cal-series__track { box-shadow: inset 0 0 0 1px var(--primary); } }
+/* No hover ring: the column is a reading surface first, and the selected
+   month already states itself. Press confirms. */
 .cal-series__col.active .cal-series__track { box-shadow: inset 0 0 0 2px var(--primary); }
-.cal-series__label { color: var(--muted); font-size: 0.66rem; font-weight: 700; }
+.cal-series__label { color: var(--muted); font-size: 10px; font-weight: 700; }
 
 /* =========================================================================
    ████  METER MATERIAL  ████
@@ -2572,24 +2605,51 @@ button.project-row.active { color: var(--chip-accent-dark); }
    a View Transition. Positions and motion never change with the skin.
    ========================================================================= */
 
-/* ---- Glass: mini bars become the v2 mini liquid tube ---- */
-:root[data-meters="glass"] .mini-bar {
-  height: 9px;
-  border-radius: 999px;
-  background:
+/* Shared meter tokens. The task table's bar is built from these so it wears
+   the same material as every other meter instead of hard-coding the flat one;
+   :root carries the flat values, so the glass block below only has to state
+   what changes. */
+:root {
+  --mtr-h: 8px;
+  --mtr-r: var(--r-xs);
+  --mtr-track-bg: var(--surface-3);
+  --mtr-track-shadow: none;
+  --mtr-fill-img: none;
+  --mtr-fill-shadow: none;
+  /* The project chips' capsule is inset into the chip, so it carries its own
+     track recipe rather than the tube's. */
+  --mtr-cap-bg: color-mix(in srgb, var(--ink) 8%, transparent);
+  --mtr-cap-r: var(--r-xs);
+  --mtr-cap-shadow: none;
+  --mtr-cap-img: none;
+  --mtr-cap-fill-shadow: none;
+}
+:root[data-meters="glass"] {
+  --mtr-h: 9px;
+  --mtr-r: 999px;
+  --mtr-track-bg:
     linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.04)),
     color-mix(in srgb, var(--ink) 9%, transparent);
-  box-shadow:
+  --mtr-track-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.5),
-    inset 0 -1px 2px rgba(20, 27, 45, 0.08),
+    inset 0 -1px 2px rgba(35, 30, 22, 0.08),
     inset 0 0 0 1px var(--meter-rim);
-}
-:root[data-meters="glass"] .mini-bar::after {
-  background:
+  --mtr-fill-img:
     linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.15) 45%, rgba(255, 255, 255, 0) 72%),
-    linear-gradient(90deg, color-mix(in srgb, var(--prog-color, var(--prog-done)) 65%, transparent) 0%, var(--prog-color, var(--prog-done)) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 100%);
+  --mtr-fill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --mtr-cap-bg:
+    linear-gradient(180deg, color-mix(in srgb, var(--ink) 4%, transparent), color-mix(in srgb, var(--ink) 8%, transparent));
+  --mtr-cap-r: 999px;
+  --mtr-cap-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 34%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+  --mtr-cap-img: linear-gradient(90deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0));
+  --mtr-cap-fill-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.36);
 }
+
+/* ---- Glass: the calendar hero's bar is the one that reads at a distance,
+   so it runs 2px thicker than the shared tube. ---- */
 :root[data-meters="glass"] .cal-summary__hero .mini-bar { height: 11px; }
 
 /* ---- Glass: series columns get the v2 gradient + top highlight ---- */
@@ -2599,39 +2659,20 @@ button.project-row.active { color: var(--chip-accent-dark); }
 }
 
 /* ---- Glass: heat tiles wear the same sheen over their heat colour.
-   These override the base tiles' box-shadow, so the hover / today rings are
-   re-composed here with the sheen kept underneath. ---- */
+   These override the base tiles' box-shadow, so the today ring is re-composed
+   here with the sheen kept underneath. Hover is not re-composed: it only
+   restates the border, which this block never touches. ---- */
 :root[data-meters="glass"] .cal-cell,
 :root[data-meters="glass"] .cal-heatmap__cell {
   background:
     linear-gradient(180deg, var(--meter-sheen), var(--meter-sheen-soft) 60%),
     color-mix(in srgb, var(--prog-color) max(7%, var(--heat-pct)), var(--surface-2));
-  box-shadow: inset 0 1px 0 var(--meter-sheen), inset 0 -1px 1px rgba(20, 27, 45, 0.05);
+  box-shadow: inset 0 1px 0 var(--meter-sheen), inset 0 -1px 1px rgba(35, 30, 22, 0.05);
 }
 :root[data-meters="glass"] .cal-cell.is-today,
 :root[data-meters="glass"] .cal-heatmap__cell.is-today {
   box-shadow: 0 0 0 2px var(--primary-tint-strong), inset 0 1px 0 var(--meter-sheen);
 }
-@media (hover: hover) {
-  :root[data-meters="glass"] .cal-cell:hover {
-    box-shadow: var(--shadow-sm), inset 0 1px 0 var(--meter-sheen);
-  }
-  :root[data-meters="glass"] .cal-cell.is-today:hover {
-    box-shadow: 0 0 0 2px var(--primary-tint-strong), var(--shadow-sm), inset 0 1px 0 var(--meter-sheen);
-  }
-}
-
-/* ---- Flat: the project chips' capsule meter flattens to match ---- */
-:root[data-meters="flat"] .row-progress {
-  background: color-mix(in srgb, var(--ink) 8%, transparent);
-  border-radius: var(--r-xs);
-  box-shadow: none;
-}
-:root[data-meters="flat"] .row-progress::after {
-  background: var(--prog-color, var(--prog-done));
-  box-shadow: none;
-}
-
 /* =========================================================================
    Responsive layout
    ========================================================================= */

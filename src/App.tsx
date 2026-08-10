@@ -60,9 +60,9 @@ import { ProjectsPage } from "./pages/ProjectsPage";
 import { SearchPage } from "./pages/SearchPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodayPage } from "./pages/TodayPage";
+import { PROJECT_COLORS } from "./lib/projectColor";
 import { appReducer, initialState, sortedProjects, sortedTasks, type AppAction } from "./state/appStore";
 
-const PROJECT_COLORS = ["#1f6f68", "#a64b2a", "#5b6c5d", "#3f5f8f", "#7a5c99", "#8a6a23"];
 const PROJECT_ARCHIVE_MARKER_KEY = "archived_with_project_id";
 const TASK_PATCH_FIELDS = [
   "project_id",

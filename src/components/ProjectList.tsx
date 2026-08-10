@@ -1,5 +1,6 @@
 import { ArchiveRestore, Check, ChevronDown, MoreHorizontal, Plus } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { buildSwatchMap } from "../lib/projectColor";
 import type { Project, Task } from "../lib/types";
 import { useI18n } from "../lib/i18n";
 import { isWorklogTask, progressTone, summarizeWorklogOverview, type WorklogOverview } from "../lib/progress";
@@ -35,6 +36,7 @@ interface ProjectListProps {
 interface ProjectRowProps {
   project: Project;
   summary: WorklogOverview;
+  swatch: string;
   active: boolean;
   /** Position in the chip stack, for the entrance cascade. */
   index: number;
@@ -49,7 +51,7 @@ interface ProjectRowProps {
 // single tap.
 type ConfirmAction = "archive" | "delete";
 
-function ProjectRow({ project, summary, active, index, onSelect, onArchive, onDelete, onRename }: ProjectRowProps) {
+function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchive, onDelete, onRename }: ProjectRowProps) {
   const { m } = useI18n();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(project.name);
@@ -158,7 +160,7 @@ function ProjectRow({ project, summary, active, index, onSelect, onArchive, onDe
       onTransitionEnd={onTransitionEnd}
     >
       <button type="button" onClick={() => onSelect(project.id)}>
-        <span className="project-color" style={{ backgroundColor: project.color ?? "var(--chip-accent)" }} />
+        <span className="project-color" style={{ backgroundColor: swatch }} />
         <span>{project.name}</span>
         <strong>{summary.averageProgress}%</strong>
         <ProgressMeter value={summary.averageProgress} />
@@ -225,10 +227,11 @@ function ProjectRow({ project, summary, active, index, onSelect, onArchive, onDe
 
 interface ArchivedRowProps {
   project: Project;
+  swatch: string;
   onUnarchive: (project: Project) => void;
 }
 
-function ArchivedRow({ project, onUnarchive }: ArchivedRowProps) {
+function ArchivedRow({ project, swatch, onUnarchive }: ArchivedRowProps) {
   const { m } = useI18n();
   const { ref: rowRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLDivElement>(
     () => onUnarchive(project)
@@ -239,7 +242,7 @@ function ArchivedRow({ project, onUnarchive }: ArchivedRowProps) {
       className={`archived-row${removing ? " is-removing" : ""}`}
       onTransitionEnd={onTransitionEnd}
     >
-      <span className="project-color" style={{ backgroundColor: project.color ?? "var(--chip-accent)" }} />
+      <span className="project-color" style={{ backgroundColor: swatch }} />
       <span className="archived-row__name">{project.name}</span>
       <button
         type="button"
@@ -269,6 +272,9 @@ export function ProjectList({
   const { m } = useI18n();
   const [name, setName] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  // Live and archived share one assignment pass so an archived project never
+  // duplicates a live one's dot.
+  const swatches = useMemo(() => buildSwatchMap(projects, archivedProjects), [projects, archivedProjects]);
   const { allSummary, noProjectSummary, summariesByProject } = useMemo(() => {
     const worklogTasks: Task[] = [];
     const tasksWithoutProject: Task[] = [];
@@ -400,6 +406,7 @@ export function ProjectList({
             key={project.id}
             project={project}
             summary={summary}
+            swatch={swatches.get(project.id) ?? "var(--chip-accent)"}
             active={selectedProjectId === project.id}
             index={index + 2}
             onSelect={onSelect}
@@ -428,7 +435,14 @@ export function ProjectList({
             {archivedProjects.length === 0 ? (
               <p className="archived-empty">{m.projectList.noArchived}</p>
             ) : (
-              archivedProjects.map((project) => <ArchivedRow key={project.id} project={project} onUnarchive={onUnarchive} />)
+              archivedProjects.map((project) => (
+                <ArchivedRow
+                  key={project.id}
+                  project={project}
+                  swatch={swatches.get(project.id) ?? "var(--chip-accent)"}
+                  onUnarchive={onUnarchive}
+                />
+              ))
             )}
           </div>
         </div>

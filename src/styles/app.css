@@ -538,11 +538,16 @@ select {
 
 .page-header {
   display: flex;
-  align-items: flex-end;
+  align-items: baseline;
   justify-content: space-between;
   gap: 16px;
   margin: 0 0 24px;
 }
+/* Today's title is a two-line block, so its count hangs from the bottom edge
+   rather than sitting on the title's baseline, and lifts 6px to clear the
+   second line. Every other page is a single-line title on a shared baseline. */
+.today-page-header { align-items: flex-end; }
+.today-page-header > p { margin-bottom: 6px; }
 
 .page-header h1 {
   margin: 0;
@@ -556,7 +561,7 @@ select {
 .page-header p {
   margin: 0;
   color: var(--muted);
-  font-size: 0.82rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -586,7 +591,9 @@ select {
   align-items: center;
   gap: 6px;
 }
-.date-nav-button { flex: none; }
+/* 36px, not the icon-button default 40 — these flank a title block and the
+   design sizes them to the title's own rhythm. */
+.date-nav-button { flex: none; min-width: 36px; min-height: 36px; }
 /* The chevron kicks along its travel direction on hover/press — feedback
    lives in the icon, so the row itself holds still. */
 .date-nav-button svg { transition: transform 0.16s var(--ease-in-out); }
@@ -602,7 +609,7 @@ select {
   min-width: 0;
   gap: 1px;
   justify-items: start;
-  padding: 7px 12px;
+  padding: 6px 12px;
   color: var(--ink);
   text-align: left;
   background: transparent;
@@ -759,23 +766,21 @@ select {
   gap: 5px;
   color: var(--muted);
   background: transparent;
-  border: 1px solid transparent;
+  border: 0;
   border-radius: var(--r-md);
   transition: color var(--t) var(--ease), background var(--t) var(--ease), transform 0.14s var(--ease-out);
 }
-.bottom-nav button svg { transition: transform 0.16s var(--ease-in-out); }
 @media (hover: hover) {
   .bottom-nav button:hover { color: var(--ink); background: var(--wash); }
 }
 .bottom-nav button:active { transform: scale(0.97); }
 
-/* Selected nav: the accent lives in the icon and label only — no lingering
-   background chip. One quiet cue: the current tab's icon and label turn
-   accent-green (the icon itself is unchanged from the resting outline). */
+/* Selected nav: exactly one cue — the current tab's icon and label take the
+   accent and the label thickens. The icon does not move or grow; a nudge here
+   reads as the rail twitching every time you change tabs. */
 .bottom-nav button.active {
   color: var(--primary-dark);
 }
-.bottom-nav button.active svg { transform: translateY(-1px) scale(1.04); }
 
 /* Scoped to the buttons: an unscoped `.bottom-nav span` also caught the rail
    wordmark and overrode its weight and tracking. */
@@ -1246,7 +1251,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   overflow: visible;
   max-width: none;
   color: var(--ink-soft);
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -1257,7 +1262,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   position: relative;
   font-size: 3.25rem;
   font-weight: 650;
-  line-height: 0.95;
+  line-height: 1.15;
   letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
   color: var(--ink);
@@ -1267,7 +1272,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .summary-stat span {
   overflow: hidden;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
@@ -1686,7 +1691,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .project-row {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  grid-template-columns: minmax(0, 1fr) 40px;
   align-items: center;
   padding: 4px 6px 4px 4px;
   overflow: visible;
@@ -1757,9 +1762,10 @@ input:focus, select:focus, textarea:focus { outline: none; }
   display: flex;
   min-height: 46px;
   align-items: center;
-  gap: 11px;
-  padding: 9px 11px 15px;
+  gap: 10px;
+  padding: 9px 11px 16px;
   color: var(--ink);
+  font-size: 0.875rem;
   text-align: left;
   background: transparent;
   border: 0;
@@ -1774,11 +1780,14 @@ button.project-row {
   overflow: visible;
   display: flex;
   width: 100%;
-  min-height: 46px;
+  /* No wrapper chip on these two, so they carry the wrapper's inset as well
+     as the inner button's — same painted height as a project row. */
+  min-height: 56px;
   align-items: center;
-  gap: 11px;
-  padding: 11px 14px 17px;
+  gap: 10px;
+  padding: 13px 17px 20px 15px;
   color: var(--ink);
+  font-size: 0.875rem;
   text-align: left;
   font-weight: 600;
   background: var(--chip-fill);
@@ -1791,7 +1800,7 @@ button.project-row {
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
   transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.16s var(--ease-out);
 }
-button.project-row .row-progress { right: 13px; left: 13px; bottom: 7px; }
+button.project-row .row-progress { right: 13px; left: 11px; bottom: 10px; }
 @media (hover: hover) {
   button.project-row:hover { color: var(--chip-accent-dark); background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
 }
@@ -1802,9 +1811,9 @@ button.project-row:active {
 
 .project-row > button:first-child > span:not(.project-color),
 button.project-row > span { flex: 1; min-width: 0; }
-.project-row strong, button.project-row strong { font-weight: 700; color: var(--chip-accent-dark); font-variant-numeric: tabular-nums; }
+.project-row strong, button.project-row strong { font-weight: 700; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
 .project-row span:not(.project-color), button.project-row span:not(.project-color) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.project-color { width: 11px; height: 11px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
+.project-color { width: 10px; height: 10px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
 
 /* The active border/inset lives on the gliding .project-active-ring; the
    chip itself only warms its text so the ring has nothing to fight. */
@@ -1815,7 +1824,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
    Next / cache board
    ========================================================================= */
 .cache-board { display: grid; gap: 10px; width: 100%; }
-.cache-project-add { margin: -2px 0 10px; }
+.cache-project-add { margin: -2px 0 16px; }
 .cache-section {
   border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface);
   box-shadow: var(--shadow-xs); overflow: hidden; animation: fade-up var(--t-slow) var(--ease) both;
@@ -1829,11 +1838,14 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cache-section__head:hover { background: var(--surface-2); }
 .cache-chevron { flex: none; color: var(--muted); transition: transform var(--t) var(--ease), color var(--t) var(--ease); }
 .cache-section[open] > .cache-section__head .cache-chevron { transform: rotate(90deg); color: var(--primary); }
-.cache-section__name { flex: 1; min-width: 0; font-size: 1.02rem; font-weight: 700; letter-spacing: -0.01em; white-space: normal; overflow-wrap: anywhere; }
+.cache-section__name { flex: 1; min-width: 0; font-size: 1rem; font-weight: 650; letter-spacing: -0.01em; white-space: normal; overflow-wrap: anywhere; }
 .cache-section__body { display: grid; gap: 10px; padding: 2px 16px 16px; animation: fade-in var(--t) var(--ease) both; }
 .cache-count {
-  flex: none; display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 8px;
-  color: var(--primary-dark); background: var(--primary-tint); border-radius: var(--r-sm); font-size: 0.75rem; font-weight: 700;
+  flex: none; display: inline-grid; place-items: center; min-width: 26px; height: 24px; padding: 0 8px;
+  /* A neutral tally, not a status: the accent here made every group look
+     flagged. */
+  color: var(--ink-soft); background: var(--surface-3); border-radius: var(--r-sm);
+  font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums;
 }
 .cache-section__remove { flex: none; width: 32px; min-width: 32px; height: 32px; color: var(--muted); background: transparent; border-color: transparent; box-shadow: none; opacity: 0.65; transition: opacity var(--t) var(--ease), color var(--t) var(--ease), background var(--t) var(--ease); }
 @media (hover: hover) { .cache-section__head:hover .cache-section__remove { opacity: 1; } .cache-section__remove:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); } }
@@ -1856,15 +1868,15 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cache-add input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
 .cache-items { display: grid; gap: 8px; }
 .cache-item {
-  display: grid; grid-template-columns: minmax(0, 1fr) 34px; gap: 8px; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) 32px; gap: 8px; align-items: center;
   padding: 11px 8px 11px 13px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md);
   animation: scale-in var(--t) var(--ease) both;
   transition: border-color var(--t) var(--ease), background var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 .cache-item:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
-.cache-item textarea { width: 100%; min-width: 0; padding: 2px 0; overflow: hidden; color: var(--ink); font-weight: 600; line-height: 1.4; background: transparent; border: 0; resize: none; }
+.cache-item textarea { width: 100%; min-width: 0; padding: 2px 0; overflow: hidden; color: var(--ink); font-size: 0.875rem; font-weight: 600; line-height: 1.4; background: transparent; border: 0; resize: none; }
 .cache-item textarea:focus { outline: none; box-shadow: none; }
-.cache-item .icon-button { align-self: center; min-width: 34px; min-height: 34px; }
+.cache-item .icon-button { align-self: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; }
 .search-next-results { display: grid; gap: 10px; margin-top: 32px; }
 .search-next-results h2 {
   margin: 0;
@@ -1920,11 +1932,11 @@ button.project-row.active { color: var(--chip-accent-dark); }
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 20px;
-  padding: 20px;
+  padding: 22px 22px 20px;
 }
 .settings-hero__lead { flex: 1 1 300px; min-width: 0; display: grid; gap: 8px; justify-items: start; }
 .settings-hero__headline { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.settings-hero__dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--hero-state, var(--primary)); }
+.settings-hero__dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--hero-state, var(--primary)); }
 .settings-hero__headline h2 {
   margin: 0;
   font-size: 1.25rem;
@@ -1933,8 +1945,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
   letter-spacing: -0.02em;
   overflow-wrap: anywhere;
 }
-.settings-hero__meta { margin: 0; color: var(--muted); font-size: 0.85rem; font-weight: 550; }
-.settings-hero__detail { margin: 0; color: var(--ink-soft); font-size: 0.85rem; font-weight: 600; overflow-wrap: anywhere; }
+.settings-hero__meta { margin: 0; color: var(--muted); font-size: 0.8125rem; font-weight: 550; font-variant-numeric: tabular-nums; }
+.settings-hero__detail { margin: 0; color: var(--ink-soft); font-size: 0.8125rem; font-weight: 600; overflow-wrap: anywhere; }
 .settings-hero__detail--error { color: var(--danger); }
 .settings-hero__conflicts { display: grid; gap: 4px; justify-items: start; }
 .settings-hero__conflicts small { color: var(--danger); font-size: 0.8rem; font-weight: 600; overflow-wrap: anywhere; }
@@ -1945,12 +1957,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
   display: flex;
   flex-wrap: wrap;
   gap: 12px 32px;
-  padding: 16px 20px;
+  padding: 16px 22px;
   border-top: 1px solid var(--line);
 }
 .settings-stat { display: grid; gap: 2px; }
 .settings-stat strong { font-size: 1.375rem; font-weight: 650; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.settings-stat span { color: var(--muted); font-size: 0.74rem; font-weight: 650; letter-spacing: 0.01em; }
+.settings-stat span { color: var(--muted); font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.04em; }
 
 /* Region = an overline label sitting tight (8px) over its one surface;
    regions keep each other at arm's length (32px). Entrances follow the
@@ -1980,7 +1992,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-xs);
 }
-.settings-card__section { padding: 16px; }
+.settings-card__section { padding: 16px 20px; }
 .settings-card__section + .settings-card__section { border-top: 1px solid var(--line); }
 .settings-card .export-actions { margin-bottom: 0; }
 /* The import-mapping panel is the one legitimate nested surface — an
@@ -1988,12 +2000,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
    (no shadow, tint instead) and takes the next radius stop down. */
 .settings-card .mapping-panel { margin: 0; background: var(--surface-2); border-radius: var(--r-md); box-shadow: none; }
 
-.settings-hint { margin: 8px 0 0; font-size: 0.82rem; line-height: 1.55; color: var(--muted); }
+.settings-hint { margin: 10px 0 0; font-size: 0.8125rem; line-height: 1.55; color: var(--muted); }
 
 /* A label + control pair inside a settings section (e.g. the hero-animation
    segmented toggle). Wraps so the control drops below the label when narrow. */
 .settings-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; }
-.settings-row > span { font-size: 0.9rem; font-weight: 650; color: var(--ink); }
+.settings-row > span { font-size: 0.9375rem; font-weight: 650; color: var(--ink); }
 
 /* Install note — a footnote, not a region: no surface, just quiet text. */
 .settings-footnote {
@@ -2002,7 +2014,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   gap: 10px;
   margin: 32px 2px 0;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
   line-height: 1.55;
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: 0.18s;
@@ -2264,8 +2276,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
   z-index: 1;
   min-width: 0;
   padding: 7px 14px;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: 0.8125rem;
+  font-weight: 650;
   color: var(--muted);
   background: transparent;
   border: 0;
@@ -2693,7 +2705,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 @media (min-width: 900px) {
   .app-shell { padding-left: 92px; }
   .page-content { width: min(1280px, 100%); padding: calc(32px + env(safe-area-inset-top)) 32px 56px; }
-  .page-header { align-items: center; margin-bottom: 32px; }
+  .page-header { margin-bottom: 32px; }
   .page-header h1 { font-size: 2.125rem; }
 
   /* Calendar is a chart page: a narrower measure keeps the week cards and
@@ -2714,7 +2726,11 @@ button.project-row.active { color: var(--chip-accent-dark); }
     border-top: 0; border-right: 1px solid var(--line);
   }
   .bottom-nav button { min-height: 64px; }
-  .bottom-nav span { font-size: 0.72rem; }
+  /* Must stay scoped to the button. `.bottom-nav span` loses to the base
+     `.bottom-nav button span` on specificity, so it never reached the labels
+     it was written for — while still outranking .nav-brand and inflating the
+     wordmark, which is the opposite of what it was for. */
+  .bottom-nav button span { font-size: 0.6875rem; }
   /* The wordmark only exists in rail mode; on the bottom bar it would just
      eat a sixth of the row. */
   .nav-brand {
@@ -2723,7 +2739,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
     height: 34px;
     margin-bottom: 14px;
     color: var(--muted);
-    font-size: 0.7rem;
+    font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;

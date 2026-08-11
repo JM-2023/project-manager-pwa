@@ -146,7 +146,10 @@ export function keepaliveBody(clientId: string, groups: PendingMutationGroup[]):
     if (blob.size <= KEEPALIVE_MAX_BYTES) {
       return blob;
     }
-    selected = selected.slice(Math.ceil(selected.length / 2));
+    // Trim from the tail: groups arrive oldest-first, so parents (a project
+    // create) precede the children that reference them. The dropped tail stays
+    // in the durable outbox for the next regular sync.
+    selected = selected.slice(0, Math.floor(selected.length / 2));
   }
   return null;
 }
@@ -227,26 +230,6 @@ export function mergeRecordsForSync<T extends { id: string; updated_at?: string;
     }
     if (record.deleted_at) records.delete(record.id);
     else records.set(record.id, record);
-  }
-  return [...records.values()];
-}
-
-export function mergeFullLiveRecordsForSync<T extends { id: string }>(
-  local: T[],
-  incoming: T[],
-  entity: "next_project" | "next_idea",
-  protectedKeys: Set<string>
-): T[] {
-  const records = new Map<string, T>();
-  for (const record of incoming) {
-    if (!protectedKeys.has(entityRecordKey(entity, record.id))) {
-      records.set(record.id, record);
-    }
-  }
-  for (const record of local) {
-    if (protectedKeys.has(entityRecordKey(entity, record.id))) {
-      records.set(record.id, record);
-    }
   }
   return [...records.values()];
 }

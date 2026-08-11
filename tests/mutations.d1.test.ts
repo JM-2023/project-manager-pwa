@@ -80,8 +80,12 @@ async function postMutation(database: D1Database, mutation: IncomingMutation): P
     headers: { "Content-Type": "application/json", Origin: "https://app.example.com" },
     body: JSON.stringify({ clientId: "d1-test-client", mutations: [mutation] })
   });
+  const background: Promise<unknown>[] = [];
   const response = await onRequestPost({
     request,
+    waitUntil: (promise: Promise<unknown>) => {
+      background.push(promise);
+    },
     env: {
       DB: database,
       AUTH_MODE: "none",
@@ -89,7 +93,9 @@ async function postMutation(database: D1Database, mutation: IncomingMutation): P
     }
   } as unknown as AppContext);
   expect(response.status).toBe(200);
-  return response.json() as Promise<MutationResponse>;
+  const body = await response.json() as MutationResponse;
+  await Promise.all(background);
+  return body;
 }
 
 describe("D1 record deletion guards", () => {
@@ -219,6 +225,35 @@ describe("D1 record deletion guards", () => {
     expect(project).toEqual({ name: "Concurrent edit", version: 2, deleted_at: null });
     expect(guard).toBeNull();
     expect(ledger).toBeNull();
+  });
+
+  it("prunes ledger rows past the retention window after a committed batch", async () => {
+    const setup = await baseDatabase();
+    miniflare = setup.miniflare;
+    await applyDeletionGuardMigration(setup.database);
+    const fresh = new Date().toISOString();
+    await setup.database.prepare(
+      "INSERT INTO processed_mutations (id, user_id, created_at) VALUES ('mutation-ancient', 'user-old', '2026-01-01T00:00:00.000Z')"
+    ).run();
+    await setup.database.prepare(
+      "INSERT INTO processed_mutations (id, user_id, created_at) VALUES (?, 'user-old', ?)"
+    ).bind("mutation-recent", fresh).run();
+
+    const created = await postMutation(setup.database, {
+      id: "mutation-create-current",
+      entity: "project",
+      operation: "upsert",
+      baseVersion: null,
+      data: { id: "project-retention", name: "Current", version: 1 }
+    });
+    expect(created.applied).toEqual([
+      expect.objectContaining({ id: "mutation-create-current", recordId: "project-retention" })
+    ]);
+
+    const remaining = await setup.database.prepare(
+      "SELECT id FROM processed_mutations ORDER BY id"
+    ).all<{ id: string }>();
+    expect(remaining.results.map((row) => row.id)).toEqual(["mutation-create-current", "mutation-recent"]);
   });
 
   it("backfills guards for tombstones that predate the migration", async () => {

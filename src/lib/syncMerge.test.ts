@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   compactPendingMutations,
+  KEEPALIVE_MAX_BYTES,
+  keepaliveBody,
   mergeBootstrapForLocal,
   mergeMutationRecord,
   mergeRecordsForSync,
@@ -9,7 +11,7 @@ import {
   replayPendingMutations
 } from "./syncMerge";
 import type { BootstrapResponse, ClientMutation, Task } from "./types";
-import type { SyncBootstrapState } from "./syncMerge";
+import type { PendingMutationGroup, SyncBootstrapState } from "./syncMerge";
 
 function mutation(partial: Partial<ClientMutation> & Pick<ClientMutation, "id" | "entity" | "operation">): ClientMutation {
   return { baseVersion: null, data: {}, ...partial };
@@ -224,5 +226,42 @@ describe("replayPendingMutations", () => {
       mutation({ id: "child", entity: "task", operation: "upsert", data: child, patch: { title: child.title }, createdAt: "2" })
     ]);
     expect(replayed.tasks).toEqual([]);
+  });
+});
+
+describe("keepaliveBody", () => {
+  function group(id: string, noteSize = 0): PendingMutationGroup {
+    return {
+      mutation: mutation({
+        id,
+        entity: "task",
+        operation: "upsert",
+        data: { id: `record-${id}`, notes: "x".repeat(noteSize) }
+      }),
+      sourceIds: [id]
+    };
+  }
+
+  it("sends every group when the payload fits the beacon budget", async () => {
+    const body = keepaliveBody("client-1", [group("m1"), group("m2")]);
+    expect(body).not.toBeNull();
+    const parsed = JSON.parse(await body!.text()) as { clientId: string; mutations: Array<{ id: string }> };
+    expect(parsed.clientId).toBe("client-1");
+    expect(parsed.mutations.map((entry) => entry.id)).toEqual(["m1", "m2"]);
+  });
+
+  it("keeps the oldest groups when the payload exceeds the beacon budget", async () => {
+    // Six ~15 KB groups exceed the 60 KB budget. Halving must trim the tail so
+    // parents (queued before the children that reference them) survive.
+    const groups = ["m1", "m2", "m3", "m4", "m5", "m6"].map((id) => group(id, 15_000));
+    const body = keepaliveBody("client-1", groups);
+    expect(body).not.toBeNull();
+    expect(body!.size).toBeLessThanOrEqual(KEEPALIVE_MAX_BYTES);
+    const parsed = JSON.parse(await body!.text()) as { mutations: Array<{ id: string }> };
+    expect(parsed.mutations.map((entry) => entry.id)).toEqual(["m1", "m2", "m3"]);
+  });
+
+  it("returns null when even a single group cannot fit", () => {
+    expect(keepaliveBody("client-1", [group("m1", KEEPALIVE_MAX_BYTES + 1)])).toBeNull();
   });
 });

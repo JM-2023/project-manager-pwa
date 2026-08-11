@@ -3,6 +3,8 @@ import {
   advanceSyncSequenceStatement,
   ensureSyncStateStatement,
   INTERNAL_SETTING_KEYS,
+  ledgerRetentionCutoff,
+  pruneProcessedMutationsStatement,
   SYNC_SEQUENCE_SQL
 } from "./_utils/db";
 import { apiError, json, readJson, requireSameOrigin } from "./_utils/response";
@@ -400,7 +402,8 @@ function planProject(
   const blocked = missingOrDeletedUpdate(mutation, existing);
   if (blocked) return blocked;
   const data = { ...mutation.data, ...(mutation.patch ?? {}) };
-  const id = assertUuidish(data.id);
+  // Validated payload id only — a patch carrying `id` must not redirect the write.
+  const id = assertUuidish(mutation.data.id);
   if (existing && mutation.baseVersion !== null && mutation.baseVersion !== undefined) {
     return {
       result: appliedResult(mutation, id, existing),
@@ -449,7 +452,8 @@ async function planTask(
   const blocked = missingOrDeletedUpdate(mutation, existing);
   if (blocked) return blocked;
   const data = { ...mutation.data, ...(mutation.patch ?? {}) };
-  const id = assertUuidish(data.id);
+  // Validated payload id only — a patch carrying `id` must not redirect the write.
+  const id = assertUuidish(mutation.data.id);
   const usesPatch = Boolean(existing && mutation.baseVersion !== null && mutation.baseVersion !== undefined && mutation.patch);
   const projectRelationFromServer = usesPatch && !hasOwn(mutation.patch!, "project_id");
   const rawProjectId = projectRelationFromServer
@@ -593,7 +597,8 @@ function planNextProject(
   const blocked = missingOrDeletedUpdate(mutation, existing);
   if (blocked) return blocked;
   const data = { ...mutation.data, ...(mutation.patch ?? {}) };
-  const id = assertUuidish(data.id);
+  // Validated payload id only — a patch carrying `id` must not redirect the write.
+  const id = assertUuidish(mutation.data.id);
   if (existing && mutation.baseVersion !== null && mutation.baseVersion !== undefined) {
     return {
       result: appliedResult(mutation, id, existing),
@@ -633,7 +638,8 @@ async function planNextIdea(
   const blocked = missingOrDeletedUpdate(mutation, existing);
   if (blocked) return blocked;
   const data = { ...mutation.data, ...(mutation.patch ?? {}) };
-  const id = assertUuidish(data.id);
+  // Validated payload id only — a patch carrying `id` must not redirect the write.
+  const id = assertUuidish(mutation.data.id);
   const usesPatch = Boolean(existing && mutation.baseVersion !== null && mutation.baseVersion !== undefined && mutation.patch);
   const projectRelationFromServer = usesPatch && !hasOwn(mutation.patch!, "next_project_id");
   const rawNextProjectId = projectRelationFromServer
@@ -1296,6 +1302,13 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
     } catch (error) {
       return apiError(500, error instanceof Error ? error.message : "Mutation batch failed");
     }
+
+    context.waitUntil(
+      pruneProcessedMutationsStatement(context.env, ledgerRetentionCutoff(timestamp))
+        .run()
+        .then(() => undefined)
+        .catch(() => undefined)
+    );
 
     const unresolved = commits.filter((commit) => Number(results[commit.ledgerIndex!]?.meta?.changes ?? 0) === 0);
     const committedIds = unresolved.length > 0

@@ -2,8 +2,10 @@ import { authenticate, isResponse } from "./_utils/auth";
 import {
   advanceSyncSequenceIfTouchedStatement,
   ensureSyncStateStatement,
+  ledgerRetentionCutoff,
   markExcelDirtyForOperationStatement,
-  NEXT_SYNC_SEQUENCE_SQL
+  NEXT_SYNC_SEQUENCE_SQL,
+  pruneProcessedRestoreChunksStatement
 } from "./_utils/db";
 import { apiError, json, readJson, requireSameOrigin } from "./_utils/response";
 import { nowIso } from "./_utils/time";
@@ -551,6 +553,17 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
       return apiError(409, "Backup parent relationships conflict with the current data");
     }
     return apiError(500, message);
+  }
+
+  // Once per restore operation, on its first chunk: drop chunk ledgers from
+  // restores old enough that no client can still be retrying them.
+  if (chunkIdentity?.chunkIndex === 0) {
+    context.waitUntil(
+      pruneProcessedRestoreChunksStatement(context.env, ledgerRetentionCutoff(timestamp))
+        .run()
+        .then(() => undefined)
+        .catch(() => undefined)
+    );
   }
 
   return json({ ok: true, ...counts });

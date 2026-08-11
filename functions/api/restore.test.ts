@@ -147,6 +147,27 @@ describe("restore normalization", () => {
       .toBeLessThan(writeBatch.findIndex((statement) => statement.sql.includes("INSERT INTO projects (")));
   });
 
+  it("sweeps expired chunk ledgers once per restore, on its first committed chunk", async () => {
+    const retentionDelete = (statements: CapturedStatement[]) =>
+      statements.filter((statement) => statement.sql.startsWith("DELETE FROM processed_restore_chunks"));
+
+    const first = restoreContext({
+      restoreId: "restore-1",
+      chunkIndex: 0,
+      projects: [{ id: "project-1", name: "Project" }]
+    });
+    expect((await onRequestPost(first.context)).status).toBe(200);
+    expect(retentionDelete(first.statements)).toHaveLength(1);
+
+    const later = restoreContext({
+      restoreId: "restore-1",
+      chunkIndex: 3,
+      projects: [{ id: "project-2", name: "Project" }]
+    });
+    expect((await onRequestPost(later.context)).status).toBe(200);
+    expect(retentionDelete(later.statements)).toHaveLength(0);
+  });
+
   it("returns a completed chunk before validating or replaying its payload", async () => {
     const completedChunk = { projects: 2, tasks: 4, nextProjects: 1, nextIdeas: 3 };
     const { context, batches } = restoreContext({

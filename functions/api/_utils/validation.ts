@@ -30,7 +30,9 @@ export function normalizePriority(value: unknown): TaskPriority {
 export function assertUuidish(value: unknown): string {
   const text = asText(value);
   if (!text || text.length > 128) {
-    return crypto.randomUUID();
+    // Failing loudly beats silently minting a fresh UUID, which would write a
+    // record under an id the client never asked for and can never sync again.
+    throw new Error("Record id is invalid");
   }
   return text;
 }

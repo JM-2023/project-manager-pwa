@@ -24,6 +24,28 @@ export function advanceSyncSequenceStatement(env: AppEnv, userId: string): D1Pre
 }
 
 /**
+ * Idempotency ledgers only have to outlive the re-delivery window: an open app
+ * retries its outbox continuously, and a beacon-flushed mutation is re-sent on
+ * the next launch. A replay arriving after this window degrades to one extra
+ * conflict/rebase round trip — the version guards still hold, so nothing can
+ * be double-applied. record_deletion_guards is deliberately never pruned; it
+ * is what keeps a late create from reviving a deleted record.
+ */
+export const PROCESSED_LEDGER_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function ledgerRetentionCutoff(nowIsoTimestamp: string): string {
+  return new Date(Date.parse(nowIsoTimestamp) - PROCESSED_LEDGER_RETENTION_MS).toISOString();
+}
+
+export function pruneProcessedMutationsStatement(env: AppEnv, cutoffIso: string): D1PreparedStatement {
+  return env.DB.prepare("DELETE FROM processed_mutations WHERE created_at < ?").bind(cutoffIso);
+}
+
+export function pruneProcessedRestoreChunksStatement(env: AppEnv, cutoffIso: string): D1PreparedStatement {
+  return env.DB.prepare("DELETE FROM processed_restore_chunks WHERE created_at < ?").bind(cutoffIso);
+}
+
+/**
  * Import/restore writes first use NEXT_SYNC_SEQUENCE_SQL. This advances the
  * cursor only if at least one conditional upsert actually changed a row.
  */

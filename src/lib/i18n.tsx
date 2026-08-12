@@ -301,7 +301,7 @@ const en = {
     bgDefault: "Paper",
     bgGray: "Neutral gray",
     backgroundHint:
-      "Turns the ground under the whole app a near-white neutral gray — cards keep their paper. Light and dark themes each get their own shade.",
+      "Swaps the app's warm paper neutrals for a cool near-white gray — ground, cards, hairlines and text together. Light and dark themes each get their own shade.",
     heroAnim: "Weighted progress animation",
     heroFlow: "Flow",
     heroShimmer: "Shimmer",
@@ -674,7 +674,7 @@ const zh: Messages = {
     background: "背景",
     bgDefault: "纸面",
     bgGray: "中性灰",
-    backgroundHint: "把整个应用的底面换成接近白色的中性灰，卡片保持纸面材质；浅色与深色主题各配一档灰。",
+    backgroundHint: "把应用里偏暖的纸面中性色整体换成接近白色的冷灰：底面、卡片、分隔线和文字一起走；浅色与深色主题各配一档灰。",
     heroAnim: "加权推进动画",
     heroFlow: "游动",
     heroShimmer: "闪烁",

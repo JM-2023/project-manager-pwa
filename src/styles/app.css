@@ -59,16 +59,10 @@
   --line: #e6e2d9;
   --line-strong: #d4cfc3;
 
-  /* Ground ink — what sits directly on the page ground (page headers, group
-     labels, footnotes, the date switcher). Aliases of the normal ink scale on
-     the paper ground; an alternate ground redefines them so on-ground text
-     keeps its contrast and temperature while everything inside cards stays
-     untouched. */
-  --ground-ink: var(--ink);
-  --ground-soft: var(--ink-soft);
-  --ground-muted: var(--muted);
-  --ground-accent: var(--primary);
-  --ground-accent-dark: var(--primary-dark);
+  /* Every shadow, wash and glass rim is cast in the palette's own neutral
+     rather than in black — warm bone here, cool graphite on the gray ground.
+     Given as channels so alpha stays per-use: rgba(var(--shade), 0.05). */
+  --shade: 35, 30, 22;
 
   --warning: #8a6a3a;
   --danger: #8a3b3b;
@@ -99,10 +93,10 @@
   /* Elevation — four stops, each a contact line plus a tight, low-alpha
      ambient that stays smaller than what casts it. Hairline borders do the
      separating; xs/sm sit on the page, shadow/lg are for floating layers. */
-  --shadow-xs: 0 1px 2px rgba(35, 30, 22, 0.05);
-  --shadow-sm: 0 1px 2px rgba(35, 30, 22, 0.05), 0 2px 6px -2px rgba(35, 30, 22, 0.07);
-  --shadow: 0 1px 2px rgba(35, 30, 22, 0.05), 0 6px 14px -6px rgba(35, 30, 22, 0.12);
-  --shadow-lg: 0 2px 6px rgba(35, 30, 22, 0.06), 0 14px 30px -10px rgba(35, 30, 22, 0.18);
+  --shadow-xs: 0 1px 2px rgba(var(--shade), 0.05);
+  --shadow-sm: 0 1px 2px rgba(var(--shade), 0.05), 0 2px 6px -2px rgba(var(--shade), 0.07);
+  --shadow: 0 1px 2px rgba(var(--shade), 0.05), 0 6px 14px -6px rgba(var(--shade), 0.12);
+  --shadow-lg: 0 2px 6px rgba(var(--shade), 0.06), 0 14px 30px -10px rgba(var(--shade), 0.18);
 
   /* Radii — one small scale, kept concentric (see header note). */
   --r-xs: 4px;
@@ -132,10 +126,10 @@
   --lgb-danger-rim: rgba(138, 59, 59, 0.38);
   --lgb-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 12px 35px rgba(35, 30, 22, 0.16),
-    0 2px 8px rgba(35, 30, 22, 0.1);
-  --lgb-hover-shadow: 0 12px 35px rgba(35, 30, 22, 0.14), 0 2px 8px rgba(35, 30, 22, 0.08);
-  --lgb-active-shadow: 0 10px 24px rgba(35, 30, 22, 0.16);
+    0 12px 35px rgba(var(--shade), 0.16),
+    0 2px 8px rgba(var(--shade), 0.1);
+  --lgb-hover-shadow: 0 12px 35px rgba(var(--shade), 0.14), 0 2px 8px rgba(var(--shade), 0.08);
+  --lgb-active-shadow: 0 10px 24px rgba(var(--shade), 0.16);
 
   /* Liquid-glass chip — the project rows' original material (the second and
      last glass exception, kept alongside the dl buttons). A static specular
@@ -154,21 +148,21 @@
     radial-gradient(130px 160px at 26% -8%, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0) 62%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.6)),
     var(--chip-iris);
-  --chip-rim: rgba(35, 30, 22, 0.12);
+  --chip-rim: rgba(var(--shade), 0.12);
   /* Chip elevation rides the app's four-stop scale (rest = sm, hover = the
      default stop) — the glass keeps its inset material, but its cast shadow
      is height like everyone else's: small blur, small offset, low alpha,
      never larger than the chip itself. */
   --chip-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    inset 0 -7px 15px -8px rgba(35, 30, 22, 0.06),
-    0 1px 2px rgba(35, 30, 22, 0.05),
-    0 2px 6px -2px rgba(35, 30, 22, 0.07);
+    inset 0 -7px 15px -8px rgba(var(--shade), 0.06),
+    0 1px 2px rgba(var(--shade), 0.05),
+    0 2px 6px -2px rgba(var(--shade), 0.07);
   --chip-hover-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 -7px 15px -8px rgba(35, 30, 22, 0.06),
-    0 1px 2px rgba(35, 30, 22, 0.05),
-    0 6px 14px -6px rgba(35, 30, 22, 0.12);
+    inset 0 -7px 15px -8px rgba(var(--shade), 0.06),
+    0 1px 2px rgba(var(--shade), 0.05),
+    0 6px 14px -6px rgba(var(--shade), 0.12);
 
   /* Chip accent — the chips' colour dots, % figures and active ring now sit
      in the app's one accent family rather than a second hue. */
@@ -178,13 +172,13 @@
 
   /* Meter material (the liquid-glass mode of the progress bars / heat tiles;
      see the Meter material section) */
-  --meter-rim: rgba(35, 30, 22, 0.1);
+  --meter-rim: rgba(var(--shade), 0.1);
   --meter-sheen: rgba(255, 255, 255, 0.36);
   --meter-sheen-soft: rgba(255, 255, 255, 0.04);
 
   /* Tier C wash (hover for transparent controls) */
-  --wash: rgba(35, 30, 22, 0.05);
-  --wash-strong: rgba(35, 30, 22, 0.08);
+  --wash: rgba(var(--shade), 0.05);
+  --wash-strong: rgba(var(--shade), 0.08);
 
   /* Legibility shadow for the text sitting on the hero's liquid canvas */
   --hero-text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
@@ -382,47 +376,84 @@
 /* =========================================================================
    Ground — neutral gray (html[data-bg="gray"])
    --------------------------------------------------------------------------
-   An optional gallery-gray ground under the same paper cards: near-white but
-   perceptibly cool against the warm bone default. Deliberately a plain
-   colour swap: --bg carries the gray (graphite in the dark theme) and the
-   --ground-* ink aliases cool only what sits directly on the ground, so
-   warm-gray text never sits on a cool-gray field. Every card, control and
-   accent keeps its material.
+   A second temperature, not a second backdrop. Changing only --bg leaves warm
+   bone cards, hairlines and text sitting on a cool field, which reads as a
+   stain rather than a material — so the ground swings the whole neutral axis
+   with it: every surface, line, ink and cast shadow moves from bone to
+   graphite at the SAME ramp positions and the same contrast. Nothing else
+   moves — the accent family, the status hues and the importance blues are
+   shared by both grounds, which is what keeps this a temperature change
+   rather than a second theme.
+
+   Keep --bg in sync with chromeColor.ts + theme-init.js.
    ========================================================================= */
 :root[data-bg="gray"] {
-  /* Keep in sync with chromeColor.ts + theme-init.js. */
   --bg: #eef0f3;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --surface-3: #e7eaef;
+  --field-bg: #ffffff;
+  --table-head-bg: #f4f6f8;
 
-  --ground-ink: #1b1c1e;
-  --ground-soft: #4a4c51;
-  --ground-muted: #75787f;
+  --ink: #1b1c1e;
+  --ink-soft: #4a4c51;
+  --muted: #75787f;
+  --line: #e1e4e9;
+  --line-strong: #ccd1d8;
+
+  --prog-none: #c4c8cf;
+
+  --shade: 22, 26, 34;
 }
 
-/* Dark ground (auto + manual) — the same neutrality as graphite. */
+/* Dark ground (auto + manual) — graphite for the same reason. The accent
+   tints are mixed against the new surface too: a brown patch on graphite is
+   the same stain in reverse. */
 @media (prefers-color-scheme: dark) {
   :root[data-bg="gray"]:not([data-theme="light"]) {
     --bg: #17181a;
+    --surface: #202124;
+    --surface-2: #26282b;
+    --surface-3: #2f3134;
+    --field-bg: #1b1c1f;
+    --table-head-bg: #26282b;
 
-    --ground-ink: #ececee;
-    --ground-soft: rgba(236, 236, 238, 0.78);
-    --ground-muted: rgba(236, 236, 238, 0.55);
+    --ink: #ececee;
+    --ink-soft: #b6b9bf;
+    --muted: #85888f;
+    --line: #303237;
+    --line-strong: #43464d;
+
+    --prog-none: #4a4d53;
+
+    --primary-tint: #3c3235;
+    --primary-tint-strong: #554143;
+    --st-blocked-bg: #2f2226;
+
+    --shade: 22, 26, 34;
   }
 }
 :root[data-bg="gray"][data-theme="dark"] {
   --bg: #17181a;
+  --surface: #202124;
+  --surface-2: #26282b;
+  --surface-3: #2f3134;
+  --field-bg: #1b1c1f;
+  --table-head-bg: #26282b;
 
-  --ground-ink: #ececee;
-  --ground-soft: rgba(236, 236, 238, 0.78);
-  --ground-muted: rgba(236, 236, 238, 0.55);
-}
+  --ink: #ececee;
+  --ink-soft: #b6b9bf;
+  --muted: #85888f;
+  --line: #303237;
+  --line-strong: #43464d;
 
-/* Task rows are the one transparent-bodied card (a 4% importance tint laid
-   straight on the page). On the default paper that tint IS the card body; on
-   an alternate ground the ground would show through the row instead — so the
-   same tint is laid over paper, matching the surface the wide table's
-   container already provides. */
-:root[data-bg="gray"] .task-table-row {
-  background: color-mix(in srgb, var(--importance-color) 4%, var(--surface));
+  --prog-none: #4a4d53;
+
+  --primary-tint: #3c3235;
+  --primary-tint-strong: #554143;
+  --st-blocked-bg: #2f2226;
+
+  --shade: 22, 26, 34;
 }
 
 * { box-sizing: border-box; }
@@ -512,6 +543,19 @@ select {
 }
 :root[data-theme="dark"] select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
+}
+/* The gray ground's own --muted, baked the same way. Ordered after the paper
+   pair and qualified so the dark variants outrank the light one. */
+:root[data-bg="gray"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2375787F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-bg="gray"]:not([data-theme="light"]) select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
+  }
+}
+:root[data-bg="gray"][data-theme="dark"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
 }
 
 /* =========================================================================
@@ -612,12 +656,12 @@ select {
   font-weight: 650;
   line-height: 1.05;
   letter-spacing: -0.03em;
-  color: var(--ground-ink);
+  color: var(--ink);
 }
 
 .page-header p {
   margin: 0;
-  color: var(--ground-muted);
+  color: var(--muted);
   font-size: 0.8125rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -650,8 +694,8 @@ select {
 }
 /* 36px, not the icon-button default 40 — these flank a title block and the
    design sizes them to the title's own rhythm. */
-.date-nav-button { flex: none; min-width: 36px; min-height: 36px; color: var(--ground-muted); }
-@media (hover: hover) { .date-nav-button:hover { color: var(--ground-ink); } }
+.date-nav-button { flex: none; min-width: 36px; min-height: 36px; color: var(--muted); }
+@media (hover: hover) { .date-nav-button:hover { color: var(--ink); } }
 /* The chevron kicks along its travel direction on hover/press — feedback
    lives in the icon, so the row itself holds still. */
 .date-nav-button svg { transition: transform 0.16s var(--ease-in-out); }
@@ -668,7 +712,7 @@ select {
   gap: 1px;
   justify-items: start;
   padding: 6px 12px;
-  color: var(--ground-ink);
+  color: var(--ink);
   text-align: left;
   background: transparent;
   border: 0;
@@ -687,7 +731,7 @@ select {
 .dt-sizer > span { grid-area: 1 / 1; white-space: nowrap; }
 
 .dt-sub {
-  color: var(--ground-muted);
+  color: var(--muted);
   font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
@@ -696,7 +740,7 @@ select {
 }
 /* At home the date line quietly confirms it in the accent (2.1.29's cue);
    away, the block is plain and the tooltip names the way back. */
-.today-title-button.active .dt-sub { color: var(--ground-accent-dark); }
+.today-title-button.active .dt-sub { color: var(--primary-dark); }
 
 /* Directionally rolling label (used by the capsule and the Today h1): the
    outgoing text slides along the travel direction while the incoming text
@@ -2053,7 +2097,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .settings-group__label {
   margin: 0 0 8px;
   padding-inline: 2px;
-  color: var(--ground-muted);
+  color: var(--muted);
   font-size: 0.6875rem;
   font-weight: 750;
   letter-spacing: 0.09em;
@@ -2090,13 +2134,13 @@ button.project-row.active { color: var(--chip-accent-dark); }
   align-items: flex-start;
   gap: 10px;
   margin: 32px 2px 0;
-  color: var(--ground-muted);
+  color: var(--muted);
   font-size: 0.8125rem;
   line-height: 1.55;
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: 0.18s;
 }
-.settings-footnote svg { flex: none; margin-top: 1px; color: var(--ground-accent); }
+.settings-footnote svg { flex: none; margin-top: 1px; color: var(--primary); }
 
 /* File picker */
 .file-picker { position: relative; width: fit-content; }
@@ -2260,12 +2304,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .archived-panel { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
 .archived-toggle {
   display: flex; width: 100%; align-items: center; gap: 8px; min-height: 42px; padding: 9px 11px;
-  color: var(--ground-soft); font-weight: 600; text-align: left; background: transparent; border: 0; border-radius: var(--r-md);
+  color: var(--ink-soft); font-weight: 600; text-align: left; background: transparent; border: 0; border-radius: var(--r-md);
   box-shadow: none; transition: background var(--t) var(--ease), color var(--t) var(--ease);
 }
 .archived-toggle > span:first-of-type { flex: 1; }
-.archived-toggle svg { color: var(--ground-muted); }
-@media (hover: hover) { .archived-toggle:hover { background: var(--wash); color: var(--ground-ink); } }
+.archived-toggle svg { color: var(--muted); }
+@media (hover: hover) { .archived-toggle:hover { background: var(--wash); color: var(--ink); } }
 .archived-toggle__count { min-width: 22px; padding: 1px 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; text-align: center; background: var(--surface-3); border-radius: var(--r-xs); }
 .archived-toggle__chevron { transition: transform 0.22s var(--ease-in-out); }
 .archived-panel.is-open .archived-toggle__chevron { transform: rotate(180deg); }
@@ -2594,7 +2638,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* ---- Month view ---- */
 .cal-month { display: grid; gap: 6px; }
 .cal-month__head, .cal-month__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.cal-month__head span { padding: 2px 0; color: var(--ground-muted); font-size: 0.625rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.06em; }
+.cal-month__head span { padding: 2px 0; color: var(--muted); font-size: 0.625rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.06em; }
 .cal-cell {
   position: relative; display: block; min-height: 66px; padding: 7px 8px; text-align: left; border-radius: var(--r-md);
 }
@@ -2719,7 +2763,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
     color-mix(in srgb, var(--ink) 9%, transparent);
   --mtr-track-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.5),
-    inset 0 -1px 2px rgba(35, 30, 22, 0.08),
+    inset 0 -1px 2px rgba(var(--shade), 0.08),
     inset 0 0 0 1px var(--meter-rim);
   --mtr-fill-img:
     linear-gradient(180deg, rgba(255, 255, 255, 0.65) 0%, rgba(255, 255, 255, 0.15) 45%, rgba(255, 255, 255, 0) 72%),
@@ -2759,7 +2803,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   background:
     linear-gradient(180deg, var(--meter-sheen), var(--meter-sheen-soft) 60%),
     color-mix(in srgb, var(--prog-color) max(7%, var(--heat-pct)), var(--surface-2));
-  box-shadow: inset 0 1px 0 var(--meter-sheen), inset 0 -1px 1px rgba(35, 30, 22, 0.05);
+  box-shadow: inset 0 1px 0 var(--meter-sheen), inset 0 -1px 1px rgba(var(--shade), 0.05);
 }
 :root[data-meters="glass"] .cal-cell.is-today,
 :root[data-meters="glass"] .cal-heatmap__cell.is-today {
@@ -2921,9 +2965,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
    uncovering the paper already in place beneath. Same journey both ways —
    in from the toggle, back out through the toggle — on the app's decelerate
    curve, so the colour always settles (into place, or into its drawer)
-   rather than snapping. Cards and text are identical in both frames, so the
-   circle's edge only ever shows where ground shows: the new ground visibly
-   slides *under* the paperwork.
+   rather than snapping. Because the ground carries the whole neutral axis
+   with it, the circle's edge is a temperature line: layout is pixel-identical
+   on both sides of it, and everything it passes over — ground, cards,
+   hairlines, text — crosses from bone to graphite in one wave.
    ========================================================================= */
 :root.bg-switching--in::view-transition-old(root) { animation: none; }
 :root.bg-switching--in::view-transition-new(root) {

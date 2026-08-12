@@ -59,6 +59,17 @@
   --line: #e6e2d9;
   --line-strong: #d4cfc3;
 
+  /* Ground ink — what sits directly on the page ground (page headers, group
+     labels, footnotes, the date switcher). Aliases of the normal ink scale on
+     the paper ground; an alternate ground redefines them so on-ground text
+     keeps its contrast and temperature while everything inside cards stays
+     untouched. */
+  --ground-ink: var(--ink);
+  --ground-soft: var(--ink-soft);
+  --ground-muted: var(--muted);
+  --ground-accent: var(--primary);
+  --ground-accent-dark: var(--primary-dark);
+
   --warning: #8a6a3a;
   --danger: #8a3b3b;
 
@@ -368,6 +379,52 @@
   --hero-text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
+/* =========================================================================
+   Ground — neutral gray (html[data-bg="gray"])
+   --------------------------------------------------------------------------
+   An optional gallery-gray ground under the same paper cards: near-white but
+   perceptibly cool against the warm bone default. Deliberately a plain
+   colour swap: --bg carries the gray (graphite in the dark theme) and the
+   --ground-* ink aliases cool only what sits directly on the ground, so
+   warm-gray text never sits on a cool-gray field. Every card, control and
+   accent keeps its material.
+   ========================================================================= */
+:root[data-bg="gray"] {
+  /* Keep in sync with chromeColor.ts + theme-init.js. */
+  --bg: #eef0f3;
+
+  --ground-ink: #1b1c1e;
+  --ground-soft: #4a4c51;
+  --ground-muted: #75787f;
+}
+
+/* Dark ground (auto + manual) — the same neutrality as graphite. */
+@media (prefers-color-scheme: dark) {
+  :root[data-bg="gray"]:not([data-theme="light"]) {
+    --bg: #17181a;
+
+    --ground-ink: #ececee;
+    --ground-soft: rgba(236, 236, 238, 0.78);
+    --ground-muted: rgba(236, 236, 238, 0.55);
+  }
+}
+:root[data-bg="gray"][data-theme="dark"] {
+  --bg: #17181a;
+
+  --ground-ink: #ececee;
+  --ground-soft: rgba(236, 236, 238, 0.78);
+  --ground-muted: rgba(236, 236, 238, 0.55);
+}
+
+/* Task rows are the one transparent-bodied card (a 4% importance tint laid
+   straight on the page). On the default paper that tint IS the card body; on
+   an alternate ground the ground would show through the row instead — so the
+   same tint is laid over paper, matching the surface the wide table's
+   container already provides. */
+:root[data-bg="gray"] .task-table-row {
+  background: color-mix(in srgb, var(--importance-color) 4%, var(--surface));
+}
+
 * { box-sizing: border-box; }
 
 ::selection {
@@ -555,12 +612,12 @@ select {
   font-weight: 650;
   line-height: 1.05;
   letter-spacing: -0.03em;
-  color: var(--ink);
+  color: var(--ground-ink);
 }
 
 .page-header p {
   margin: 0;
-  color: var(--muted);
+  color: var(--ground-muted);
   font-size: 0.8125rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -593,7 +650,8 @@ select {
 }
 /* 36px, not the icon-button default 40 — these flank a title block and the
    design sizes them to the title's own rhythm. */
-.date-nav-button { flex: none; min-width: 36px; min-height: 36px; }
+.date-nav-button { flex: none; min-width: 36px; min-height: 36px; color: var(--ground-muted); }
+@media (hover: hover) { .date-nav-button:hover { color: var(--ground-ink); } }
 /* The chevron kicks along its travel direction on hover/press — feedback
    lives in the icon, so the row itself holds still. */
 .date-nav-button svg { transition: transform 0.16s var(--ease-in-out); }
@@ -610,7 +668,7 @@ select {
   gap: 1px;
   justify-items: start;
   padding: 6px 12px;
-  color: var(--ink);
+  color: var(--ground-ink);
   text-align: left;
   background: transparent;
   border: 0;
@@ -629,7 +687,7 @@ select {
 .dt-sizer > span { grid-area: 1 / 1; white-space: nowrap; }
 
 .dt-sub {
-  color: var(--muted);
+  color: var(--ground-muted);
   font-size: 0.8125rem;
   font-weight: 600;
   white-space: nowrap;
@@ -638,7 +696,7 @@ select {
 }
 /* At home the date line quietly confirms it in the accent (2.1.29's cue);
    away, the block is plain and the tooltip names the way back. */
-.today-title-button.active .dt-sub { color: var(--primary-dark); }
+.today-title-button.active .dt-sub { color: var(--ground-accent-dark); }
 
 /* Directionally rolling label (used by the capsule and the Today h1): the
    outgoing text slides along the travel direction while the incoming text
@@ -1995,7 +2053,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .settings-group__label {
   margin: 0 0 8px;
   padding-inline: 2px;
-  color: var(--muted);
+  color: var(--ground-muted);
   font-size: 0.6875rem;
   font-weight: 750;
   letter-spacing: 0.09em;
@@ -2032,13 +2090,13 @@ button.project-row.active { color: var(--chip-accent-dark); }
   align-items: flex-start;
   gap: 10px;
   margin: 32px 2px 0;
-  color: var(--muted);
+  color: var(--ground-muted);
   font-size: 0.8125rem;
   line-height: 1.55;
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: 0.18s;
 }
-.settings-footnote svg { flex: none; margin-top: 1px; color: var(--primary); }
+.settings-footnote svg { flex: none; margin-top: 1px; color: var(--ground-accent); }
 
 /* File picker */
 .file-picker { position: relative; width: fit-content; }
@@ -2202,12 +2260,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .archived-panel { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
 .archived-toggle {
   display: flex; width: 100%; align-items: center; gap: 8px; min-height: 42px; padding: 9px 11px;
-  color: var(--ink-soft); font-weight: 600; text-align: left; background: transparent; border: 0; border-radius: var(--r-md);
+  color: var(--ground-soft); font-weight: 600; text-align: left; background: transparent; border: 0; border-radius: var(--r-md);
   box-shadow: none; transition: background var(--t) var(--ease), color var(--t) var(--ease);
 }
 .archived-toggle > span:first-of-type { flex: 1; }
-.archived-toggle svg { color: var(--muted); }
-@media (hover: hover) { .archived-toggle:hover { background: var(--wash); color: var(--ink); } }
+.archived-toggle svg { color: var(--ground-muted); }
+@media (hover: hover) { .archived-toggle:hover { background: var(--wash); color: var(--ground-ink); } }
 .archived-toggle__count { min-width: 22px; padding: 1px 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; text-align: center; background: var(--surface-3); border-radius: var(--r-xs); }
 .archived-toggle__chevron { transition: transform 0.22s var(--ease-in-out); }
 .archived-panel.is-open .archived-toggle__chevron { transform: rotate(180deg); }
@@ -2536,7 +2594,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* ---- Month view ---- */
 .cal-month { display: grid; gap: 6px; }
 .cal-month__head, .cal-month__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
-.cal-month__head span { padding: 2px 0; color: var(--muted); font-size: 0.625rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.06em; }
+.cal-month__head span { padding: 2px 0; color: var(--ground-muted); font-size: 0.625rem; font-weight: 700; text-align: center; text-transform: uppercase; letter-spacing: 0.06em; }
 .cal-cell {
   position: relative; display: block; min-height: 66px; padding: 7px 8px; text-align: left; border-radius: var(--r-md);
 }
@@ -2823,7 +2881,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
    visibly reset. */
 :root.theme-switching *,
 :root.theme-switching *::before,
-:root.theme-switching *::after {
+:root.theme-switching *::after,
+:root.bg-switching *,
+:root.bg-switching *::before,
+:root.bg-switching *::after {
   transition: none !important;
 }
 
@@ -2841,10 +2902,46 @@ button.project-row.active { color: var(--chip-accent-dark); }
 ::view-transition-group(seg-hero),
 ::view-transition-group(seg-meters),
 ::view-transition-group(seg-language),
+::view-transition-group(seg-bg),
 ::view-transition-group(seg-cal-view),
 ::view-transition-group(seg-cal-metric) {
   animation-duration: 0.2s;
   animation-timing-function: var(--ease-in-out);
+}
+
+/* =========================================================================
+   Ground switch — View Transition radial pour
+   --------------------------------------------------------------------------
+   The ground is a material change with a place it comes from: the toggle the
+   user just pressed. background.ts hands that button's centre and the radius
+   to the farthest viewport corner over as --bg-vt-* and picks a direction
+   class. Leaving the default, the old frame holds still underneath while
+   the new ground is clipped to a circle that pours out of the button; going
+   back, the stacking flips and the old ground drains into the button,
+   uncovering the paper already in place beneath. Same journey both ways —
+   in from the toggle, back out through the toggle — on the app's decelerate
+   curve, so the colour always settles (into place, or into its drawer)
+   rather than snapping. Cards and text are identical in both frames, so the
+   circle's edge only ever shows where ground shows: the new ground visibly
+   slides *under* the paperwork.
+   ========================================================================= */
+:root.bg-switching--in::view-transition-old(root) { animation: none; }
+:root.bg-switching--in::view-transition-new(root) {
+  animation: ground-pour 0.56s var(--ease-out) both;
+}
+:root.bg-switching--out::view-transition-new(root) { animation: none; }
+:root.bg-switching--out::view-transition-old(root) {
+  z-index: 1;
+  animation: ground-drain 0.5s var(--ease-out) both;
+}
+
+@keyframes ground-pour {
+  from { clip-path: circle(0px at var(--bg-vt-x, 50%) var(--bg-vt-y, 50%)); }
+  to { clip-path: circle(var(--bg-vt-r, 120vmax) at var(--bg-vt-x, 50%) var(--bg-vt-y, 50%)); }
+}
+@keyframes ground-drain {
+  from { clip-path: circle(var(--bg-vt-r, 120vmax) at var(--bg-vt-x, 50%) var(--bg-vt-y, 50%)); }
+  to { clip-path: circle(0px at var(--bg-vt-x, 50%) var(--bg-vt-y, 50%)); }
 }
 
 /* =========================================================================

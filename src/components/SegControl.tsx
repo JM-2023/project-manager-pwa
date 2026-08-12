@@ -10,7 +10,9 @@ export interface SegOption<T extends string> {
 interface SegControlProps<T extends string> {
   options: Array<SegOption<T>>;
   value: T;
-  onChange: (id: T) => void;
+  /** The pressed button rides along for handlers that anchor an effect to it
+      (the ground toggle's radial reveal starts from this element). */
+  onChange: (id: T, origin?: HTMLButtonElement) => void;
   ariaLabel: string;
   /**
    * Unique view-transition-name for the thumb. Controls whose change runs
@@ -50,7 +52,7 @@ export function SegControl<T extends string>({ options, value, onChange, ariaLab
           lang={option.lang}
           className={value === option.id ? "active" : ""}
           aria-pressed={value === option.id}
-          onClick={() => onChange(option.id)}
+          onClick={(event) => onChange(option.id, event.currentTarget)}
           /* Named too, so each label is captured as its own (static) VT group
              painted after the thumb's — otherwise the thumb group renders on
              top of the root snapshot and covers the text until the morph

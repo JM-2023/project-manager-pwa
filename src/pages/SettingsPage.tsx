@@ -1,5 +1,6 @@
 import { KeyRound, LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
 import { useState } from "react";
+import { BackgroundToggle } from "../components/BackgroundToggle";
 import { BackupControls } from "../components/BackupControls";
 import { ChangePasscode } from "../components/ChangePasscode";
 import { ExportButton } from "../components/ExportButton";
@@ -198,6 +199,13 @@ export function SettingsPage({
               <span>{m.theme.label}</span>
               <ThemeToggle />
             </div>
+          </div>
+          <div className="settings-card__section">
+            <div className="settings-row">
+              <span>{m.settings.background}</span>
+              <BackgroundToggle />
+            </div>
+            <p className="settings-hint">{m.settings.backgroundHint}</p>
           </div>
           <div className="settings-card__section">
             <div className="settings-row">

@@ -1,6 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
+import { initBackground } from "./lib/background";
 import { I18nProvider } from "./lib/i18n";
 import { initMeterStyle } from "./lib/meterStyle";
 import "./styles/app.css";
@@ -29,9 +30,10 @@ window.addEventListener("vite:preloadError", (event) => {
   window.location.reload();
 });
 
-// Re-assert the meter material in case the boot script was skipped (e.g. a
-// stale service-worker HTML without it).
+// Re-assert the meter material and ground in case the boot script was
+// skipped (e.g. a stale service-worker HTML without it).
 initMeterStyle();
+initBackground();
 
 // The ink reveal is a one-time welcome, not a reload animation. Persist the
 // marker before starting so a refresh during the reveal cannot replay it. If

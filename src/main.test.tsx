@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   createRoot: vi.fn(),
+  initBackground: vi.fn(),
   initMeterStyle: vi.fn(),
   render: vi.fn()
 }));
@@ -10,6 +11,7 @@ vi.mock("react-dom/client", () => ({
   default: { createRoot: mocks.createRoot }
 }));
 vi.mock("./App", () => ({ App: () => null }));
+vi.mock("./lib/background", () => ({ initBackground: mocks.initBackground }));
 vi.mock("./lib/i18n", () => ({ I18nProvider: ({ children }: { children: unknown }) => children }));
 vi.mock("./lib/meterStyle", () => ({ initMeterStyle: mocks.initMeterStyle }));
 

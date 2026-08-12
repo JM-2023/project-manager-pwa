@@ -526,36 +526,36 @@ button.project-row:focus-visible {
 .cache-section__head:focus-visible,
 .task-action-menu button:focus-visible { background: var(--wash-strong); }
 
-/* The chevron is a data URI, so it can't read --muted — the two themes carry
-   their own baked stroke. Keep these in step with --muted if it moves. */
+/* The chevron is a data URI, so it can't read --muted — every palette bakes
+   its own stroke. Keep these in step with --muted if it moves.
+
+   These MUST stay custom properties rather than per-palette `select` rules.
+   Selects that suppress the arrow do it with `background-image: none` on a
+   two-class selector (.tt-cell > .task-table-importance, the importance
+   digit); a `:root[data-theme="dark"] select` style rule scores higher than
+   that and stamps the chevron back on top of the digit. A token is set on
+   :root and read by the one `select` rule, so the palette can change without
+   ever entering that specificity race. */
+:root { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%237C776E' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+}
+:root[data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+/* The gray ground's own --muted, baked the same way. Ordered after the paper
+   pair, with the dark variants qualified so they outrank the light one. */
+:root[data-bg="gray"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2375787F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) {
+  :root[data-bg="gray"]:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+}
+:root[data-bg="gray"][data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+
 select {
   appearance: none;
   -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%237C776E' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
+  background-image: var(--select-chevron);
   background-repeat: no-repeat;
   background-position: right 11px center;
   padding-right: 32px !important;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
-  }
-}
-:root[data-theme="dark"] select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
-}
-/* The gray ground's own --muted, baked the same way. Ordered after the paper
-   pair and qualified so the dark variants outrank the light one. */
-:root[data-bg="gray"] select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2375787F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
-}
-@media (prefers-color-scheme: dark) {
-  :root[data-bg="gray"]:not([data-theme="light"]) select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
-  }
-}
-:root[data-bg="gray"][data-theme="dark"] select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E");
 }
 
 /* =========================================================================

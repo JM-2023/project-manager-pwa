@@ -1371,7 +1371,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
   text-shadow: var(--hero-text-shadow);
 }
 
-.summary-stat span {
+/* Direct children, meter excluded, on purpose: the figure inside the strong is
+   a RollDigits span too, and a descendant selector would paint all three
+   figures as labels — muted, 11px, tracked out — instead of the 1.5rem ink
+   numerals below. The meter is the cell's other direct-child span. */
+.summary-stat > span:not(.mini-bar) {
   overflow: hidden;
   color: var(--muted);
   font-size: 0.6875rem;
@@ -1388,9 +1392,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   font-variant-numeric: tabular-nums;
   transition: color var(--t) var(--ease);
 }
-/* The meter is not a label — reset the strip's ellipsis/nowrap for it. The
-   grid's 8px gap already spaces it, so drop the bar's own top margin. */
-.summary-stat .mini-bar { overflow: hidden; white-space: normal; margin-top: 0; }
+/* The grid's 8px gap already spaces the meter, so drop the bar's own top margin. */
+.summary-stat .mini-bar { margin-top: 0; }
 
 /* Mini progress bar — flat track, flat tone fill. The fill width still
    animates on data change; the entrance sweep lives with the calendar. */
@@ -1429,7 +1432,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .summary-stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
   /* Half-width cells can't hold "Core task progress" on one tracked line, and
      an ellipsis on a three-word label is worse than a second line. */
-  .summary-stat span { white-space: normal; text-overflow: clip; line-height: 1.3; }
+  .summary-stat > span:not(.mini-bar) { white-space: normal; text-overflow: clip; line-height: 1.3; }
 }
 
 /* =========================================================================

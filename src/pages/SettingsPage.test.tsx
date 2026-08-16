@@ -80,7 +80,7 @@ describe("SettingsPage sync status", () => {
   it("renders truthful localized offline and syncing headlines", () => {
     expect(renderSettings({ online: false, syncStatus: "offline" })).toContain('<h2>Offline</h2>');
     expect(renderSettings({ syncStatus: "syncing" })).toContain('<h2>Syncing</h2>');
-    expect(renderSettings({ syncStatus: "queued" })).toContain('<h2>Sync scheduled</h2>');
+    expect(renderSettings({ syncStatus: "queued" })).toContain('<h2>Sync Scheduled</h2>');
 
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => (key === "pm:lang" ? "zh" : null),
@@ -99,7 +99,7 @@ describe("SettingsPage sync status", () => {
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
-    expect(html).toContain('<h2>1 sync conflict</h2>');
+    expect(html).toContain('<h2>1 Sync Conflict</h2>');
     expect(html).toContain('task · task-1 · version_conflict');
   });
 });

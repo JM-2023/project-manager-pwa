@@ -644,12 +644,6 @@ select {
   gap: 16px;
   margin: 0 0 24px;
 }
-/* Today's title is a two-line block, so its count hangs from the bottom edge
-   rather than sitting on the title's baseline, and lifts 6px to clear the
-   second line. Every other page is a single-line title on a shared baseline. */
-.today-page-header { align-items: flex-end; }
-.today-page-header > p { margin-bottom: 6px; }
-
 .page-header h1 {
   margin: 0;
   font-size: 1.625rem;
@@ -667,6 +661,14 @@ select {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
+
+/* Today's title is a two-line block, so its count hangs from the bottom edge
+   rather than sitting on the title's baseline, and lifts 6px to clear the
+   second line. Every other page is a single-line title on a shared baseline.
+   Must stay below the .page-header p reset: same specificity, so from above
+   the reset's margin: 0 would win the cascade and drop the lift. */
+.today-page-header { align-items: flex-end; }
+.today-page-header > p { margin-bottom: 6px; }
 
 /* Settings header carries a theme segmented control on the right; let the
    title stack and allow the row to wrap onto two lines on narrow phones. */
@@ -1306,7 +1308,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
   justify-content: space-between;
   gap: 16px;
   min-height: 132px;
-  padding: 24px 26px;
+  /* Horizontal inset matches .summary-stat, so the hero label and the stat
+     labels below it share one left edge. */
+  padding: 24px 20px;
   isolation: isolate;
   color: var(--ink);
 }
@@ -1320,14 +1324,20 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 .summary-stat {
   display: grid;
+  /* Cells share the parent's row tracks so the figures sit on one line even
+     when a folded half-width label wraps to two — the wrapping cell's label
+     track stretches for all of them. No-ops where subgrid is unsupported,
+     falling back to per-cell rows. */
+  grid-template-rows: subgrid;
+  grid-row: span 3;
   gap: 8px;
   align-content: start;
   padding: 16px 20px;
   border-right: 1px solid var(--line);
 }
 .summary-stat:last-child { border-right: 0; }
-/* Only the meter cell centres — the other two hang from the top so their
-   figures sit on one line with it. */
+/* Subgrid fallback only: the meter cell centres, the other two hang from the
+   top so their figures sit on one line with it while labels stay single-line. */
 .summary-stat--meter { align-content: normal; }
 .summary-stat.is-blocked strong { color: var(--danger); }
 
@@ -1652,6 +1662,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
   .task-table-header.with-date { grid-template-columns: 66px 96px minmax(110px, 1.4fr) 104px 94px minmax(92px, 1fr) minmax(88px, 0.9fr) minmax(92px, 1fr) minmax(108px, 1.2fr); }
   /* Labels stay inside their own cell at any width: long ones ("Today's
      output") ellipsize instead of running into the next column. */
+  /* 9px horizontal padding is the table's shared text inset — the cell
+     controls below use the same 9px, so each header sits flush over its
+     column's text. */
   .task-table-header span { min-height: 36px; min-width: 0; padding: 11px 9px; border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .task-table-header span:last-child { border-right: 0; }
 
@@ -1711,12 +1724,14 @@ input:focus, select:focus, textarea:focus { outline: none; }
     background-position: right 9px center;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .tt-date > input[type="date"] { padding-left: 6px; padding-right: 6px; font-size: 0.8125rem; color: var(--ink-soft); }
+  /* Left inset joins the table's 9px text line; the right stays at 6px so the
+     native picker icon keeps its room in the narrow column. */
+  .tt-date > input[type="date"] { padding-left: 9px; padding-right: 6px; font-size: 0.8125rem; color: var(--ink-soft); }
   .tt-date > input[type="date"]::-webkit-calendar-picker-indicator { margin-left: 1px; padding: 2px 0; }
   .tt-cell > select:focus, .tt-cell > input:focus, .tt-cell > textarea:focus, .task-table-note-cell textarea:focus {
     position: relative; z-index: 1; background-color: var(--field-bg); border-radius: var(--r-xs); box-shadow: none;
   }
-  .task-table-progress { width: 100%; min-height: 54px; padding: 9px 12px; }
+  .task-table-progress { width: 100%; min-height: 54px; padding: 9px; }
   .tt-notes .task-table-note-cell { width: 100%; grid-template-columns: minmax(0, 1fr) 46px; gap: 0; overflow: visible; }
   .tt-notes .task-table-note-cell .task-menu { padding-right: 3px; }
   /* The trigger is a bare glyph inside the table — no chip, no rim. */
@@ -1804,7 +1819,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .project-create { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; }
 /* Slightly shorter than the app's standard field: this one sits at the head of
    a column of 46px chips, and 42px keeps the composer from out-weighing them. */
-.project-create input { min-height: 42px; padding: 10px 12px; }
+/* 15px + 1px border matches the project rows' 16px text inset below. */
+.project-create input { min-height: 42px; padding: 10px 15px; }
 
 /* The project chips are the app's second glass exception (see header): the
    original liquid-glass material. Radii ride the new scale — rest --r-md,
@@ -1902,11 +1918,12 @@ button.project-row {
   display: flex;
   width: 100%;
   /* No wrapper chip on these two, so they carry the wrapper's inset as well
-     as the inner button's — same painted height as a project row. */
+     as the inner button's — same painted height as a project row. With no
+     menu column on the right, the left inset is mirrored on both sides. */
   min-height: 56px;
   align-items: center;
   gap: 10px;
-  padding: 13px 17px 20px 15px;
+  padding: 13px 15px 20px 15px;
   color: var(--ink);
   font-size: 0.875rem;
   text-align: left;
@@ -1921,7 +1938,7 @@ button.project-row {
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
   transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.16s var(--ease-out);
 }
-button.project-row .row-progress { right: 13px; left: 11px; bottom: 10px; }
+button.project-row .row-progress { right: 11px; left: 11px; bottom: 10px; }
 @media (hover: hover) {
   button.project-row:hover { color: var(--chip-accent-dark); background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
 }
@@ -2056,7 +2073,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
   flex-wrap: wrap;
   align-items: center;
   gap: 12px 20px;
-  padding: 22px 22px 20px;
+  /* 20px horizontal inset throughout the hero — one left line with the
+     .settings-card__section rows in the card below. */
+  padding: 22px 20px 20px;
 }
 .settings-hero__lead { flex: 1 1 300px; min-width: 0; display: grid; gap: 8px; justify-items: start; }
 .settings-hero__headline { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -2081,7 +2100,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   display: flex;
   flex-wrap: wrap;
   gap: 12px 32px;
-  padding: 16px 22px;
+  padding: 16px 20px;
   border-top: 1px solid var(--line);
 }
 .settings-stat { display: grid; gap: 2px; }
@@ -2305,8 +2324,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
    Archived projects panel
    ========================================================================= */
 .archived-panel { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+/* 16px inset keeps the label on the same left line as the project rows. */
 .archived-toggle {
-  display: flex; width: 100%; align-items: center; gap: 8px; min-height: 42px; padding: 9px 11px;
+  display: flex; width: 100%; align-items: center; gap: 8px; min-height: 42px; padding: 9px 16px;
   color: var(--ink-soft); font-weight: 600; text-align: left; background: transparent; border: 0; border-radius: var(--r-md);
   box-shadow: none; transition: background var(--t) var(--ease), color var(--t) var(--ease);
 }
@@ -2887,8 +2907,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 360px; }
 
-  .settings-hero__status { padding: 22px 22px 20px; }
-  .settings-hero__stats { padding: 16px 22px; }
+  .settings-hero__status { padding: 22px 20px 20px; }
+  .settings-hero__stats { padding: 16px 20px; }
   .settings-card__section { padding: 16px 20px; }
 }
 
@@ -2896,12 +2916,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .page-content { padding-right: 11px; padding-left: 11px; }
   .task-controls, .filter-grid { grid-template-columns: 1fr; }
   .progress-summary { margin-bottom: 20px; }
-  .summary-hero { min-height: 112px; padding: 18px 18px 20px; }
+  .summary-hero { min-height: 112px; padding: 18px 15px 20px; }
   .summary-hero__value { font-size: 2.75rem; }
   .summary-stat { padding: 13px 15px; }
   .summary-stat strong { font-size: 1.3rem; }
-  .settings-hero__status { padding: 18px 16px; }
-  .settings-hero__stats { padding: 14px 16px; gap: 10px 24px; }
+  .settings-hero__status { padding: 18px 20px; }
+  .settings-hero__stats { padding: 14px 20px; gap: 10px 24px; }
   .cal-summary { grid-template-columns: 1fr; gap: 14px; }
   .cal-week { grid-auto-flow: column; grid-auto-columns: minmax(132px, 1fr); grid-template-columns: none; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 8px; }
   .cal-week__card { scroll-snap-align: start; }
@@ -2912,6 +2932,13 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .cal-summary { grid-template-columns: 1fr; gap: 14px; }
   .cal-summary__stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .cal-insights__pulse, .cal-year__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Four-up chips need ~70px of cell before the tracked BLOCKED label starts
+   crossing its chip border; under that the strip folds to two columns.
+   (After the 640px block above — same specificity, cascade decides.) */
+@media (max-width: 430px) {
+  .cal-summary__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* =========================================================================

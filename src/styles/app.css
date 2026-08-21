@@ -2034,135 +2034,172 @@ button.project-row.active { color: var(--chip-accent-dark); }
 /* =========================================================================
    Settings page — one question leads: "is my data safe?"
    --------------------------------------------------------------------------
-   The data-health hero is the page's single lead surface (the only shadow-sm
-   here): a state-coloured dot + headline verdict, the last-sync/last-export
-   evidence under it, and the sync action beside it; the accumulated stats sit
-   below a full-bleed hairline as one quiet typographic strip — figures, not
-   a grid of equal cards. Everything else is three grouped surfaces (Data /
-   Preferences / Account) at shadow-xs, each an unpadded card whose sections
-   carry their own padding so the dividers between them run edge to edge, and
-   an unframed install footnote at the very bottom. Spacing is relational:
-   4/8 inside a fact, 16 around a section, 32 between regions. The only
-   nested surface is the import-mapping panel — a genuinely independent
-   embedded object. Radii stay on the card that owns the border (--r-lg);
-   rows inside are straight-edged.
+   A flat document, not a stack of cards: everything sits straight on the
+   page ground and structure comes from type plus one hairline per region —
+   the stats strip's closing rule, then a rule under each region label. The
+   sync verdict IS the page title (state-coloured dot + h1) with the
+   last-sync/last-export evidence hanging under it and the sync action
+   beside it (below it on phones); the accumulated stats are a quiet
+   typographic strip, 3-up on phones, one row on desktop. Buttons stay the
+   shared Tier-A glass, switchers the shared .cal-seg (208px column on
+   desktop rows, full-width on phones). Spacing is relational: 4/8 inside a
+   fact, 12-14 label→control, 26-32 between items, 56/72 between regions
+   (phone/desktop). The import-mapping panel keeps its own page-level float —
+   a genuinely independent embedded object, the page's only surface.
    ========================================================================= */
-.settings-hero {
-  margin-bottom: 32px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-sm);
+.settings-eyebrow {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.6875rem;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  animation: fade-up var(--t-slow) var(--ease) both;
+}
+
+.settings-head {
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: 0.02s;
 }
 /* "Synced" is a COMPLETION state, so it takes the completion green, not the
    accent — the accent is brick-rose and would read as a warning here. The
    accent is right for "syncing", which is work in progress. */
-.settings-hero[data-state="ok"] { --hero-state: var(--prog-done); }
-.settings-hero[data-state="syncing"] { --hero-state: var(--primary); }
-.settings-hero[data-state="offline"],
-.settings-hero[data-state="loading"],
-.settings-hero[data-state="queued"],
-.settings-hero[data-state="pending"] { --hero-state: var(--warning); }
-.settings-hero[data-state="error"],
-.settings-hero[data-state="conflict"] { --hero-state: var(--danger); }
+.settings-head[data-state="ok"] { --hero-state: var(--prog-done); }
+.settings-head[data-state="syncing"] { --hero-state: var(--primary); }
+.settings-head[data-state="offline"],
+.settings-head[data-state="loading"],
+.settings-head[data-state="queued"],
+.settings-head[data-state="pending"] { --hero-state: var(--warning); }
+.settings-head[data-state="error"],
+.settings-head[data-state="conflict"] { --hero-state: var(--danger); }
 
-.settings-hero__status {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 20px;
-  /* 20px horizontal inset throughout the hero — one left line with the
-     .settings-card__section rows in the card below. */
-  padding: 22px 20px 20px;
-}
-.settings-hero__lead { flex: 1 1 300px; min-width: 0; display: grid; gap: 8px; justify-items: start; }
-.settings-hero__headline { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.settings-hero__dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--hero-state, var(--primary)); }
-.settings-hero__headline h2 {
+.settings-head__row { display: flex; flex-direction: column; align-items: flex-start; gap: 20px; }
+.settings-head__lead { display: grid; gap: 10px; justify-items: start; min-width: 0; }
+.settings-head__headline { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.settings-head__dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--hero-state, var(--primary)); }
+.settings-head__headline h1 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: 650;
+  font-size: 1.625rem;
+  font-weight: 640;
   line-height: 1.15;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
-.settings-hero__meta { margin: 0; color: var(--muted); font-size: 0.8125rem; font-weight: 550; font-variant-numeric: tabular-nums; }
-.settings-hero__detail { margin: 0; color: var(--ink-soft); font-size: 0.8125rem; font-weight: 600; overflow-wrap: anywhere; }
-.settings-hero__detail--error { color: var(--danger); }
-.settings-hero__conflicts { display: grid; gap: 4px; justify-items: start; }
-.settings-hero__conflicts small { color: var(--danger); font-size: 0.8rem; font-weight: 600; overflow-wrap: anywhere; }
-
-/* The stats strip: bare figures on the hero surface, separated from the
-   status block by a straight full-bleed hairline. */
-.settings-hero__stats {
+/* Evidence lines (sync error, offline note, pending count) read as quiet
+   prose — the dot and headline already carry the state colour, so only the
+   bold lead-in word steps up to ink. */
+.settings-head__detail { margin: 0; color: var(--ink-soft); font-size: 0.8125rem; font-weight: 500; line-height: 1.6; overflow-wrap: anywhere; }
+.settings-head__detail strong { margin-right: 0.75em; color: var(--ink); font-weight: 750; }
+.settings-head__conflicts { display: grid; gap: 4px; justify-items: start; }
+.settings-head__conflicts small { color: var(--danger); font-size: 0.8rem; font-weight: 600; overflow-wrap: anywhere; }
+/* Two stamps: stacked lines on phones, one dot-joined line on desktop. */
+.settings-head__meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px 32px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--line);
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 550;
+  line-height: 1.55;
+  font-variant-numeric: tabular-nums;
 }
-.settings-stat { display: grid; gap: 2px; }
-.settings-stat strong { font-size: 1.375rem; font-weight: 650; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-.settings-stat span { color: var(--muted); font-size: 0.6875rem; font-weight: 650; letter-spacing: 0.04em; }
 
-/* Region = an overline label sitting tight (8px) over its one surface;
-   regions keep each other at arm's length (32px). Entrances follow the
-   document order: hero, then each group, then the footnote (nth-child
-   counts the page-header, hero and groups inside .settings-page). */
-.settings-group { animation: fade-up var(--t-slow) var(--ease) both; }
-.settings-group + .settings-group { margin-top: 32px; }
+/* The stats strip: bare figures on the page ground, closed by the page's
+   first hairline. */
+.settings-head__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px 12px;
+  margin-top: 28px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--line-strong);
+}
+.settings-stat { display: grid; gap: 3px; }
+.settings-stat strong { font-size: 1.25rem; font-weight: 650; line-height: 1.1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.settings-stat span { color: var(--muted); font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Region = an overline label over its one rule, then flat items; regions
+   keep each other at arm's length (56/72). Entrances follow the document
+   order: head, then each group, then the footnote (nth-child counts the
+   eyebrow, head and groups inside .settings-page). */
+.settings-group { margin-top: 56px; animation: fade-up var(--t-slow) var(--ease) both; }
 .settings-group:nth-child(3) { animation-delay: 0.06s; }
 .settings-group:nth-child(4) { animation-delay: 0.1s; }
 .settings-group:nth-child(5) { animation-delay: 0.14s; }
 .settings-group__label {
   margin: 0 0 8px;
-  padding-inline: 2px;
   color: var(--muted);
   font-size: 0.6875rem;
   font-weight: 750;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
 }
-
-/* One surface per region. The card itself is unpadded; sections pad
-   themselves so the dividers between them are straight lines running edge
-   to edge, and the border + radius live together on the card. */
-.settings-card {
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  box-shadow: var(--shadow-xs);
+.settings-group__body {
+  display: grid;
+  gap: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line-strong);
 }
-.settings-card__section { padding: 16px 20px; }
-.settings-card__section + .settings-card__section { border-top: 1px solid var(--line); }
-.settings-card .export-actions { margin-bottom: 0; }
-/* The import-mapping panel is the one legitimate nested surface — an
-   embedded object, not chrome. In the card it drops its page-level float
-   (no shadow, tint instead) and takes the next radius stop down. */
-.settings-card .mapping-panel { margin: 0; background: var(--surface-2); border-radius: var(--r-md); box-shadow: none; }
+.settings-group__body--appearance { gap: 26px; }
 
-.settings-hint { margin: 10px 0 0; font-size: 0.8125rem; line-height: 1.55; color: var(--muted); }
+.settings-item { min-width: 0; }
+.settings-item__text { min-width: 0; }
+.settings-item__label { display: block; font-size: 0.9375rem; font-weight: 650; line-height: 1.45; color: var(--ink); }
+.settings-item__label--wrap { overflow-wrap: anywhere; }
+.settings-item__sub { margin: 4px 0 0; color: var(--muted); font-size: 0.8125rem; font-weight: 500; line-height: 1.6; }
 
-/* A label + control pair inside a settings section (e.g. the hero-animation
-   segmented toggle). Wraps so the control drops below the label when narrow. */
-.settings-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 14px; }
-.settings-row > span { font-size: 0.9375rem; font-weight: 650; color: var(--ink); }
+.settings-hint { max-width: 62ch; margin: 4px 0 0; color: var(--muted); font-size: 0.8125rem; font-weight: 500; line-height: 1.6; text-wrap: pretty; }
+.settings-item--row .settings-hint { max-width: 52ch; }
+
+/* A label (+ optional hint) with a segmented switcher: stacked with a
+   full-width switcher on phones; the desktop split lives in the 640px
+   block below. */
+.settings-item--row { display: grid; gap: 12px; }
+
+/* Button rows sit 14px under their title/hint and keep the shared
+   .export-actions swell clearances. */
+.settings-item .export-actions { margin: 14px 0 0; }
 
 /* Install note — a footnote, not a region: no surface, just quiet text. */
 .settings-footnote {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  margin: 32px 2px 0;
+  margin: 56px 0 0;
   color: var(--muted);
   font-size: 0.8125rem;
-  line-height: 1.55;
+  font-weight: 500;
+  line-height: 1.6;
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: 0.18s;
 }
-.settings-footnote svg { flex: none; margin-top: 1px; color: var(--primary); }
+.settings-footnote svg { flex: none; margin-top: 2px; }
+
+/* Desktop arrangement (the 760px board): headline and sync action on one
+   flex-end row, stats as a single strip, appearance rows split label-left /
+   208px switcher-right. 640 rather than the app's 900 rail point — the
+   side-by-side shapes want width, not the rail. */
+@media (min-width: 640px) {
+  .settings-eyebrow { margin-bottom: 24px; }
+  .settings-head__row { flex-direction: row; align-items: flex-end; justify-content: space-between; gap: 24px 32px; }
+  .settings-head__row > .secondary-button { flex: none; }
+  .settings-head__lead { gap: 12px; }
+  .settings-head__headline { gap: 14px; }
+  .settings-head__headline h1 { font-size: 2.125rem; line-height: 1.1; }
+  .settings-head__meta { flex-direction: row; flex-wrap: wrap; }
+  .settings-head__meta span + span::before { content: "·"; margin: 0 0.9em; }
+  .settings-head__stats { display: flex; flex-wrap: wrap; gap: 14px 44px; margin-top: 36px; padding-bottom: 30px; }
+  .settings-stat strong { font-size: 1.375rem; }
+  .settings-group { margin-top: 72px; }
+  .settings-group__body { gap: 32px; padding-top: 22px; }
+  .settings-group__body--appearance { gap: 28px; }
+  .settings-item__label { font-size: 1rem; }
+  .settings-item--row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
+  .settings-item--row .cal-seg { flex: none; width: 208px; }
+  .settings-footnote { margin-top: 72px; }
+}
 
 /* File picker */
 .file-picker { position: relative; width: fit-content; }
@@ -2906,10 +2943,6 @@ button.project-row.active { color: var(--chip-accent-dark); }
 
   .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 360px; }
-
-  .settings-hero__status { padding: 22px 20px 20px; }
-  .settings-hero__stats { padding: 16px 20px; }
-  .settings-card__section { padding: 16px 20px; }
 }
 
 @media (max-width: 430px) {
@@ -2920,8 +2953,6 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .summary-hero__value { font-size: 2.75rem; }
   .summary-stat { padding: 13px 15px; }
   .summary-stat strong { font-size: 1.3rem; }
-  .settings-hero__status { padding: 18px 20px; }
-  .settings-hero__stats { padding: 14px 20px; gap: 10px 24px; }
   .cal-summary { grid-template-columns: 1fr; gap: 14px; }
   .cal-week { grid-auto-flow: column; grid-auto-columns: minmax(132px, 1fr); grid-template-columns: none; overflow-x: auto; scroll-snap-type: x proximity; padding-bottom: 8px; }
   .cal-week__card { scroll-snap-align: start; }

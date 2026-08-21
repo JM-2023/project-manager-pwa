@@ -78,17 +78,17 @@ describe("resolveSettingsHeroState", () => {
 
 describe("SettingsPage sync status", () => {
   it("renders truthful localized offline and syncing headlines", () => {
-    expect(renderSettings({ online: false, syncStatus: "offline" })).toContain('<h2>Offline</h2>');
-    expect(renderSettings({ syncStatus: "syncing" })).toContain('<h2>Syncing</h2>');
-    expect(renderSettings({ syncStatus: "queued" })).toContain('<h2>Sync Scheduled</h2>');
+    expect(renderSettings({ online: false, syncStatus: "offline" })).toContain('<h1>Offline</h1>');
+    expect(renderSettings({ syncStatus: "syncing" })).toContain('<h1>Syncing</h1>');
+    expect(renderSettings({ syncStatus: "queued" })).toContain('<h1>Sync Scheduled</h1>');
 
     vi.stubGlobal("localStorage", {
       getItem: (key: string) => (key === "pm:lang" ? "zh" : null),
       removeItem: () => undefined,
       setItem: () => undefined
     });
-    expect(renderSettings({ syncStatus: "syncing" })).toContain('<h2>同步中</h2>');
-    expect(renderSettings({ syncStatus: "loading" })).toContain('<h2>正在检查数据状态</h2>');
+    expect(renderSettings({ syncStatus: "syncing" })).toContain('<h1>同步中</h1>');
+    expect(renderSettings({ syncStatus: "loading" })).toContain('<h1>正在检查数据状态</h1>');
   });
 
   it("exposes changing conflict messages through a stable atomic live region", () => {
@@ -99,7 +99,7 @@ describe("SettingsPage sync status", () => {
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-live="polite"');
     expect(html).toContain('aria-atomic="true"');
-    expect(html).toContain('<h2>1 Sync Conflict</h2>');
+    expect(html).toContain('<h1>1 Sync Conflict</h1>');
     expect(html).toContain('task · task-1 · version_conflict');
   });
 });

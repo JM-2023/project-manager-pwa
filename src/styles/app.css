@@ -1308,9 +1308,14 @@ input:focus, select:focus, textarea:focus { outline: none; }
   justify-content: space-between;
   gap: 16px;
   min-height: 132px;
-  /* Horizontal inset matches .summary-stat, so the hero label and the stat
-     labels below it share one left edge. */
-  padding: 24px 20px;
+  /* 26px, matched by .summary-stat below, so the hero label and the stat
+     labels share one left edge. The shared value is the hero's, not the
+     cells': a 52px figure sitting 20px off a 16px-radius card edge reads as
+     crowded into the corner, and pulling the label line left to meet the
+     small-print cells is what made it look that way. Sides run 2px wider
+     than the 24px top and bottom — horizontal space reads tighter beside
+     type this large. */
+  padding: 24px 26px;
   isolation: isolate;
   color: var(--ink);
 }
@@ -1332,7 +1337,10 @@ input:focus, select:focus, textarea:focus { outline: none; }
   grid-row: span 3;
   gap: 8px;
   align-content: start;
-  padding: 16px 20px;
+  /* Horizontal inset matches .summary-hero — one left edge for the hero
+     label and the first cell's label, and one repeating text inset across
+     the three cells. */
+  padding: 16px 26px;
   border-right: 1px solid var(--line);
 }
 .summary-stat:last-child { border-right: 0; }
@@ -2196,8 +2204,28 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .settings-group__body { gap: 32px; padding-top: 22px; }
   .settings-group__body--appearance { gap: 28px; }
   .settings-item__label { font-size: 1rem; }
-  .settings-item--row { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-  .settings-item--row .cal-seg { flex: none; width: 208px; }
+  /* The switchers share ONE grid column, so their edges line up down the
+     region and no row has to guess a width. max-content sizes that column to
+     the widest switcher's natural width — which is what keeps a 3-up
+     switcher's cells wide enough for their longest label at full padding, in
+     any language (a fixed 208px squeezed English "System", "Neutral Gray"
+     and "Liquid Glass" past their padding and pushed the labels off-centre
+     inside their cells). 208px stays the floor: Chinese labels are short
+     enough that max-content alone would pull the column in from the width
+     the design draws. */
+  .settings-group__body--appearance {
+    grid-template-columns: minmax(0, 1fr) minmax(208px, max-content);
+    gap: 28px 24px;
+  }
+  .settings-item--row { display: contents; }
+  .settings-group__body--appearance > .settings-item--row > * { align-self: start; }
+  /* A bare label beside its switcher is a pair, so the two centre on each
+     other; rows that carry a hint are a text BLOCK beside the switcher, and
+     there the block tops stay flush instead. */
+  .settings-group__body--appearance > .settings-item--row > .settings-item__label,
+  .settings-group__body--appearance > .settings-item--row > .settings-item__label + .cal-seg {
+    align-self: center;
+  }
   .settings-footnote { margin-top: 72px; }
 }
 
@@ -2455,6 +2483,11 @@ button.project-row.active { color: var(--chip-accent-dark); }
   padding: 7px 14px;
   font-size: 0.8125rem;
   font-weight: 650;
+  /* Fixed, so the control's height comes from the type scale and not from
+     which script its labels happen to be in — with `normal`, the CJK line
+     box ran 3.5px taller and the language switcher stood proud of the four
+     Latin ones stacked above it. */
+  line-height: 1.2;
   color: var(--muted);
   background: transparent;
   border: 0;

@@ -2480,7 +2480,16 @@ button.project-row.active { color: var(--chip-accent-dark); }
   position: relative;
   z-index: 1;
   min-width: 0;
-  padding: 7px 14px;
+  /* The cells are equal and the track is sized by its content, so the LONGEST
+     label always ends up with exactly this padding as its air while shorter
+     siblings float in the leftover. That makes the inline value the control's
+     minimum breathing room, not a nominal inset: at 14px the longest label in
+     each control — "System", "Month", "Done Rate" — sat flush against its
+     chip with under 0.4px to spare and read as stuffed, most visibly once the
+     thumb slid behind it. 20px is what the design already gives every label
+     in Chinese, where two-character labels leave 20.67px inside the 208px
+     column. */
+  padding: 7px 20px;
   font-size: 0.8125rem;
   font-weight: 650;
   /* Fixed, so the control's height comes from the type scale and not from

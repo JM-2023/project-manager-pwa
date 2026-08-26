@@ -131,7 +131,6 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
           onClick={rolloverUnfinished}
           disabled={unfinishedTasks.length === 0}
           aria-label={m.today.rolloverAria}
-          title={m.today.rolloverAria}
         >
           <ChevronsRight size={18} aria-hidden="true" />
           <span>{m.today.rollover}</span>

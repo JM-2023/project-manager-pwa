@@ -284,6 +284,45 @@ describe("SyncEngine.syncNow", () => {
     expect(io.saveBootstrapSnapshot).not.toHaveBeenCalled();
   });
 
+  it("tells other tabs about a pulled delta, but not about an empty one", async () => {
+    const publishSnapshotHint = vi.fn();
+    const changed: BootstrapResponse = {
+      ...bootstrapResponse([task("t9", "2026-06-30T12:00:00.000Z", 3)]),
+      syncEpoch: "epoch-1",
+      syncCursor: 10,
+      full: false
+    };
+    const empty: BootstrapResponse = { ...bootstrapResponse([]), syncEpoch: "epoch-1", syncCursor: 10, full: false };
+    const bootstrap = vi.fn(async () => changed);
+    const io = makeIO({ bootstrap, publishSnapshotHint });
+    const stateRef = { current: { ...makeState([]), syncEpoch: "epoch-1", syncCursor: 9 } };
+    const engine = new SyncEngine({ stateRef, dispatch: vi.fn(), clientId: "client", io });
+
+    await engine.syncNow();
+    expect(publishSnapshotHint).toHaveBeenCalledTimes(1);
+
+    bootstrap.mockImplementation(async () => empty);
+    await engine.syncNow();
+    expect(publishSnapshotHint).toHaveBeenCalledTimes(1);
+  });
+
+  it("adopts another tab's pulled snapshot from local storage", async () => {
+    const pulled = [task("from-other-tab", "2026-06-30T12:00:00.000Z", 4)];
+    const io = makeIO({
+      loadLocalSnapshot: vi.fn(async () => ({ ...localSnapshot(pulled), syncEpoch: "epoch-1", syncCursor: 12, lastSync: "2026-06-30T12:00:00.000Z" }))
+    });
+    const stateRef = { current: { ...makeState([]), syncEpoch: "epoch-1", syncCursor: 9 } };
+    const dispatch = vi.fn();
+    const engine = new SyncEngine({ stateRef, dispatch, clientId: "client", io });
+
+    await engine.adoptSnapshotFromStorage();
+
+    expect(io.bootstrap).not.toHaveBeenCalled();
+    expect(stateRef.current.tasks.map((row) => row.id)).toEqual(["from-other-tab"]);
+    expect(stateRef.current.syncCursor).toBe(12);
+    expect(dispatch).toHaveBeenCalledWith({ type: "hydrateLocal", payload: expect.objectContaining({ syncCursor: 12 }) });
+  });
+
   it("contains a shared in-flight rejection for every concurrent caller", async () => {
     let rejectBootstrap!: (reason: unknown) => void;
     const bootstrapPromise = new Promise<BootstrapResponse>((_resolve, reject) => {

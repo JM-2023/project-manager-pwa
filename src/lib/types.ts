@@ -15,6 +15,13 @@ export interface AuthStatusResponse {
   setupAvailable?: boolean;
 }
 
+export interface ChangesResponse {
+  changed: boolean;
+  epoch: string;
+  cursor: number;
+  serverTime: string;
+}
+
 export interface SessionResponse {
   user: UserSession;
   serverTime: string;

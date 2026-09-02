@@ -11,7 +11,8 @@ import {
   logout,
   sendMutations,
   setupPassword,
-  uploadCloudExcel
+  uploadCloudExcel,
+  waitForChanges
 } from "./lib/api";
 import { nowIso } from "./lib/dates";
 import { getOrCreateClientId, newId, newMutationId } from "./lib/ids";
@@ -45,6 +46,7 @@ import {
   isLogoutBarrierActive,
   isLogoutBarrierStale,
   logoutBarrierRetryDelay,
+  publishSnapshotHint,
   publishSyncHint,
   releaseLogoutBarrier,
   subscribeToSyncEvents,
@@ -52,6 +54,7 @@ import {
   withSyncLease
 } from "./lib/syncChannel";
 import { trace } from "./lib/syncTrace";
+import { ChangeWatcher, CHANGES_WAIT_SECONDS } from "./lib/changeWatcher";
 import type { ImportRow, NextIdea, NextProject, Project, SessionResponse, Task } from "./lib/types";
 import { CalendarPage } from "./pages/CalendarPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -183,13 +186,37 @@ export function App() {
   }, []);
   const clientId = useMemo(() => getOrCreateClientId(), []);
   const tabId = useMemo(() => crypto.randomUUID(), []);
-  const engineIO = useMemo<SyncIO>(() => ({ ...baseSyncIO, publishSyncHint: () => publishSyncHint(tabId) }), [tabId]);
+  const engineIO = useMemo<SyncIO>(
+    () => ({
+      ...baseSyncIO,
+      publishSyncHint: () => publishSyncHint(tabId),
+      publishSnapshotHint: () => publishSnapshotHint(tabId)
+    }),
+    [tabId]
+  );
   const engineRef = useRef<SyncEngine | null>(null);
   if (!engineRef.current) {
     engineRef.current = new SyncEngine({ stateRef, dispatch, clientId, io: engineIO });
   }
   const engine = engineRef.current;
   const { syncNow, forceFullResync, flushPendingWithKeepalive } = engine;
+  // One long-poll per visible signed-in tab: the server answers the moment
+  // another device's write moves the cursor, and the tab pulls right away.
+  const watcherRef = useRef<ChangeWatcher | null>(null);
+  if (!watcherRef.current) {
+    watcherRef.current = new ChangeWatcher({
+      waitForChanges: (epoch, cursor, signal) => waitForChanges(epoch, cursor, CHANGES_WAIT_SECONDS, signal),
+      cursor: () => ({ epoch: stateRef.current.syncEpoch, cursor: stateRef.current.syncCursor }),
+      shouldRun: () =>
+        navigator.onLine &&
+        document.visibilityState === "visible" &&
+        !stateRef.current.authRequired &&
+        stateRef.current.session !== null &&
+        !isLogoutBarrierActive(),
+      onChanged: () => syncNow()
+    });
+  }
+  const changeWatcher = watcherRef.current;
 
   async function validateAndCacheSession(): Promise<SessionResponse | null> {
     if (!navigator.onLine) return null;
@@ -320,6 +347,12 @@ export function App() {
         // outbox immediately and use focus/leader polling as the safety net.
         void engine.adoptPendingFromStorage();
       },
+      onSnapshotHint: () => {
+        // Another tab pulled cloud changes: show them from the shared local
+        // database instead of waiting for this tab's own focus or poll.
+        trace("trigger snapshot hint");
+        void engine.adoptSnapshotFromStorage();
+      },
       onLogoutStart: () => {
         void engine.suspend();
         if (logoutRecoveryTimer !== null) window.clearTimeout(logoutRecoveryTimer);
@@ -363,6 +396,23 @@ export function App() {
   }, [engine, syncNow, tabId]);
 
   useEffect(() => () => engine.dispose(), [engine]);
+
+  // Keep the change watcher aligned with eligibility. Session and auth state
+  // arrive through React state; visibility and connectivity through events.
+  const signedIn = state.session !== null && !state.authRequired;
+  useEffect(() => {
+    const refresh = () => changeWatcher.refresh();
+    refresh();
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("online", refresh);
+    window.addEventListener("offline", refresh);
+    return () => {
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("online", refresh);
+      window.removeEventListener("offline", refresh);
+      changeWatcher.stop();
+    };
+  }, [changeWatcher, signedIn]);
 
   useEffect(() => {
     function flushAfterCurrentEvent() {

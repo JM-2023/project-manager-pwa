@@ -8,7 +8,7 @@ const LOGOUT_BARRIER_KEY = "project-manager-logout-barrier";
 const LAST_POLL_KEY = "project-manager-last-background-poll";
 const LOGOUT_BARRIER_STALE_MS = 60_000;
 
-export type SyncMessageType = "sync-hint" | "logout-start" | "logout-cancel" | "logout-complete";
+export type SyncMessageType = "sync-hint" | "snapshot-hint" | "logout-start" | "logout-cancel" | "logout-complete";
 
 export interface SyncMessage {
   type: SyncMessageType;
@@ -18,6 +18,8 @@ export interface SyncMessage {
 
 export interface SyncChannelHandlers {
   onSyncHint: () => void;
+  /** Another tab pulled cloud changes into the shared IndexedDB. */
+  onSnapshotHint?: () => void;
   onLogoutStart?: () => void;
   onLogoutCancel?: () => void;
   onLogoutComplete?: () => void;
@@ -49,6 +51,15 @@ function publish(message: SyncMessage): void {
 /** Wake other open tabs after an outbox entry is durable. */
 export function publishSyncHint(source: string): void {
   publish({ type: "sync-hint", source, at: Date.now() });
+}
+
+/**
+ * Tell other open tabs that cloud changes landed in the shared IndexedDB.
+ * Without this, a tab that did not run the pull itself shows stale data until
+ * its own focus or poll — and the coalesced poll can starve it indefinitely.
+ */
+export function publishSnapshotHint(source: string): void {
+  publish({ type: "snapshot-hint", source, at: Date.now() });
 }
 
 export function beginLogoutBarrier(source: string): void {
@@ -125,6 +136,7 @@ export function subscribeToSyncEvents(source: string, handlers: SyncChannelHandl
   const deliver = (message: SyncMessage) => {
     if (!message || message.source === source) return;
     if (message.type === "sync-hint") handlers.onSyncHint();
+    else if (message.type === "snapshot-hint") handlers.onSnapshotHint?.();
     else if (message.type === "logout-start") handlers.onLogoutStart?.();
     else if (message.type === "logout-cancel") handlers.onLogoutCancel?.();
     else if (message.type === "logout-complete") handlers.onLogoutComplete?.();

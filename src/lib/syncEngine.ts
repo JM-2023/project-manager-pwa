@@ -63,6 +63,8 @@ export interface SyncIO {
   now: () => string;
   withSyncLease?: <T>(work: () => Promise<T>) => Promise<T>;
   publishSyncHint?: () => void;
+  /** Cloud changes were written to the shared local database. */
+  publishSnapshotHint?: () => void;
   sendBeacon?: (url: string, body: Blob) => boolean;
 }
 
@@ -128,6 +130,21 @@ export class SyncEngine {
       await this.settlePendingWrites();
       await this.refreshPendingFromStorage(true);
     } catch (error) {
+      this.dispatch({ type: "setError", payload: error instanceof Error ? `Local refresh failed: ${error.message}` : "Local refresh failed" });
+    }
+  };
+
+  /** Show what another tab just pulled into the shared IndexedDB, without a network round trip. */
+  adoptSnapshotFromStorage = async (): Promise<void> => {
+    if (this.suspended) return;
+    try {
+      await this.settlePendingWrites();
+      await this.enqueueLocalStateReconcile(async () => {
+        await this.restoreDurableSnapshot();
+      });
+      trace("snapshot adopted", `from another tab, cursor ${this.stateRef.current.syncCursor}`);
+    } catch (error) {
+      trace("snapshot adoption failed", describeError(error));
       this.dispatch({ type: "setError", payload: error instanceof Error ? `Local refresh failed: ${error.message}` : "Local refresh failed" });
     }
   };
@@ -327,6 +344,7 @@ export class SyncEngine {
       if (removePendingIds.length > 0) await this.io.saveBootstrapSnapshot(persistable, false, removePendingIds);
       else await this.io.saveBootstrapSnapshot(persistable, false);
     }
+    this.io.publishSnapshotHint?.();
   }
 
   private async rebaseConflict(

@@ -2,6 +2,7 @@ import type {
   AuthStatusResponse,
   BackupLog,
   BootstrapResponse,
+  ChangesResponse,
   CloudExcelUploadResponse,
   ClientMutation,
   ExportDataResponse,
@@ -39,6 +40,9 @@ const API_TIMEOUT_MS = 15_000;
 // it, and the sync engine's retry starts another full pull — a loop that never
 // completes. Delta pulls share the budget harmlessly: they finish early.
 const BOOTSTRAP_TIMEOUT_MS = 60_000;
+// A change wait is held server-side for up to CHANGES_WAIT_SECONDS; the
+// client deadline only has to catch a connection that silently died.
+const CHANGES_TIMEOUT_MS = 45_000;
 
 async function apiFetch<T>(path: string, init: RequestInit = {}, timeoutMs = API_TIMEOUT_MS): Promise<T> {
   const headers = new Headers(init.headers);
@@ -117,6 +121,12 @@ export function bootstrap(syncEpoch?: string | null, syncCursor?: number | null)
   if (syncCursor !== null && syncCursor !== undefined) params.set("cursor", String(syncCursor));
   const query = params.size > 0 ? `?${params.toString()}` : "";
   return apiFetch<BootstrapResponse>(`/api/bootstrap${query}`, {}, BOOTSTRAP_TIMEOUT_MS);
+}
+
+/** Long-poll: resolves once the server cursor moves past ours, or after `waitSeconds` with changed=false. */
+export function waitForChanges(epoch: string, cursor: number, waitSeconds: number, signal?: AbortSignal): Promise<ChangesResponse> {
+  const params = new URLSearchParams({ epoch, cursor: String(cursor), wait: String(waitSeconds) });
+  return apiFetch<ChangesResponse>(`/api/changes?${params.toString()}`, { signal }, CHANGES_TIMEOUT_MS);
 }
 
 export function sendMutations(clientId: string, mutations: ClientMutation[]): Promise<MutationsResponse> {

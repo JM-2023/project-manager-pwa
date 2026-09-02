@@ -1,6 +1,7 @@
 import type { BootstrapResponse, ClientMutation, NextIdea, NextProject, Project, SessionResponse, Task } from "./types";
 import { sanitizeSettings } from "./sync";
 import { compactPendingMutations, mergeMutationRecord, mutationData } from "./syncMerge";
+import { describeError, trace } from "./syncTrace";
 
 const DB_NAME = "project-manager-pwa";
 // v3 removed the tag stores. v4 adds persisted sync epoch/cursor and cached
@@ -108,24 +109,70 @@ function isLostConnectionError(error: unknown): boolean {
   const name = typeof error === "object" && error !== null ? (error as { name?: unknown }).name : undefined;
   // InvalidStateError: transaction() on a closed connection. AbortError: a
   // transaction the browser aborted while force-closing the connection.
-  return name === "InvalidStateError" || name === "AbortError";
+  // UnknownError: WebKit's "Connection to Indexed Database server lost".
+  return name === "InvalidStateError" || name === "AbortError" || name === "UnknownError";
+}
+
+/**
+ * WebKit can also leave a request pending forever instead of failing it. Past
+ * this bound the connection is treated as lost: the handle is dropped and the
+ * work reruns on a fresh one, so a stall surfaces as a retry (then an error)
+ * instead of silently freezing every later write and sync cycle.
+ */
+export const LOCAL_DB_TIMEOUT_MS = 20_000;
+const SLOW_LOCAL_DB_MS = 1_500;
+
+export class LocalDbTimeoutError extends Error {
+  constructor(label: string) {
+    super(`Local database did not respond within ${LOCAL_DB_TIMEOUT_MS / 1000}s (${label})`);
+    this.name = "LocalDbTimeoutError";
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new LocalDbTimeoutError(label)), LOCAL_DB_TIMEOUT_MS);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
+async function runOnConnection<T>(connection: Promise<IDBDatabase>, work: (db: IDBDatabase) => Promise<T>): Promise<T> {
+  return work(await connection);
 }
 
 /**
  * Run one IndexedDB operation against the shared connection. If the browser
- * closed that connection underneath us (Safari does this to suspended tabs),
- * reopen once and rerun the work; transactions are atomic, so a failed first
- * attempt left nothing behind.
+ * closed that connection underneath us (Safari does this to suspended tabs) or
+ * stopped answering on it, reopen once and rerun the work; transactions are
+ * atomic, so a failed first attempt left nothing behind.
  */
-async function withDb<T>(work: (db: IDBDatabase) => Promise<T>): Promise<T> {
+async function withDb<T>(label: string, work: (db: IDBDatabase) => Promise<T>): Promise<T> {
   const connection = openDb();
+  const startedAt = Date.now();
   try {
-    return await work(await connection);
+    const result = await withTimeout(runOnConnection(connection, work), label);
+    const elapsed = Date.now() - startedAt;
+    if (elapsed >= SLOW_LOCAL_DB_MS) trace(`idb ${label} slow`, `${elapsed}ms`);
+    return result;
   } catch (error) {
-    const connectionLost = dbPromise !== connection || isLostConnectionError(error);
+    const timedOut = error instanceof LocalDbTimeoutError;
+    const connectionLost = timedOut || dbPromise !== connection || isLostConnectionError(error);
+    trace(`idb ${label} failed`, `${describeError(error)} after ${Date.now() - startedAt}ms${connectionLost ? ", reopening" : ""}`);
     if (!connectionLost) throw error;
     forgetConnection(connection);
-    return work(await openDb());
+    if (timedOut) void connection.then((db) => db.close()).catch(() => undefined);
+    const result = await withTimeout(runOnConnection(openDb(), work), label);
+    trace(`idb ${label} recovered`, `${Date.now() - startedAt}ms`);
+    return result;
   }
 }
 
@@ -138,7 +185,7 @@ function transactionDone(tx: IDBTransaction): Promise<void> {
 }
 
 async function getAll<T>(storeName: StoreName): Promise<T[]> {
-  return withDb(async (db) => {
+  return withDb("getAll", async (db) => {
     return new Promise((resolve, reject) => {
       const request = db.transaction(storeName, "readonly").objectStore(storeName).getAll();
       request.onsuccess = () => resolve(request.result as T[]);
@@ -148,7 +195,7 @@ async function getAll<T>(storeName: StoreName): Promise<T[]> {
 }
 
 async function getMeta<T>(key: string): Promise<T | null> {
-  return withDb(async (db) => {
+  return withDb("getMeta", async (db) => {
     return new Promise((resolve, reject) => {
       const request = db.transaction("meta", "readonly").objectStore("meta").get(key);
       request.onsuccess = () => resolve(request.result?.value ?? null);
@@ -158,7 +205,7 @@ async function getMeta<T>(key: string): Promise<T | null> {
 }
 
 async function setMeta(key: string, value: unknown): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("setMeta", async (db) => {
     const tx = db.transaction("meta", "readwrite");
     tx.objectStore("meta").put({ key, value });
     await transactionDone(tx);
@@ -211,7 +258,7 @@ export async function saveBootstrapSnapshot(
   replaceMode: boolean,
   removePendingIds: string[] = []
 ): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("saveBootstrapSnapshot", async (db) => {
     const tx = db.transaction(["projects", "tasks", "nextProjects", "nextIdeas", "pendingMutations", "meta"], "readwrite");
     const pendingRequest = tx.objectStore("pendingMutations").getAll();
     pendingRequest.onsuccess = () => {
@@ -296,7 +343,7 @@ export async function saveBootstrapSnapshot(
 
 /** Atomically persist the optimistic entity change and its durable outbox entry. */
 export async function commitLocalMutation(mutation: ClientMutation, commit: LocalMutationCommit = {}): Promise<ClientMutation> {
-  return withDb(async (db) => {
+  return withDb("commitLocalMutation", async (db) => {
     const stores = new Set<StoreName>(["pendingMutations"]);
     for (const write of commit.writes ?? []) stores.add(write.store);
     const tx = db.transaction([...stores], "readwrite");
@@ -345,7 +392,7 @@ export async function commitLocalMutation(mutation: ClientMutation, commit: Loca
 }
 
 export async function saveLocalSession(session: SessionResponse | null): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("saveLocalSession", async (db) => {
     const tx = db.transaction("meta", "readwrite");
     if (session) {
       const cached = {
@@ -359,7 +406,7 @@ export async function saveLocalSession(session: SessionResponse | null): Promise
 }
 
 export async function saveEntity(storeName: EntityStoreName, record: SavableEntity): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("saveEntity", async (db) => {
     const tx = db.transaction(storeName, "readwrite");
     tx.objectStore(storeName).put(record);
     await transactionDone(tx);
@@ -367,7 +414,7 @@ export async function saveEntity(storeName: EntityStoreName, record: SavableEnti
 }
 
 export async function purgeNextProjectData(projectId: string, ideaIds: string[]): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("purgeNextProjectData", async (db) => {
     const tx = db.transaction(["nextProjects", "nextIdeas"], "readwrite");
     tx.objectStore("nextProjects").delete(projectId);
     for (const id of ideaIds) {
@@ -378,7 +425,7 @@ export async function purgeNextProjectData(projectId: string, ideaIds: string[])
 }
 
 export async function purgeNextIdeaData(ideaId: string): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("purgeNextIdeaData", async (db) => {
     const tx = db.transaction("nextIdeas", "readwrite");
     tx.objectStore("nextIdeas").delete(ideaId);
     await transactionDone(tx);
@@ -388,7 +435,7 @@ export async function purgeNextIdeaData(ideaId: string): Promise<void> {
 // Hard-delete a project and its cascade (tasks) from local storage in a single
 // transaction so the cache can never end up half-pruned.
 export async function purgeProjectData(projectId: string, taskIds: string[]): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("purgeProjectData", async (db) => {
     const tx = db.transaction(["projects", "tasks"], "readwrite");
     tx.objectStore("projects").delete(projectId);
     for (const id of taskIds) {
@@ -401,7 +448,7 @@ export async function purgeProjectData(projectId: string, taskIds: string[]): Pr
 // Hard-delete a single task from local storage (the task-level counterpart to
 // purgeProjectData).
 export async function purgeTaskData(taskId: string): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("purgeTaskData", async (db) => {
     const tx = db.transaction("tasks", "readwrite");
     tx.objectStore("tasks").delete(taskId);
     await transactionDone(tx);
@@ -409,7 +456,7 @@ export async function purgeTaskData(taskId: string): Promise<void> {
 }
 
 export async function queueMutation(mutation: ClientMutation): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("queueMutation", async (db) => {
     const tx = db.transaction("pendingMutations", "readwrite");
     tx.objectStore("pendingMutations").put(mutation);
     await transactionDone(tx);
@@ -420,7 +467,7 @@ export async function removePendingMutations(ids: string[]): Promise<void> {
   if (ids.length === 0) {
     return;
   }
-  return withDb(async (db) => {
+  return withDb("removePendingMutations", async (db) => {
     const tx = db.transaction("pendingMutations", "readwrite");
     for (const id of ids) {
       tx.objectStore("pendingMutations").delete(id);
@@ -438,7 +485,7 @@ export async function setLastSync(value: string): Promise<void> {
 }
 
 export async function resetLocalData(): Promise<void> {
-  return withDb(async (db) => {
+  return withDb("resetLocalData", async (db) => {
     const tx = db.transaction(["projects", "tasks", "nextProjects", "nextIdeas", "pendingMutations", "meta"], "readwrite");
     for (const store of ["projects", "tasks", "nextProjects", "nextIdeas", "pendingMutations", "meta"] as StoreName[]) {
       tx.objectStore(store).clear();

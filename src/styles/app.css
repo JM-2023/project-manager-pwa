@@ -2171,6 +2171,31 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .settings-item .export-actions { margin: 14px 0 0; }
 
 /* Install note — a footnote, not a region: no surface, just quiet text. */
+.settings-trace {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+.settings-trace__env,
+.settings-trace__log {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line, rgba(0, 0, 0, 0.1));
+  border-radius: 12px;
+  color: var(--muted);
+  font: 500 0.6875rem / 1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.settings-trace__log {
+  max-height: 340px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.settings-trace__log strong { color: var(--ink, inherit); font-weight: 600; }
+.settings-trace__actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
 .settings-footnote {
   display: flex;
   align-items: flex-start;

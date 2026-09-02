@@ -51,6 +51,7 @@ import {
   withLocalDataLease,
   withSyncLease
 } from "./lib/syncChannel";
+import { trace } from "./lib/syncTrace";
 import type { ImportRow, NextIdea, NextProject, Project, SessionResponse, Task } from "./lib/types";
 import { CalendarPage } from "./pages/CalendarPage";
 import { LoginPage } from "./pages/LoginPage";
@@ -299,15 +300,18 @@ export function App() {
   useEffect(() => {
     let logoutRecoveryTimer: number | null = null;
     function handleOnline() {
+      trace("trigger online/offline", `navigator.onLine=${navigator.onLine}`);
       commit({ type: "setOnline", payload: navigator.onLine });
       if (!navigator.onLine) return;
       if (stateRef.current.authRequired) void recoverAuthenticatedSession();
       else void syncNow();
     }
     function handleFocus() {
+      trace("trigger focus");
       if (navigator.onLine && !stateRef.current.authRequired) void syncNow();
     }
     function handleVisibilityChange() {
+      trace("trigger visibility", document.visibilityState);
       if (document.visibilityState === "visible" && navigator.onLine && !stateRef.current.authRequired) void syncNow();
     }
     const unsubscribe = subscribeToSyncEvents(tabId, {
@@ -338,12 +342,10 @@ export function App() {
       }
     });
     const interval = window.setInterval(async () => {
-      if (
-        navigator.onLine &&
-        document.visibilityState === "visible" &&
-        !stateRef.current.authRequired &&
-        (await claimBackgroundPoll(tabId))
-      ) void syncNow();
+      const eligible = navigator.onLine && document.visibilityState === "visible" && !stateRef.current.authRequired;
+      const claimed = eligible && (await claimBackgroundPoll(tabId));
+      trace("trigger poll", eligible ? (claimed ? "claimed" : "another tab polled recently") : "not eligible");
+      if (claimed) void syncNow();
     }, 30_000);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOnline);

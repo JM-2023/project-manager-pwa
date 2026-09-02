@@ -1,3 +1,5 @@
+import { trace } from "./syncTrace";
+
 const CHANNEL_NAME = "project-manager-sync-v1";
 const LOCAL_DATA_LOCK = "project-manager-local-data-v1";
 const POLL_LOCK = "project-manager-background-poll-v1";
@@ -152,11 +154,13 @@ export function subscribeToSyncEvents(source: string, handlers: SyncChannelHandl
  * transactions that serialize anyway, while the visible tab stops being stuck.
  */
 export const LEASE_WAIT_MS = 60_000;
+const SLOW_LEASE_MS = 1_000;
 
 async function withNamedLease<T>(name: string, work: () => Promise<T>): Promise<T> {
   const locks = navigator.locks;
   if (!locks) return work();
   const waiting = new AbortController();
+  const requestedAt = Date.now();
   let granted = false;
   const timer = setTimeout(
     () => waiting.abort(new DOMException(`Timed out waiting for lease ${name}`, "TimeoutError")),
@@ -166,10 +170,13 @@ async function withNamedLease<T>(name: string, work: () => Promise<T>): Promise<
     return await locks.request(name, { mode: "exclusive", signal: waiting.signal }, () => {
       granted = true;
       clearTimeout(timer);
+      const waited = Date.now() - requestedAt;
+      if (waited >= SLOW_LEASE_MS) trace("lease waited", `${name} ${waited}ms`);
       return work();
     });
   } catch (error) {
     if (granted || !waiting.signal.aborted) throw error;
+    trace("lease stolen", `${name} not granted within ${LEASE_WAIT_MS}ms`);
     return locks.request(name, { mode: "exclusive", steal: true }, work);
   } finally {
     clearTimeout(timer);

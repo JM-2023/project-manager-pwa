@@ -13,6 +13,8 @@ interface FakeDb {
   onversionchange: (() => void) | null;
   puts: unknown[];
   closedByBrowser: boolean;
+  /** Simulate WebKit leaving a request pending forever. */
+  hang: boolean;
 }
 
 interface FakeTransaction {
@@ -35,6 +37,7 @@ function createFakeDb(): FakeDb {
     onversionchange: null,
     puts: [],
     closedByBrowser: false,
+    hang: false,
     close: () => undefined,
     transaction: () => {
       if (db.closedByBrowser) throw invalidState();
@@ -51,7 +54,7 @@ function createFakeDb(): FakeDb {
           get: () => ({})
         })
       };
-      setTimeout(() => tx.oncomplete?.(), 0);
+      if (!db.hang) setTimeout(() => tx.oncomplete?.(), 0);
       return tx;
     }
   };
@@ -88,6 +91,7 @@ describe("localDb connection recovery", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -122,6 +126,46 @@ describe("localDb connection recovery", () => {
     await setLastSync("second");
     expect(openedDbs).toHaveLength(2);
     expect(openedDbs[1].puts).toEqual([{ key: "lastSync", value: "second" }]);
+  });
+
+  it("reopens when a transaction never completes", async () => {
+    vi.useFakeTimers();
+    const { setLastSync, LOCAL_DB_TIMEOUT_MS } = await loadLocalDb();
+    const first = setLastSync("first");
+    await vi.runAllTimersAsync();
+    await first;
+    openedDbs[0].hang = true;
+
+    const second = setLastSync("second");
+    await vi.advanceTimersByTimeAsync(LOCAL_DB_TIMEOUT_MS - 1);
+    expect(openedDbs).toHaveLength(1);
+    await vi.runAllTimersAsync();
+    await second;
+    expect(openedDbs).toHaveLength(2);
+    expect(openedDbs[1].puts).toEqual([{ key: "lastSync", value: "second" }]);
+  });
+
+  it("surfaces an error when the reopened connection hangs too", async () => {
+    vi.useFakeTimers();
+    const { setLastSync } = await loadLocalDb();
+    const first = setLastSync("first");
+    await vi.runAllTimersAsync();
+    await first;
+    openedDbs[0].hang = true;
+    const originalOpen = fakeIndexedDb.open;
+    fakeIndexedDb.open = () => {
+      const request = originalOpen();
+      request.result.hang = true;
+      return request;
+    };
+    try {
+      const outcome = expect(setLastSync("second")).rejects.toMatchObject({ name: "LocalDbTimeoutError" });
+      await vi.runAllTimersAsync();
+      await outcome;
+      expect(openedDbs).toHaveLength(2);
+    } finally {
+      fakeIndexedDb.open = originalOpen;
+    }
   });
 
   it("does not retry ordinary transaction failures", async () => {

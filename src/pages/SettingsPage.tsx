@@ -1,5 +1,6 @@
-import { KeyRound, LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
+import { Copy, Eraser, KeyRound, LogOut, RefreshCcw, RotateCcw, Smartphone } from "lucide-react";
 import { useState } from "react";
+import { SyncDiagnostics } from "../components/SyncDiagnostics";
 import { BackgroundToggle } from "../components/BackgroundToggle";
 import { BackupControls } from "../components/BackupControls";
 import { ChangePasscode } from "../components/ChangePasscode";
@@ -313,6 +314,23 @@ export function SettingsPage({
               <LogOut size={16} aria-hidden="true" />
               <span>{m.settings.signOut}</span>
             </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="settings-group">
+        <h2 className="settings-group__label">{m.settings.groupDiagnostics}</h2>
+        <div className="settings-group__body">
+          <div className="settings-item">
+            <p className="settings-hint">{m.settings.diagnosticsHint}</p>
+            <SyncDiagnostics
+              emptyLabel={m.settings.diagnosticsEmpty}
+              copyLabel={m.settings.copyDiagnostics}
+              copiedLabel={m.settings.diagnosticsCopied}
+              clearLabel={m.settings.clearDiagnostics}
+              CopyIcon={Copy}
+              ClearIcon={Eraser}
+            />
           </div>
         </div>
       </section>

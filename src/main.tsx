@@ -4,6 +4,7 @@ import { App } from "./App";
 import { initBackground } from "./lib/background";
 import { I18nProvider } from "./lib/i18n";
 import { initMeterStyle } from "./lib/meterStyle";
+import { installGlobalTrace } from "./lib/syncTrace";
 import "./styles/app.css";
 
 const PRELOAD_RELOAD_KEY = "project-manager:last-preload-reload";
@@ -34,6 +35,7 @@ window.addEventListener("vite:preloadError", (event) => {
 // skipped (e.g. a stale service-worker HTML without it).
 initMeterStyle();
 initBackground();
+installGlobalTrace();
 
 // The ink reveal is a one-time welcome, not a reload animation. Persist the
 // marker before starting so a refresh during the reveal cannot replay it. If

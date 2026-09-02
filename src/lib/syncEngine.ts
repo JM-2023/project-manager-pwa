@@ -23,6 +23,7 @@ import {
   upsertRecord
 } from "./syncMerge";
 import { visibleTasks } from "./sync";
+import { describeError, trace } from "./syncTrace";
 
 const SYNC_DEBOUNCE_MS = 850;
 const MAX_MUTATIONS_PER_REQUEST = 10;
@@ -30,6 +31,12 @@ const MAX_RETRY_MS = 30_000;
 const CLOUD_EXCEL_DEBOUNCE_MS = 15_000;
 const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
 const MAX_WORKBOOK_TIMEOUT_ATTEMPTS = 2;
+/**
+ * A cycle is two bounded network requests plus bounded IndexedDB work, so one
+ * that is still running after this long is stuck somewhere unbounded. Abandon
+ * it so the engine accepts new cycles again instead of queueing forever.
+ */
+const SYNC_CYCLE_WATCHDOG_MS = 120_000;
 
 export interface SyncIO {
   getSession: () => Promise<SessionResponse>;
@@ -131,7 +138,10 @@ export class SyncEngine {
    */
   persistMutation(mutation: ClientMutation, commit: LocalMutationCommit = {}): void {
     const queuedMutation = { ...mutation, createdAt: mutation.createdAt ?? this.io.now() };
+    const commitStartedAt = Date.now();
+    trace("commit start", `${mutation.entity} ${mutation.operation}`);
     if (this.suspended) {
+      trace("commit refused", "engine suspended");
       this.dispatch({ type: "setError", payload: "Local save paused while signing out" });
       this.dispatch({ type: "setSyncStatus", payload: "error" });
       const restore = this.enqueueLocalStateReconcile(async () => {
@@ -143,6 +153,7 @@ export class SyncEngine {
     const write = this.io
       .commitLocalMutation(queuedMutation, commit)
       .then(async (durableMutation) => {
+        trace("commit durable", `${Date.now() - commitStartedAt}ms`);
         if (commit.removePendingIds?.length) this.forgetPendingMutations(commit.removePendingIds);
         this.rememberPendingMutation(durableMutation ?? queuedMutation);
         const durablePending = [...this.pendingMutationsRef];
@@ -162,6 +173,7 @@ export class SyncEngine {
         this.scheduleSync();
       })
       .catch(async (error) => {
+        trace("commit failed", `${describeError(error)} after ${Date.now() - commitStartedAt}ms`);
         const message = error instanceof Error ? `Local save failed: ${error.message}` : "Local save failed";
         await this.enqueueLocalStateReconcile(async () => {
           await this.restoreDurableSnapshot();
@@ -539,11 +551,13 @@ export class SyncEngine {
     const pending = await this.refreshPendingFromStorage(true);
     const pendingGroups = compactPendingMutations(pending);
     const sentGroups = pendingGroups.slice(0, MAX_MUTATIONS_PER_REQUEST);
+    trace("cycle outbox", `${pending.length} pending, sending ${sentGroups.length}`);
     if (sentGroups.length > 0) {
       const result = await this.io.sendMutations(
         this.clientId,
         sentGroups.map((group) => group.mutation)
       );
+      trace("mutations sent", `${result.applied.length} applied, ${result.conflicts.length} conflicts`);
       const appliedIds = new Set(result.applied.map((item) => item.id));
       const permanentIds = new Set(result.conflicts.filter((item) => item.permanent).map((item) => item.id));
       const resolvedIds = new Set([...appliedIds, ...permanentIds]);
@@ -577,6 +591,10 @@ export class SyncEngine {
     const requestedEpoch = this.forceNextBootstrapFull ? null : this.stateRef.current.syncEpoch;
     const requestedCursor = this.forceNextBootstrapFull ? null : this.stateRef.current.syncCursor;
     const refreshed = await this.io.bootstrap(requestedEpoch, requestedCursor);
+    trace(
+      "bootstrap fetched",
+      `${refreshed.full === true || requestedCursor === null ? "full" : "delta"}: ${refreshed.projects.length} projects, ${refreshed.tasks.length} tasks, cursor ${refreshed.syncCursor}`
+    );
 
     // Include writes from another tab that landed while the network request was
     // in flight before deciding which incoming rows may touch local state.
@@ -586,6 +604,7 @@ export class SyncEngine {
     const replaceMode =
       refreshed.full === true || requestedEpoch === null || requestedCursor === null || refreshed.syncEpoch !== requestedEpoch;
     await this.applyBootstrapSnapshot(refreshed, replaceMode, pendingIdsResolvedWithBootstrap);
+    trace("snapshot saved", replaceMode ? "replace" : "merge");
     this.forceNextBootstrapFull = false;
 
     // A cross-tab write can race the IndexedDB snapshot transaction. Replay the
@@ -603,22 +622,29 @@ export class SyncEngine {
   }
 
   syncNow = async (): Promise<void> => {
-    if (this.suspended || this.forceFullResyncInFlight) return;
+    if (this.suspended || this.forceFullResyncInFlight) {
+      trace("syncNow skipped", this.suspended ? "engine suspended" : "full resync in flight");
+      return;
+    }
     if (this.syncTimer) {
       clearTimeout(this.syncTimer);
       this.syncTimer = null;
     }
     if (!this.io.isOnline()) {
+      trace("syncNow skipped", "navigator.onLine is false");
       this.dispatch({ type: "setSyncStatus", payload: "offline" });
       return;
     }
     if (this.syncInFlight) {
+      trace("syncNow deferred", "a cycle is in flight");
       this.syncAgainAfterCurrent = true;
       await this.syncCompletion?.catch(() => undefined);
       return;
     }
 
     this.syncInFlight = true;
+    const cycleStartedAt = Date.now();
+    trace("cycle start");
     this.dispatch({ type: "setSyncStatus", payload: "syncing" });
     this.dispatch({ type: "setError", payload: null });
     const work = async () => {
@@ -628,9 +654,23 @@ export class SyncEngine {
     const current = work();
     this.syncCompletion = current;
     let canRunAgain = true;
+    let abandoned = false;
+    const watchdog = setTimeout(() => {
+      if (this.syncCompletion !== current) return;
+      abandoned = true;
+      trace("cycle abandoned", `still running after ${SYNC_CYCLE_WATCHDOG_MS}ms`);
+      this.syncInFlight = false;
+      this.syncCompletion = null;
+      this.dispatch({ type: "setError", payload: "Sync did not finish; retrying" });
+      this.dispatch({ type: "setSyncStatus", payload: "error" });
+      this.scheduleRetry();
+    }, SYNC_CYCLE_WATCHDOG_MS);
     try {
       await current;
+      trace("cycle done", `${Date.now() - cycleStartedAt}ms`);
     } catch (error) {
+      trace("cycle failed", `${describeError(error)} after ${Date.now() - cycleStartedAt}ms`);
+      if (abandoned) return;
       // If a permanent conflict was awaiting an atomic full-snapshot commit,
       // restore its still-durable outbox entry after any failed bootstrap.
       await this.refreshPendingFromStorage(true).catch(() => undefined);
@@ -646,12 +686,15 @@ export class SyncEngine {
         this.scheduleRetry();
       }
     } finally {
-      this.syncInFlight = false;
-      if (this.syncCompletion === current) this.syncCompletion = null;
-      if (!canRunAgain) this.syncAgainAfterCurrent = false;
-      else if (this.syncAgainAfterCurrent) {
-        this.syncAgainAfterCurrent = false;
-        setTimeout(() => void this.syncNow(), 0);
+      clearTimeout(watchdog);
+      if (!abandoned) {
+        this.syncInFlight = false;
+        if (this.syncCompletion === current) this.syncCompletion = null;
+        if (!canRunAgain) this.syncAgainAfterCurrent = false;
+        else if (this.syncAgainAfterCurrent) {
+          this.syncAgainAfterCurrent = false;
+          setTimeout(() => void this.syncNow(), 0);
+        }
       }
     }
   };
@@ -701,16 +744,22 @@ export class SyncEngine {
   };
 
   scheduleSync = (): void => {
-    if (this.suspended) return;
+    if (this.suspended) {
+      trace("scheduleSync skipped", "engine suspended");
+      return;
+    }
     if (!this.io.isOnline()) {
+      trace("scheduleSync skipped", "navigator.onLine is false");
       this.dispatch({ type: "setSyncStatus", payload: "offline" });
       return;
     }
     if (this.syncInFlight) {
+      trace("scheduleSync deferred", "a cycle is in flight");
       this.syncAgainAfterCurrent = true;
       return;
     }
     if (this.syncTimer) clearTimeout(this.syncTimer);
+    trace("scheduleSync", `cycle in ${SYNC_DEBOUNCE_MS}ms`);
     this.dispatch({ type: "setSyncStatus", payload: "queued" });
     this.syncTimer = setTimeout(() => {
       this.syncTimer = null;

@@ -144,10 +144,36 @@ export function subscribeToSyncEvents(source: string, handlers: SyncChannelHandl
   };
 }
 
+/**
+ * Upper bound on waiting for a lease. A tab that iOS Safari suspended while it
+ * held the lock keeps it until the tab resumes or is evicted, which can be
+ * never as far as the visible tab is concerned. Past this bound the lease is
+ * stolen: the suspended holder's work resumes later against IndexedDB
+ * transactions that serialize anyway, while the visible tab stops being stuck.
+ */
+export const LEASE_WAIT_MS = 60_000;
+
 async function withNamedLease<T>(name: string, work: () => Promise<T>): Promise<T> {
   const locks = navigator.locks;
   if (!locks) return work();
-  return locks.request(name, { mode: "exclusive" }, work);
+  const waiting = new AbortController();
+  let granted = false;
+  const timer = setTimeout(
+    () => waiting.abort(new DOMException(`Timed out waiting for lease ${name}`, "TimeoutError")),
+    LEASE_WAIT_MS
+  );
+  try {
+    return await locks.request(name, { mode: "exclusive", signal: waiting.signal }, () => {
+      granted = true;
+      clearTimeout(timer);
+      return work();
+    });
+  } catch (error) {
+    if (granted || !waiting.signal.aborted) throw error;
+    return locks.request(name, { mode: "exclusive", steal: true }, work);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Serialize network reconciliation across tabs sharing the same IndexedDB. */

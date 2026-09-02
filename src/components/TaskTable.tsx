@@ -178,6 +178,10 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
   const progressDisplayRef = useRef<number>(progress);
   const progressRafRef = useRef(0);
   const progressDraggingRef = useRef(false);
+  // The value most recently handed to onUpdate and not yet reflected in the
+  // task prop. A release can arrive through several events at once (native
+  // change, pointerup, touchend); only the first may create a mutation.
+  const progressCommitRef = useRef<TaskProgress | null>(null);
   const previousTaskRef = useRef(task);
   // What the collapse commits once the row has folded shut: deletion by
   // default, or a date change when the row exits because it moved days.
@@ -354,10 +358,40 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
   }
 
   function commitProgress(value: TaskProgress) {
-    if (value !== getTaskProgress(task)) {
-      updateProgress(value);
-    }
+    if (value === getTaskProgress(task) || value === progressCommitRef.current) return;
+    progressCommitRef.current = value;
+    updateProgress(value);
   }
+
+  // Once the task carries the committed value the guard has done its job.
+  useEffect(() => {
+    if (progressCommitRef.current !== null && getTaskProgress(task) === progressCommitRef.current) {
+      progressCommitRef.current = null;
+    }
+  }, [task]);
+
+  function releaseProgress() {
+    if (progressDraggingRef.current) {
+      progressDraggingRef.current = false;
+      glideProgressTo(progressTargetRef.current);
+    }
+    commitProgress(progressTargetRef.current);
+  }
+  const releaseProgressRef = useRef(releaseProgress);
+  releaseProgressRef.current = releaseProgress;
+
+  // React's onChange is the continuous `input` event; the native `change`
+  // event fires once when the gesture ends. On iOS Safari it is the only
+  // reliable release signal for a range input: WebKit takes the touch over
+  // natively, cancels the pointer early and never delivers pointerup, which
+  // left the dragged value uncommitted until the next tap.
+  useEffect(() => {
+    const slider = progressSliderRef.current;
+    if (!slider) return;
+    const handleChange = () => releaseProgressRef.current();
+    slider.addEventListener("change", handleChange);
+    return () => slider.removeEventListener("change", handleChange);
+  }, []);
 
   function taskDateWithOffset(offset: number): string {
     return addDays(toDateInput(task.start_date) || todayDate(), offset);
@@ -508,19 +542,15 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
               progressTargetRef.current = next;
               setProgress(next);
             }}
-            onPointerUp={() => {
-              if (progressDraggingRef.current) {
-                progressDraggingRef.current = false;
-                glideProgressTo(progressTargetRef.current);
-              }
-              commitProgress(progressTargetRef.current);
+            onPointerUp={releaseProgress}
+            onPointerCancel={(event) => {
+              // iOS cancels the pointer the moment the native slider takes the
+              // touch; the drag itself continues and ends with touchend/change.
+              if (event.pointerType === "touch" || !progressDraggingRef.current) return;
+              releaseProgress();
             }}
-            onPointerCancel={() => {
-              if (!progressDraggingRef.current) return;
-              progressDraggingRef.current = false;
-              glideProgressTo(progressTargetRef.current);
-              commitProgress(progressTargetRef.current);
-            }}
+            onTouchEnd={releaseProgress}
+            onTouchCancel={releaseProgress}
             onKeyUp={() => commitProgress(progressTargetRef.current)}
             aria-label={m.taskTable.progressHeader}
             aria-valuetext={`${progress}%`}

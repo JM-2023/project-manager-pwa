@@ -1,4 +1,3 @@
-import { trace } from "./syncTrace";
 
 const CHANNEL_NAME = "project-manager-sync-v1";
 const LOCAL_DATA_LOCK = "project-manager-local-data-v1";
@@ -8,18 +7,21 @@ const LOGOUT_BARRIER_KEY = "project-manager-logout-barrier";
 const LAST_POLL_KEY = "project-manager-last-background-poll";
 const LOGOUT_BARRIER_STALE_MS = 60_000;
 
-export type SyncMessageType = "sync-hint" | "snapshot-hint" | "logout-start" | "logout-cancel" | "logout-complete";
+export type SyncMessageType = "sync-hint" | "snapshot-hint" | "watch-healthy" | "logout-start" | "logout-cancel" | "logout-complete";
 
 export interface SyncMessage {
   type: SyncMessageType;
   source: string;
   at: number;
+  epoch?: string;
+  cursor?: number;
 }
 
 export interface SyncChannelHandlers {
   onSyncHint: () => void;
   /** Another tab pulled cloud changes into the shared IndexedDB. */
-  onSnapshotHint?: () => void;
+  onSnapshotHint?: (message: SyncMessage) => void;
+  onWatchHealthy?: () => void;
   onLogoutStart?: () => void;
   onLogoutCancel?: () => void;
   onLogoutComplete?: () => void;
@@ -58,8 +60,8 @@ export function publishSyncHint(source: string): void {
  * Without this, a tab that did not run the pull itself shows stale data until
  * its own focus or poll — and the coalesced poll can starve it indefinitely.
  */
-export function publishSnapshotHint(source: string): void {
-  publish({ type: "snapshot-hint", source, at: Date.now() });
+export function publishSnapshotHint(source: string, epoch?: string, cursor?: number): void {
+  publish({ type: "snapshot-hint", source, at: Date.now(), epoch, cursor });
 }
 
 export function beginLogoutBarrier(source: string): void {
@@ -136,7 +138,8 @@ export function subscribeToSyncEvents(source: string, handlers: SyncChannelHandl
   const deliver = (message: SyncMessage) => {
     if (!message || message.source === source) return;
     if (message.type === "sync-hint") handlers.onSyncHint();
-    else if (message.type === "snapshot-hint") handlers.onSnapshotHint?.();
+    else if (message.type === "snapshot-hint") handlers.onSnapshotHint?.(message);
+    else if (message.type === "watch-healthy") handlers.onWatchHealthy?.();
     else if (message.type === "logout-start") handlers.onLogoutStart?.();
     else if (message.type === "logout-cancel") handlers.onLogoutCancel?.();
     else if (message.type === "logout-complete") handlers.onLogoutComplete?.();
@@ -158,46 +161,44 @@ export function subscribeToSyncEvents(source: string, handlers: SyncChannelHandl
   };
 }
 
-/**
- * Upper bound on waiting for a lease. A tab that iOS Safari suspended while it
- * held the lock keeps it until the tab resumes or is evicted, which can be
- * never as far as the visible tab is concerned. Past this bound the lease is
- * stolen: the suspended holder's work resumes later against IndexedDB
- * transactions that serialize anyway, while the visible tab stops being stuck.
- */
+/** Waiting may time out, but must never revoke another holder's ownership. */
 export const LEASE_WAIT_MS = 60_000;
-const SLOW_LEASE_MS = 1_000;
-
-async function withNamedLease<T>(name: string, work: () => Promise<T>): Promise<T> {
+async function withNamedLease<T>(name: string, work: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
   const locks = navigator.locks;
   if (!locks) return work();
   const waiting = new AbortController();
-  const requestedAt = Date.now();
-  let granted = false;
-  const timer = setTimeout(
-    () => waiting.abort(new DOMException(`Timed out waiting for lease ${name}`, "TimeoutError")),
-    LEASE_WAIT_MS
-  );
+  const cancel = () => waiting.abort(signal?.reason);
+  signal?.addEventListener("abort", cancel, { once: true });
+  const timer = setTimeout(() => waiting.abort(new DOMException(`Timed out waiting for ${name}`, "TimeoutError")), LEASE_WAIT_MS);
   try {
     return await locks.request(name, { mode: "exclusive", signal: waiting.signal }, () => {
-      granted = true;
       clearTimeout(timer);
-      const waited = Date.now() - requestedAt;
-      if (waited >= SLOW_LEASE_MS) trace("lease waited", `${name} ${waited}ms`);
+      signal?.throwIfAborted();
       return work();
     });
-  } catch (error) {
-    if (granted || !waiting.signal.aborted) throw error;
-    trace("lease stolen", `${name} not granted within ${LEASE_WAIT_MS}ms`);
-    return locks.request(name, { mode: "exclusive", steal: true }, work);
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener("abort", cancel);
   }
 }
 
+export async function withChangeLeadership(signal: AbortSignal, work: () => Promise<void>): Promise<void> {
+  signal.throwIfAborted();
+  if (!navigator.locks) return work();
+  await navigator.locks.request("project-manager-change-watcher-v1", { signal }, () => {
+    signal.throwIfAborted();
+    return work();
+  });
+}
+
+export function publishWatchHealthy(source: string): void {
+  publish({ type: "watch-healthy", source, at: Date.now() });
+}
+
 /** Serialize network reconciliation across tabs sharing the same IndexedDB. */
-export function withSyncLease<T>(work: () => Promise<T>): Promise<T> {
-  return withNamedLease(CHANNEL_NAME, work);
+export function withSyncLease<T>(work: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  return withNamedLease(CHANNEL_NAME, work, signal);
 }
 
 /** Serialize optimistic commits against logout/reset of the shared local database. */

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getExportData, orderRestoreTasksParentFirst, restoreData, uploadCloudExcel } from "./api";
+import { getSession, bootstrap, sendMutations, getExportData, orderRestoreTasksParentFirst, restoreData, uploadCloudExcel } from "./api";
 import type { Project, Task } from "./types";
 
 afterEach(() => {
@@ -133,5 +133,18 @@ describe("Excel request cancellation", () => {
 
     await expect(request).rejects.toMatchObject({ name: "AbortError" });
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+});
+
+describe("sync request cancellation", () => {
+  it.each(["session", "bootstrap", "mutations"] as const)("cancels %s with its cycle", async (kind) => {
+    const fetch = stubPendingFetch();
+    const controller = new AbortController();
+    const request = kind === "session" ? getSession(controller.signal) : kind === "bootstrap"
+      ? bootstrap("e", 1, controller.signal) : sendMutations("c", [], controller.signal);
+    const outcome = expect(request).rejects.toMatchObject({ name: "AbortError" });
+    controller.abort();
+    await outcome;
+    expect(fetch.mock.calls[0][1]?.signal?.aborted).toBe(true);
   });
 });

@@ -41,16 +41,25 @@ describe("withSyncLease", () => {
     expect(requests[0].options.steal).toBeUndefined();
   });
 
-  it("steals a lock that another (suspended) holder never releases", async () => {
-    const requests = installFakeLocks((request) => request.options.steal === true);
+  it("times out a waiter without stealing or starting its work", async () => {
+    const requests = installFakeLocks(() => false);
     const work = vi.fn(async () => "done");
-    const pending = withSyncLease(work);
-    await vi.advanceTimersByTimeAsync(LEASE_WAIT_MS - 1);
+    const outcome = expect(withSyncLease(work)).rejects.toMatchObject({ name: "TimeoutError" });
+    await vi.advanceTimersByTimeAsync(LEASE_WAIT_MS);
+    await outcome;
     expect(work).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(1);
-    await expect(pending).resolves.toBe("done");
-    expect(work).toHaveBeenCalledTimes(1);
-    expect(requests.map((request) => request.options.steal)).toEqual([undefined, true]);
+    expect(requests).toHaveLength(1);
+    expect(requests[0].options.steal).toBeUndefined();
+  });
+
+  it("cancels a queued acquisition with the cycle signal", async () => {
+    installFakeLocks(() => false);
+    const controller = new AbortController();
+    const work = vi.fn(async () => undefined);
+    const result = expect(withSyncLease(work, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
+    controller.abort();
+    await result;
+    expect(work).not.toHaveBeenCalled();
   });
 
   it("propagates a failure from work that was granted the lock instead of stealing", async () => {

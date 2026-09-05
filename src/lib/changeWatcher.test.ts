@@ -96,6 +96,11 @@ describe("ChangeWatcher", () => {
     h.watcher.refresh();
     await settle();
     expect(h.waits).toHaveLength(2);
+    expect(h.watcher.isRunning()).toBe(true);
+    h.waits[1].resolve({ changed: false, epoch: "e1", cursor: 5, serverTime: "t" });
+    await settle();
+    expect(h.waits).toHaveLength(3);
+    h.watcher.stop();
   });
 
   it("backs off after a failed wait and recovers", async () => {
@@ -141,6 +146,33 @@ describe("ChangeWatcher", () => {
     expect(h.waits).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(2_000);
     expect(h.waits).toHaveLength(2);
+  });
+
+  it("does not let an old pull resume a stopped loop after restart", async () => {
+    const h = makeHarness();
+    let finish!: () => void;
+    h.onChanged.mockImplementation(() => new Promise<void>((resolve) => { finish = resolve; }));
+    h.watcher.start();
+    h.waits[0].resolve({ changed: true, epoch: "e1", cursor: 6, serverTime: "t" });
+    await settle();
+    h.watcher.stop();
+    h.watcher.start();
+    finish();
+    await settle();
+    expect(h.watcher.isRunning()).toBe(true);
+    expect(h.waits).toHaveLength(2);
+    h.watcher.stop();
+  });
+
+  it("does not run a duplicate pull after a peer already adopted the reported version", async () => {
+    const h = makeHarness();
+    h.watcher.start();
+    h.cursor.cursor = 6;
+    h.waits[0].resolve({ changed: true, epoch: "e1", cursor: 6, serverTime: "t" });
+    await settle();
+    expect(h.onChanged).not.toHaveBeenCalled();
+    expect(h.waits[1].cursor).toBe(6);
+    h.watcher.stop();
   });
 
   it("waits for a cursor before opening the first request", async () => {

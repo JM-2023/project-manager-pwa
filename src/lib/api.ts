@@ -82,8 +82,8 @@ async function apiFetch<T>(path: string, init: RequestInit = {}, timeoutMs = API
   }
 }
 
-export function getSession(): Promise<SessionResponse> {
-  return apiFetch<SessionResponse>("/api/session");
+export function getSession(signal?: AbortSignal): Promise<SessionResponse> {
+  return apiFetch<SessionResponse>("/api/session", { signal });
 }
 
 export function getAuthStatus(): Promise<AuthStatusResponse> {
@@ -115,12 +115,12 @@ export function logout(): Promise<{ ok: true }> {
   return apiFetch<{ ok: true }>("/api/auth/logout", { method: "POST" });
 }
 
-export function bootstrap(syncEpoch?: string | null, syncCursor?: number | null): Promise<BootstrapResponse> {
+export function bootstrap(syncEpoch?: string | null, syncCursor?: number | null, signal?: AbortSignal): Promise<BootstrapResponse> {
   const params = new URLSearchParams();
   if (syncEpoch) params.set("epoch", syncEpoch);
   if (syncCursor !== null && syncCursor !== undefined) params.set("cursor", String(syncCursor));
   const query = params.size > 0 ? `?${params.toString()}` : "";
-  return apiFetch<BootstrapResponse>(`/api/bootstrap${query}`, {}, BOOTSTRAP_TIMEOUT_MS);
+  return apiFetch<BootstrapResponse>(`/api/bootstrap${query}`, { signal }, BOOTSTRAP_TIMEOUT_MS);
 }
 
 /** Long-poll: resolves once the server cursor moves past ours, or after `waitSeconds` with changed=false. */
@@ -129,10 +129,11 @@ export function waitForChanges(epoch: string, cursor: number, waitSeconds: numbe
   return apiFetch<ChangesResponse>(`/api/changes?${params.toString()}`, { signal }, CHANGES_TIMEOUT_MS);
 }
 
-export function sendMutations(clientId: string, mutations: ClientMutation[]): Promise<MutationsResponse> {
+export function sendMutations(clientId: string, mutations: ClientMutation[], signal?: AbortSignal): Promise<MutationsResponse> {
   return apiFetch<MutationsResponse>("/api/mutations", {
     method: "POST",
-    body: JSON.stringify({ clientId, mutations })
+    body: JSON.stringify({ clientId, mutations }),
+    signal
   });
 }
 

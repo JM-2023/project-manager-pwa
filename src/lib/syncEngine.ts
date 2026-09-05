@@ -1,3 +1,4 @@
+import { abortable } from "./cancellation";
 import { ApiResponseError, AuthRequiredError } from "./api";
 import type {
   BootstrapResponse,
@@ -32,16 +33,15 @@ const CLOUD_EXCEL_DEBOUNCE_MS = 15_000;
 const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
 const MAX_WORKBOOK_TIMEOUT_ATTEMPTS = 2;
 /**
- * A cycle is two bounded network requests plus bounded IndexedDB work, so one
- * that is still running after this long is stuck somewhere unbounded. Abandon
- * it so the engine accepts new cycles again instead of queueing forever.
+ * Cancel overdue network/lock waits and release callers. An already running
+ * storage operation retains ownership until it actually settles.
  */
 const SYNC_CYCLE_WATCHDOG_MS = 120_000;
 
 export interface SyncIO {
-  getSession: () => Promise<SessionResponse>;
-  bootstrap: (syncEpoch: string | null, syncCursor: number | null) => Promise<BootstrapResponse>;
-  sendMutations: (clientId: string, mutations: ClientMutation[]) => Promise<MutationsResponse>;
+  getSession: (signal?: AbortSignal) => Promise<SessionResponse>;
+  bootstrap: (syncEpoch: string | null, syncCursor: number | null, signal?: AbortSignal) => Promise<BootstrapResponse>;
+  sendMutations: (clientId: string, mutations: ClientMutation[], signal?: AbortSignal) => Promise<MutationsResponse>;
   getExportData: (signal?: AbortSignal) => Promise<ExportDataResponse>;
   uploadCloudExcel: (
     blob: Blob,
@@ -61,10 +61,10 @@ export interface SyncIO {
   saveLastSync: (value: string) => Promise<void>;
   isOnline: () => boolean;
   now: () => string;
-  withSyncLease?: <T>(work: () => Promise<T>) => Promise<T>;
+  withSyncLease?: <T>(work: () => Promise<T>, signal?: AbortSignal) => Promise<T>;
   publishSyncHint?: () => void;
   /** Cloud changes were written to the shared local database. */
-  publishSnapshotHint?: () => void;
+  publishSnapshotHint?: (epoch: string, cursor: number) => void;
   sendBeacon?: (url: string, body: Blob) => boolean;
 }
 
@@ -85,9 +85,10 @@ export class SyncEngine {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private retryAttempt = 0;
   private syncInFlight = false;
+  private cycleController: AbortController | null = null;
+  private cycleSettled: Promise<void> | null = null;
   private syncCompletion: Promise<void> | null = null;
   private syncAgainAfterCurrent = false;
-  private forceFullResyncInFlight = false;
   private forceNextBootstrapFull = false;
   private excelUploadTimer: ReturnType<typeof setTimeout> | null = null;
   private excelUploadInFlight = false;
@@ -138,10 +139,16 @@ export class SyncEngine {
   adoptSnapshotFromStorage = async (): Promise<void> => {
     if (this.suspended) return;
     try {
-      await this.settlePendingWrites();
-      await this.enqueueLocalStateReconcile(async () => {
-        await this.restoreDurableSnapshot();
-      });
+      const adopt = async () => {
+        if (this.suspended) return;
+        await this.settlePendingWrites();
+        if (this.suspended) return;
+        await this.enqueueLocalStateReconcile(async () => {
+          if (!this.suspended) await this.restoreDurableSnapshot();
+        });
+      };
+      if (this.io.withSyncLease) await this.io.withSyncLease(adopt);
+      else await adopt();
       trace("snapshot adopted", `from another tab, cursor ${this.stateRef.current.syncCursor}`);
     } catch (error) {
       trace("snapshot adoption failed", describeError(error));
@@ -295,8 +302,9 @@ export class SyncEngine {
     this.setConflictDetails([...byMutation.values()]);
   }
 
-  private async refreshPendingFromStorage(replay = false, excludedIds: ReadonlySet<string> = new Set()): Promise<ClientMutation[]> {
+  private async refreshPendingFromStorage(replay = false, excludedIds: ReadonlySet<string> = new Set(), signal?: AbortSignal): Promise<ClientMutation[]> {
     const persisted = (await this.io.getPendingMutations()).filter((mutation) => !excludedIds.has(mutation.id));
+    signal?.throwIfAborted();
     this.pendingMutationsRef = persisted;
     this.dispatch({ type: "setPendingCount", payload: compactPendingMutations(persisted).length });
     if (replay && persisted.length > 0) this.overlayPendingState(persisted);
@@ -306,8 +314,10 @@ export class SyncEngine {
   private async applyBootstrapSnapshot(
     snapshot: BootstrapResponse,
     replaceMode: boolean,
-    removePendingIds: string[] = []
+    removePendingIds: string[] = [],
+    signal?: AbortSignal
   ): Promise<void> {
+    signal?.throwIfAborted();
     const emptyDelta =
       !replaceMode &&
       removePendingIds.length === 0 &&
@@ -344,12 +354,14 @@ export class SyncEngine {
       if (removePendingIds.length > 0) await this.io.saveBootstrapSnapshot(persistable, false, removePendingIds);
       else await this.io.saveBootstrapSnapshot(persistable, false);
     }
-    this.io.publishSnapshotHint?.();
+    signal?.throwIfAborted();
+    this.io.publishSnapshotHint?.(snapshot.syncEpoch, snapshot.syncCursor);
   }
 
   private async rebaseConflict(
     group: ReturnType<typeof compactPendingMutations>[number],
-    serverRecordValue: unknown
+    serverRecordValue: unknown,
+    signal?: AbortSignal
   ): Promise<boolean> {
     const serverRecord =
       serverRecordValue && typeof serverRecordValue === "object" && !Array.isArray(serverRecordValue)
@@ -392,6 +404,7 @@ export class SyncEngine {
       removePendingIds: group.sourceIds,
       replaceExisting: !deleting
     });
+    signal?.throwIfAborted();
     this.forgetPendingMutations(group.sourceIds);
     this.rememberPendingMutation(durableMutation ?? rebased);
     if (!deleting) {
@@ -553,28 +566,32 @@ export class SyncEngine {
     }, delay);
   }
 
-  private async runSyncCycle(): Promise<void> {
+  private async runSyncCycle(signal: AbortSignal): Promise<void> {
+    signal.throwIfAborted();
     let shouldUploadCloudExcel = false;
     let retryUnresolvedMutations = false;
     let sentBatchFullyResolved = true;
     let pendingIdsResolvedWithBootstrap: string[] = [];
     if (!this.stateRef.current.session) {
-      const session = await this.io.getSession();
+      const session = await abortable(this.io.getSession(signal), signal);
+      signal.throwIfAborted();
       this.stateRef.current = { ...this.stateRef.current, session, authRequired: false };
       this.dispatch({ type: "setSession", payload: session });
       await this.io.saveLocalSession(session);
     }
 
-    await this.settlePendingWrites();
-    const pending = await this.refreshPendingFromStorage(true);
+    await abortable(this.settlePendingWrites(), signal);
+    signal.throwIfAborted();
+    const pending = await this.refreshPendingFromStorage(true, new Set(), signal);
     const pendingGroups = compactPendingMutations(pending);
     const sentGroups = pendingGroups.slice(0, MAX_MUTATIONS_PER_REQUEST);
     trace("cycle outbox", `${pending.length} pending, sending ${sentGroups.length}`);
     if (sentGroups.length > 0) {
-      const result = await this.io.sendMutations(
+      const result = await abortable(this.io.sendMutations(
         this.clientId,
-        sentGroups.map((group) => group.mutation)
-      );
+        sentGroups.map((group) => group.mutation), signal
+      ), signal);
+      signal.throwIfAborted();
       trace("mutations sent", `${result.applied.length} applied, ${result.conflicts.length} conflicts`);
       const appliedIds = new Set(result.applied.map((item) => item.id));
       const permanentIds = new Set(result.conflicts.filter((item) => item.permanent).map((item) => item.id));
@@ -583,7 +600,7 @@ export class SyncEngine {
       for (const conflict of result.conflicts) {
         if (conflict.permanent || conflict.serverRecord === undefined) continue;
         const group = groupById.get(conflict.id);
-        if (group && (await this.rebaseConflict(group, conflict.serverRecord))) resolvedIds.add(conflict.id);
+        if (group && (await this.rebaseConflict(group, conflict.serverRecord, signal))) resolvedIds.add(conflict.id);
       }
       sentBatchFullyResolved = sentGroups.every((group) => resolvedIds.has(group.mutation.id));
       retryUnresolvedMutations = !sentBatchFullyResolved;
@@ -592,6 +609,7 @@ export class SyncEngine {
         permanentIds.has(group.mutation.id) ? group.sourceIds : []
       );
       await this.io.removePendingMutations(sourceIdsToRemove);
+      signal.throwIfAborted();
       this.forgetPendingMutations([...sourceIdsToRemove, ...pendingIdsResolvedWithBootstrap]);
       if (pendingIdsResolvedWithBootstrap.length > 0) {
         // The rejected optimistic row may not appear in an incremental delta
@@ -608,7 +626,7 @@ export class SyncEngine {
 
     const requestedEpoch = this.forceNextBootstrapFull ? null : this.stateRef.current.syncEpoch;
     const requestedCursor = this.forceNextBootstrapFull ? null : this.stateRef.current.syncCursor;
-    const refreshed = await this.io.bootstrap(requestedEpoch, requestedCursor);
+    const refreshed = await abortable(this.io.bootstrap(requestedEpoch, requestedCursor, signal), signal);
     trace(
       "bootstrap fetched",
       `${refreshed.full === true || requestedCursor === null ? "full" : "delta"}: ${refreshed.projects.length} projects, ${refreshed.tasks.length} tasks, cursor ${refreshed.syncCursor}`
@@ -616,18 +634,20 @@ export class SyncEngine {
 
     // Include writes from another tab that landed while the network request was
     // in flight before deciding which incoming rows may touch local state.
-    await this.settlePendingWrites();
+    await abortable(this.settlePendingWrites(), signal);
+    signal.throwIfAborted();
     const resolvingIds = new Set(pendingIdsResolvedWithBootstrap);
-    await this.refreshPendingFromStorage(true, resolvingIds);
+    await this.refreshPendingFromStorage(true, resolvingIds, signal);
     const replaceMode =
       refreshed.full === true || requestedEpoch === null || requestedCursor === null || refreshed.syncEpoch !== requestedEpoch;
-    await this.applyBootstrapSnapshot(refreshed, replaceMode, pendingIdsResolvedWithBootstrap);
+    await this.applyBootstrapSnapshot(refreshed, replaceMode, pendingIdsResolvedWithBootstrap, signal);
+    signal.throwIfAborted();
     trace("snapshot saved", replaceMode ? "replace" : "merge");
     this.forceNextBootstrapFull = false;
 
     // A cross-tab write can race the IndexedDB snapshot transaction. Replay the
     // durable outbox once more and schedule another pass if anything remains.
-    const remaining = await this.refreshPendingFromStorage(true);
+    const remaining = await this.refreshPendingFromStorage(true, new Set(), signal);
     const originalIds = new Set(pending.map((mutation) => mutation.id));
     if (remaining.some((mutation) => !originalIds.has(mutation.id))) this.syncAgainAfterCurrent = true;
     const dirtyToken = excelDirtyAt(this.stateRef.current.settings);
@@ -640,8 +660,8 @@ export class SyncEngine {
   }
 
   syncNow = async (): Promise<void> => {
-    if (this.suspended || this.forceFullResyncInFlight) {
-      trace("syncNow skipped", this.suspended ? "engine suspended" : "full resync in flight");
+    if (this.suspended) {
+      trace("syncNow skipped", "engine suspended");
       return;
     }
     if (this.syncTimer) {
@@ -661,104 +681,70 @@ export class SyncEngine {
     }
 
     this.syncInFlight = true;
-    const cycleStartedAt = Date.now();
-    trace("cycle start");
+    const controller = new AbortController();
+    this.cycleController = controller;
+    const signal = controller.signal;
     this.dispatch({ type: "setSyncStatus", payload: "syncing" });
     this.dispatch({ type: "setError", payload: null });
-    const work = async () => {
-      if (this.io.withSyncLease) await this.io.withSyncLease(() => this.runSyncCycle());
-      else await this.runSyncCycle();
-    };
-    const current = work();
-    this.syncCompletion = current;
-    let canRunAgain = true;
-    let abandoned = false;
-    const watchdog = setTimeout(() => {
-      if (this.syncCompletion !== current) return;
-      abandoned = true;
-      trace("cycle abandoned", `still running after ${SYNC_CYCLE_WATCHDOG_MS}ms`);
-      this.syncInFlight = false;
-      this.syncCompletion = null;
-      this.dispatch({ type: "setError", payload: "Sync did not finish; retrying" });
-      this.dispatch({ type: "setSyncStatus", payload: "error" });
-      this.scheduleRetry();
-    }, SYNC_CYCLE_WATCHDOG_MS);
+    const work = () => this.runSyncCycle(signal);
+    // The lease stays held until actual work has settled, including an ongoing
+    // local transaction. Timing out a caller must not permit overlapping writes.
+    const raw = this.io.withSyncLease ? this.io.withSyncLease(work, signal) : work();
+    const timer = setTimeout(() => controller.abort(new DOMException("Sync timed out", "TimeoutError")), SYNC_CYCLE_WATCHDOG_MS);
+    const completion = abortable(raw, signal);
+    this.syncCompletion = completion;
+    let rawDone = false;
+    const settled = raw.then(() => { rawDone = true; }, () => { rawDone = true; });
+    let finishCycle!: () => void;
+    this.cycleSettled = new Promise<void>((resolve) => { finishCycle = resolve; });
+    let retry = false;
+    let authenticated = true;
     try {
-      await current;
-      trace("cycle done", `${Date.now() - cycleStartedAt}ms`);
+      await completion;
     } catch (error) {
-      trace("cycle failed", `${describeError(error)} after ${Date.now() - cycleStartedAt}ms`);
-      if (abandoned) return;
-      // If a permanent conflict was awaiting an atomic full-snapshot commit,
-      // restore its still-durable outbox entry after any failed bootstrap.
-      await this.refreshPendingFromStorage(true).catch(() => undefined);
+      retry = !this.suspended && (!signal.aborted || signal.reason?.name === "TimeoutError");
+      if (!signal.aborted) {
+        await this.refreshPendingFromStorage(true, new Set(), signal).catch(() => undefined);
+      }
       if (error instanceof AuthRequiredError) {
-        canRunAgain = false;
+        authenticated = false;
+        retry = false;
         this.stateRef.current = { ...this.stateRef.current, session: null, authRequired: true };
         this.dispatch({ type: "setAuthRequired", payload: true });
         this.dispatch({ type: "setSession", payload: null });
         await this.io.saveLocalSession(null).catch(() => undefined);
-      } else {
+      } else if (!this.suspended) {
         this.dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Sync failed" });
         this.dispatch({ type: "setSyncStatus", payload: "error" });
-        this.scheduleRetry();
       }
     } finally {
-      clearTimeout(watchdog);
-      if (!abandoned) {
+      clearTimeout(timer);
+      // Release all callers now, but don't start a replacement until storage
+      // work actually finishes. Late network results are fenced by signal.
+      const cleanup = () => {
+        finishCycle();
+        if (this.cycleController !== controller) return;
+        this.cycleController = null;
+        this.cycleSettled = null;
+        this.syncCompletion = null;
         this.syncInFlight = false;
-        if (this.syncCompletion === current) this.syncCompletion = null;
-        if (!canRunAgain) this.syncAgainAfterCurrent = false;
+        if (this.suspended || !authenticated) { this.syncAgainAfterCurrent = false; return; }
+        if (retry) this.scheduleRetry();
         else if (this.syncAgainAfterCurrent) {
           this.syncAgainAfterCurrent = false;
-          setTimeout(() => void this.syncNow(), 0);
+          this.syncTimer = setTimeout(() => { this.syncTimer = null; void this.syncNow(); }, 0);
         }
-      }
+      };
+      if (rawDone) cleanup();
+      else void settled.then(cleanup);
     }
   };
 
   forceFullResync = async (): Promise<void> => {
     if (this.suspended) return;
-    if (!this.io.isOnline()) {
-      this.dispatch({ type: "setSyncStatus", payload: "offline" });
-      return;
-    }
-    if (this.syncCompletion) await this.syncCompletion.catch(() => undefined);
-    this.forceFullResyncInFlight = true;
-    this.dispatch({ type: "setSyncStatus", payload: "syncing" });
-    this.dispatch({ type: "setError", payload: null });
-    try {
-      const work = async () => {
-        const refreshed = await this.io.bootstrap(null, null);
-        await this.settlePendingWrites();
-        await this.refreshPendingFromStorage(true);
-        await this.applyBootstrapSnapshot(refreshed, true);
-        const remaining = await this.refreshPendingFromStorage(true);
-        if (remaining.length > 0) this.syncAgainAfterCurrent = true;
-      };
-      if (this.io.withSyncLease) await this.io.withSyncLease(work);
-      else await work();
-      this.forceNextBootstrapFull = false;
-      this.dispatch({ type: "setSyncStatus", payload: "idle" });
-      this.clearRetry();
-    } catch (error) {
-      if (error instanceof AuthRequiredError) {
-        this.stateRef.current = { ...this.stateRef.current, session: null, authRequired: true };
-        this.dispatch({ type: "setAuthRequired", payload: true });
-        this.dispatch({ type: "setSession", payload: null });
-        await this.io.saveLocalSession(null).catch(() => undefined);
-      } else {
-        this.dispatch({ type: "setError", payload: error instanceof Error ? error.message : "Resync failed" });
-        this.dispatch({ type: "setSyncStatus", payload: "error" });
-        this.scheduleRetry();
-      }
-    } finally {
-      this.forceFullResyncInFlight = false;
-      if (this.syncAgainAfterCurrent) {
-        this.syncAgainAfterCurrent = false;
-        setTimeout(() => void this.syncNow(), 0);
-      }
-    }
+    if (this.cycleSettled) await this.cycleSettled;
+    this.forceNextBootstrapFull = true;
+    await this.syncNow();
   };
 
   scheduleSync = (): void => {
@@ -785,20 +771,27 @@ export class SyncEngine {
     }, SYNC_DEBOUNCE_MS);
   };
 
+  cancelCurrentSync(): void {
+    this.syncAgainAfterCurrent = false;
+    this.cycleController?.abort(new DOMException("Page left foreground", "AbortError"));
+  }
+
   dispose(): void {
+    this.syncAgainAfterCurrent = false;
     if (this.syncTimer) clearTimeout(this.syncTimer);
     if (this.retryTimer) clearTimeout(this.retryTimer);
     if (this.excelUploadTimer) clearTimeout(this.excelUploadTimer);
     this.syncTimer = null;
     this.retryTimer = null;
     this.excelUploadTimer = null;
+    this.cycleController?.abort(new DOMException("Sync engine suspended", "AbortError"));
     this.excelUploadController?.abort(new DOMException("Sync engine suspended", "AbortError"));
   }
 
   async suspend(): Promise<ClientMutation[]> {
     this.suspended = true;
     this.syncAgainAfterCurrent = false;
-    const syncCompletion = this.syncCompletion;
+    const syncCompletion = this.cycleSettled ?? this.syncCompletion;
     const excelUploadCompletion = this.excelUploadCompletion;
     this.dispose();
     await Promise.all([

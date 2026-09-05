@@ -24,6 +24,7 @@ interface FakeTransaction {
   onabort: (() => void) | null;
   error: unknown;
   abort: () => void;
+  addEventListener: (type: string, callback: () => void) => void;
 }
 
 function invalidState(): DOMException {
@@ -41,20 +42,35 @@ function createFakeDb(): FakeDb {
     close: () => undefined,
     transaction: () => {
       if (db.closedByBrowser) throw invalidState();
+      const listeners = new Map<string, Array<() => void>>();
+      const buffered: unknown[] = [];
+      let ended = false;
+      const emit = (type: string) => { for (const listener of listeners.get(type) ?? []) listener(); };
       const tx: FakeTransaction = {
+        addEventListener: (type, callback) => listeners.set(type, [...(listeners.get(type) ?? []), callback]),
         oncomplete: null,
         onerror: null,
         onabort: null,
         error: null,
-        abort: () => setTimeout(() => tx.onabort?.(), 0),
+        abort: () => {
+          if (ended) throw invalidState();
+          ended = true;
+          setTimeout(() => { emit("abort"); tx.onabort?.(); }, 0);
+        },
         objectStore: () => ({
-          put: (value: unknown) => db.puts.push(value),
+          put: (value: unknown) => buffered.push(value),
           delete: () => undefined,
           getAll: () => ({}),
           get: () => ({})
         })
       };
-      if (!db.hang) setTimeout(() => tx.oncomplete?.(), 0);
+      if (!db.hang) setTimeout(() => {
+        if (ended || tx.error) return;
+        ended = true;
+        db.puts.push(...buffered);
+        emit("complete");
+        tx.oncomplete?.();
+      }, 0);
       return tx;
     }
   };
@@ -143,6 +159,7 @@ describe("localDb connection recovery", () => {
     await second;
     expect(openedDbs).toHaveLength(2);
     expect(openedDbs[1].puts).toEqual([{ key: "lastSync", value: "second" }]);
+    expect(openedDbs[0].puts).toEqual([{ key: "lastSync", value: "first" }]);
   });
 
   it("surfaces an error when the reopened connection hangs too", async () => {
@@ -166,6 +183,45 @@ describe("localDb connection recovery", () => {
     } finally {
       fakeIndexedDb.open = originalOpen;
     }
+  });
+
+  it("does not start a late write when a timed-out open eventually resolves", async () => {
+    vi.useFakeTimers();
+    const originalOpen = fakeIndexedDb.open;
+    let delayed!: ReturnType<typeof originalOpen>;
+    let calls = 0;
+    fakeIndexedDb.open = () => {
+      calls++;
+      if (calls !== 1) return originalOpen();
+      delayed = { result: createFakeDb(), error: null, onsuccess: null, onerror: null, onblocked: null, onupgradeneeded: null };
+      return delayed;
+    };
+    try {
+      const { setLastSync } = await loadLocalDb();
+      const write = setLastSync("once");
+      await vi.runAllTimersAsync(); await write;
+      delayed.onsuccess?.();
+      await vi.runAllTimersAsync();
+      expect(delayed.result.puts).toEqual([]);
+      expect(openedDbs[0].puts).toEqual([{ key: "lastSync", value: "once" }]);
+    } finally { fakeIndexedDb.open = originalOpen; }
+  });
+
+  it("does not retry when abort cannot be confirmed", async () => {
+    vi.useFakeTimers();
+    const { setLastSync } = await loadLocalDb();
+    const first = setLastSync("first"); await vi.runAllTimersAsync(); await first;
+    openedDbs[0].hang = true;
+    const transaction = openedDbs[0].transaction;
+    openedDbs[0].transaction = (...args) => {
+      const tx = transaction(...args);
+      tx.abort = () => { throw invalidState(); };
+      return tx;
+    };
+    const result = expect(setLastSync("uncertain")).rejects.toMatchObject({ name: "LocalDbTimeoutError" });
+    await vi.runAllTimersAsync(); await result;
+    expect(openedDbs).toHaveLength(1);
+    expect(openedDbs[0].puts).toEqual([{ key: "lastSync", value: "first" }]);
   });
 
   it("does not retry ordinary transaction failures", async () => {

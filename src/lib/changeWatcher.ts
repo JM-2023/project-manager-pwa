@@ -1,3 +1,4 @@
+import { abortable, pause } from "./cancellation";
 import { AuthRequiredError } from "./api";
 import { describeError, trace } from "./syncTrace";
 import type { ChangesResponse } from "./types";
@@ -18,120 +19,63 @@ export interface ChangeWatcherDeps {
   onChanged: () => Promise<void>;
   /** The server rejected the session; the app's recovery path takes over. */
   onAuthRequired?: () => void;
+  withLeadership?: (signal: AbortSignal, work: () => Promise<void>) => Promise<void>;
+  onHealthy?: () => void;
 }
 
-/**
- * Keeps one long-poll open against /api/changes while the tab is eligible.
- * The server answers as soon as its cursor moves past ours (another device
- * wrote), or after ~25s with "unchanged"; either way the next wait starts
- * immediately. Cross-device latency drops from the 30s poll to about the
- * server's check interval, and idle waits cost one tiny query every 2s.
- */
+/** Each start owns its controller; an old loop can never stop a newer run. */
 export class ChangeWatcher {
-  private readonly deps: ChangeWatcherDeps;
-  private running = false;
-  private controller: AbortController | null = null;
-  private pauseTimer: ReturnType<typeof setTimeout> | null = null;
-  private resumePause: (() => void) | null = null;
-  private backoffAttempt = 0;
-  private hotLoopAttempt = 0;
-
-  constructor(deps: ChangeWatcherDeps) {
-    this.deps = deps;
-  }
-
-  isRunning(): boolean {
-    return this.running;
-  }
-
+  private run: AbortController | null = null;
+  constructor(private readonly deps: ChangeWatcherDeps) {}
+  isRunning(): boolean { return this.run !== null; }
   start(): void {
-    if (this.running || !this.deps.shouldRun()) return;
-    this.running = true;
-    trace("changes watch start");
-    void this.loop();
+    if (this.run || !this.deps.shouldRun()) return;
+    const run = new AbortController();
+    this.run = run;
+    const work = () => this.loop(run.signal);
+    const pending = this.deps.withLeadership ? this.deps.withLeadership(run.signal, work) : work();
+    void pending.catch((error) => {
+      if (!run.signal.aborted) trace("changes watch failed", describeError(error));
+    }).finally(() => { if (this.run === run) this.run = null; });
   }
-
   stop(): void {
-    if (!this.running) return;
-    this.running = false;
-    trace("changes watch stop");
-    this.controller?.abort(new DOMException("Change watcher stopped", "AbortError"));
-    this.controller = null;
-    this.wake();
+    const old = this.run;
+    this.run = null;
+    old?.abort(new DOMException("Change watcher stopped", "AbortError"));
   }
-
-  /** Re-evaluate eligibility after visibility, connectivity or session changed. */
-  refresh(): void {
-    if (this.deps.shouldRun()) this.start();
-    else this.stop();
-  }
-
-  private wake(): void {
-    if (this.pauseTimer) {
-      clearTimeout(this.pauseTimer);
-      this.pauseTimer = null;
-    }
-    this.resumePause?.();
-    this.resumePause = null;
-  }
-
-  private pause(ms: number): Promise<void> {
-    return new Promise((resolve) => {
-      this.resumePause = resolve;
-      this.pauseTimer = setTimeout(() => {
-        this.pauseTimer = null;
-        this.resumePause = null;
-        resolve();
-      }, ms);
-    });
-  }
-
-  private async loop(): Promise<void> {
-    while (this.running && this.deps.shouldRun()) {
+  refresh(): void { if (this.deps.shouldRun()) this.start(); else this.stop(); }
+  private async loop(signal: AbortSignal): Promise<void> {
+    let failures = 0;
+    let stalled = 0;
+    trace("changes watch start");
+    while (!signal.aborted && this.deps.shouldRun()) {
       const before = this.deps.cursor();
       if (before.epoch === null || before.cursor === null) {
-        await this.pause(NO_CURSOR_PAUSE_MS);
+        await pause(NO_CURSOR_PAUSE_MS, signal);
         continue;
       }
-      const controller = new AbortController();
-      this.controller = controller;
-      let result: ChangesResponse;
       try {
-        result = await this.deps.waitForChanges(before.epoch, before.cursor, controller.signal);
+        const result = await abortable(this.deps.waitForChanges(before.epoch, before.cursor, signal), signal);
+        signal.throwIfAborted();
+        this.deps.onHealthy?.();
+        failures = 0;
+        if (!result.changed) continue;
+        // A peer or a concurrent local sync may already have adopted this cursor.
+        const current = this.deps.cursor();
+        if (current.epoch === result.epoch && current.cursor === result.cursor) continue;
+        trace("changes: server ahead", `cursor ${before.cursor} → ${result.cursor}`);
+        await abortable(this.deps.onChanged(), signal);
+        signal.throwIfAborted();
+        const after = this.deps.cursor();
+        if (after.epoch !== before.epoch || after.cursor !== before.cursor) { stalled = 0; continue; }
+        await pause(Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** Math.min(stalled++, 4)), signal);
       } catch (error) {
-        if (this.controller === controller) this.controller = null;
-        if (controller.signal.aborted || !this.running) break;
-        if (error instanceof AuthRequiredError) {
-          trace("changes watch auth required");
-          this.running = false;
-          this.deps.onAuthRequired?.();
-          break;
-        }
-        const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** this.backoffAttempt++);
+        if (signal.aborted) break;
+        if (error instanceof AuthRequiredError) { this.deps.onAuthRequired?.(); break; }
+        const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** Math.min(failures++, 4));
         trace("changes wait failed", `${describeError(error)}; retry in ${delay}ms`);
-        await this.pause(delay);
-        continue;
+        await pause(delay, signal);
       }
-      if (this.controller === controller) this.controller = null;
-      this.backoffAttempt = 0;
-      if (!this.running) break;
-      if (!result.changed) continue;
-
-      trace("changes: server ahead", `cursor ${before.cursor} → ${result.cursor}`);
-      await this.deps.onChanged().catch(() => undefined);
-      const after = this.deps.cursor();
-      const advanced = after.epoch !== before.epoch || after.cursor !== before.cursor;
-      if (advanced) {
-        this.hotLoopAttempt = 0;
-        continue;
-      }
-      // The pull did not move our cursor (offline, sync error, engine
-      // suspended); the server would answer "changed" again at once. Back off
-      // instead of spinning.
-      const delay = Math.min(MAX_BACKOFF_MS, BASE_BACKOFF_MS * 2 ** this.hotLoopAttempt++);
-      trace("changes: cursor unchanged after pull", `retry in ${delay}ms`);
-      await this.pause(delay);
     }
-    this.running = false;
   }
 }

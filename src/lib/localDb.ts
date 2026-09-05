@@ -115,9 +115,8 @@ function isLostConnectionError(error: unknown): boolean {
 
 /**
  * WebKit can also leave a request pending forever instead of failing it. Past
- * this bound the connection is treated as lost: the handle is dropped and the
- * work reruns on a fresh one, so a stall surfaces as a retry (then an error)
- * instead of silently freezing every later write and sync cycle.
+ * this bound we abort the attempt's transactions. Only confirmed rollbacks
+ * may be retried; an uncertain commit must not replay over a newer edit.
  */
 export const LOCAL_DB_TIMEOUT_MS = 20_000;
 const SLOW_LOCAL_DB_MS = 1_500;
@@ -129,50 +128,90 @@ export class LocalDbTimeoutError extends Error {
   }
 }
 
-function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new LocalDbTimeoutError(label)), LOCAL_DB_TIMEOUT_MS);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
+type LocalConnection = Pick<IDBDatabase, "transaction">;
+class RetryableLocalError extends Error {
+  constructor(cause: unknown) { super("Local transaction rolled back", { cause }); }
 }
 
-async function runOnConnection<T>(connection: Promise<IDBDatabase>, work: (db: IDBDatabase) => Promise<T>): Promise<T> {
-  return work(await connection);
+interface TrackedTransaction {
+  tx: IDBTransaction;
+  status: "pending" | "complete" | "abort";
+  done: Promise<void>;
 }
 
-/**
- * Run one IndexedDB operation against the shared connection. If the browser
- * closed that connection underneath us (Safari does this to suspended tabs) or
- * stopped answering on it, reopen once and rerun the work; transactions are
- * atomic, so a failed first attempt left nothing behind.
- */
-async function withDb<T>(label: string, work: (db: IDBDatabase) => Promise<T>): Promise<T> {
+/** Every attempt owns its transactions, including reads and delayed opens. */
+async function attempt<T>(label: string, work: (db: LocalConnection) => Promise<T>): Promise<T> {
   const connection = openDb();
-  const startedAt = Date.now();
+  const transactions: TrackedTransaction[] = [];
+  let expired = false;
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new LocalDbTimeoutError(label);
+  const operation = (async () => {
+    const db = await connection;
+    if (expired) throw timeout; // An open request must never start late writes.
+    const scoped: LocalConnection = {
+      transaction: (...args) => {
+        if (expired) throw timeout;
+        const tx = db.transaction(...args);
+        let finish!: () => void;
+        const item: TrackedTransaction = { tx, status: "pending", done: new Promise<void>((resolve) => { finish = resolve; }) };
+        tx.addEventListener("complete", () => { item.status = "complete"; finish(); }, { once: true });
+        tx.addEventListener("abort", () => { item.status = "abort"; finish(); }, { once: true });
+        transactions.push(item);
+        return tx;
+      }
+    };
+    const value = await work(scoped);
+    await Promise.all(transactions.map((item) => item.done));
+    if (transactions.some((item) => item.status === "abort")) throw new DOMException("Local read aborted", "AbortError");
+    return value;
+  })();
+  const deadline = new Promise<never>((_, reject) => { timer = setTimeout(() => reject(timeout), LOCAL_DB_TIMEOUT_MS); });
   try {
-    const result = await withTimeout(runOnConnection(connection, work), label);
-    const elapsed = Date.now() - startedAt;
-    if (elapsed >= SLOW_LOCAL_DB_MS) trace(`idb ${label} slow`, `${elapsed}ms`);
-    return result;
+    return await Promise.race([operation, deadline]);
   } catch (error) {
-    const timedOut = error instanceof LocalDbTimeoutError;
-    const connectionLost = timedOut || dbPromise !== connection || isLostConnectionError(error);
-    trace(`idb ${label} failed`, `${describeError(error)} after ${Date.now() - startedAt}ms${connectionLost ? ", reopening" : ""}`);
-    if (!connectionLost) throw error;
-    forgetConnection(connection);
-    if (timedOut) void connection.then((db) => db.close()).catch(() => undefined);
-    const result = await withTimeout(runOnConnection(openDb(), work), label);
-    trace(`idb ${label} recovered`, `${Date.now() - startedAt}ms`);
-    return result;
+    expired = true;
+    // close() does not abort transactions. Explicitly abort and observe their
+    // terminal events before deciding a write can safely be repeated.
+    for (const item of transactions) {
+      if (item.status === "pending") { try { item.tx.abort(); } catch { /* Already finishing; don't assume rollback. */ } }
+    }
+    let cleanupTimer: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.all(transactions.map((item) => item.done)),
+      new Promise<void>((resolve) => { cleanupTimer = setTimeout(resolve, 1000); })
+    ]);
+    clearTimeout(cleanupTimer);
+    const rolledBack = transactions.every((item) => item.status === "abort");
+    if (error === timeout || isLostConnectionError(error)) {
+      forgetConnection(connection);
+      void connection.then((db) => db.close()).catch(() => undefined);
+    }
+    // No transactions (e.g. a delayed open) or confirmed aborts are retryable.
+    // A completed/unknown commit is never replayed over subsequent edits.
+    if (rolledBack && (error === timeout || isLostConnectionError(error))) {
+      throw new RetryableLocalError(error);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+async function withDb<T>(label: string, work: (db: LocalConnection) => Promise<T>): Promise<T> {
+  const startedAt = Date.now();
+  for (let tries = 0; ; tries++) {
+    try {
+      const value = await attempt(label, work);
+      if (Date.now() - startedAt >= SLOW_LOCAL_DB_MS) trace(`idb ${label} slow`, `${Date.now() - startedAt}ms`);
+      return value;
+    } catch (error) {
+      if (error instanceof RetryableLocalError) {
+        if (tries === 0) { trace(`idb ${label} retry after rollback`, describeError(error.cause)); continue; }
+        throw error.cause;
+      }
+      throw error;
+    }
   }
 }
 
@@ -213,31 +252,24 @@ async function setMeta(key: string, value: unknown): Promise<void> {
 }
 
 export async function loadLocalSnapshot(): Promise<LocalSnapshot> {
-  const [projects, tasks, nextProjects, nextIdeas, pendingMutations, settings, lastSync, syncEpoch, syncCursor, session] = await Promise.all([
-    getAll<Project>("projects"),
-    getAll<Task>("tasks"),
-    getAll<NextProject>("nextProjects"),
-    getAll<NextIdea>("nextIdeas"),
-    getAll<ClientMutation>("pendingMutations"),
-    getMeta<Record<string, unknown>>("settings"),
-    getMeta<string>("lastSync"),
-    getMeta<string>("syncEpoch"),
-    getMeta<number>("syncCursor"),
-    getMeta<SessionResponse>("session")
-  ]);
-
-  return {
-    projects,
-    tasks,
-    nextProjects,
-    nextIdeas,
-    settings: sanitizeSettings(settings ?? {}),
-    pendingMutations,
-    lastSync,
-    syncEpoch,
-    syncCursor,
-    session
-  };
+  return withDb("loadLocalSnapshot", async (db) => {
+    const tx = db.transaction(["projects", "tasks", "nextProjects", "nextIdeas", "pendingMutations", "meta"], "readonly");
+    const read = <T>(request: IDBRequest<T>): Promise<T> => new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const meta = <T>(key: string) => read(tx.objectStore("meta").get(key)).then((row) => (row?.value ?? null) as T | null);
+    const [projects, tasks, nextProjects, nextIdeas, pendingMutations, settings, lastSync, syncEpoch, syncCursor, session] = await Promise.all([
+      read<Project[]>(tx.objectStore("projects").getAll()),
+      read<Task[]>(tx.objectStore("tasks").getAll()),
+      read<NextProject[]>(tx.objectStore("nextProjects").getAll()),
+      read<NextIdea[]>(tx.objectStore("nextIdeas").getAll()),
+      read<ClientMutation[]>(tx.objectStore("pendingMutations").getAll()),
+      meta<Record<string, unknown>>("settings"), meta<string>("lastSync"),
+      meta<string>("syncEpoch"), meta<number>("syncCursor"), meta<SessionResponse>("session")
+    ]);
+    return { projects, tasks, nextProjects, nextIdeas, pendingMutations, settings: sanitizeSettings(settings ?? {}), lastSync, syncEpoch, syncCursor, session };
+  });
 }
 
 function persistIncomingRecord(store: IDBObjectStore, record: SavableEntity): void {

@@ -115,6 +115,49 @@ function makeState(tasks: Task[]): AppState {
 }
 
 describe("SyncEngine.syncNow", () => {
+  it("releases timeout waiters and ignores a late bootstrap after a newer cycle", async () => {
+    vi.useFakeTimers();
+    let resolveOld!: (snapshot: BootstrapResponse) => void;
+    const old = new Promise<BootstrapResponse>((resolve) => { resolveOld = resolve; });
+    const newest = bootstrapResponse([task("new", "2026-09-05", 3)]);
+    const io = makeIO({ bootstrap: vi.fn().mockReturnValueOnce(old).mockResolvedValue(newest) });
+    const stateRef = { current: makeState([]) };
+    const engine = new SyncEngine({ stateRef, dispatch: vi.fn(), clientId: "c", io });
+    const first = engine.syncNow();
+    await flushMicrotasks(30);
+    const waiter = engine.syncNow();
+    await vi.advanceTimersByTimeAsync(120_000);
+    await Promise.all([first, waiter]);
+    expect(io.saveBootstrapSnapshot).not.toHaveBeenCalled();
+    expect(vi.mocked(io.bootstrap).mock.calls[0][2]?.aborted).toBe(true);
+    await engine.syncNow();
+    resolveOld(bootstrapResponse([task("old", "2026-09-01", 1)]));
+    await flushMicrotasks(30);
+    expect(stateRef.current.tasks.map((row) => row.id)).toEqual(["new"]);
+    expect(io.saveBootstrapSnapshot).toHaveBeenCalledTimes(1);
+    engine.dispose();
+  });
+
+  it("keeps an active storage write exclusive until it actually settles after timeout", async () => {
+    vi.useFakeTimers();
+    let finish!: () => void;
+    const saving = new Promise<void>((resolve) => { finish = resolve; });
+    const io = makeIO({ saveBootstrapSnapshot: vi.fn(() => saving) });
+    const engine = new SyncEngine({ stateRef: { current: makeState([]) }, dispatch: vi.fn(), clientId: "c", io });
+    const first = engine.syncNow();
+    await flushMicrotasks(40);
+    expect(io.saveBootstrapSnapshot).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(120_000);
+    await first;
+    await engine.syncNow();
+    expect(io.bootstrap).toHaveBeenCalledTimes(1);
+    finish();
+    await flushMicrotasks(40);
+    await engine.syncNow();
+    expect(io.bootstrap).toHaveBeenCalledTimes(2);
+    engine.dispose();
+  });
+
   it("drains a queued mutation, applies the server result, and replaces from bootstrap", async () => {
     const pending: ClientMutation = {
       id: "m1",
@@ -151,7 +194,7 @@ describe("SyncEngine.syncNow", () => {
 
     expect(io.sendMutations).toHaveBeenCalledOnce();
     expect(io.removePendingMutations).toHaveBeenCalledWith(["m1"]);
-    expect(io.bootstrap).toHaveBeenCalledWith(null, null);
+    expect(io.bootstrap).toHaveBeenCalledWith(null, null, expect.any(AbortSignal));
     expect(io.saveBootstrapSnapshot).toHaveBeenCalledOnce();
     expect(stateRef.current.tasks.map((row) => row.id)).toEqual(["t1"]);
     expect(dispatch).toHaveBeenCalledWith({ type: "replaceBootstrap", payload: expect.objectContaining({ serverTime: "2026-06-30T12:00:00.000Z" }) });
@@ -258,7 +301,7 @@ describe("SyncEngine.syncNow", () => {
 
     await engine.syncNow();
 
-    expect(io.bootstrap).toHaveBeenCalledWith(null, null);
+    expect(io.bootstrap).toHaveBeenCalledWith(null, null, expect.any(AbortSignal));
     expect(saveBootstrapSnapshot).toHaveBeenCalledWith(expect.objectContaining({ tasks: [serverTask] }), true, ["stale-delete"]);
     expect(outbox).toEqual([]);
     expect(stateRef.current.tasks).toEqual([serverTask]);

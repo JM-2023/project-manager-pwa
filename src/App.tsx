@@ -47,6 +47,8 @@ import {
   isLogoutBarrierStale,
   logoutBarrierRetryDelay,
   publishSnapshotHint,
+  publishWatchHealthy,
+  withChangeLeadership,
   publishSyncHint,
   releaseLogoutBarrier,
   subscribeToSyncEvents,
@@ -54,6 +56,7 @@ import {
   withSyncLease
 } from "./lib/syncChannel";
 import { trace } from "./lib/syncTrace";
+import { SnapshotRefresh } from "./lib/snapshotRefresh";
 import { ChangeWatcher, CHANGES_WAIT_SECONDS } from "./lib/changeWatcher";
 import type { ImportRow, NextIdea, NextProject, Project, SessionResponse, Task } from "./lib/types";
 import { CalendarPage } from "./pages/CalendarPage";
@@ -190,7 +193,7 @@ export function App() {
     () => ({
       ...baseSyncIO,
       publishSyncHint: () => publishSyncHint(tabId),
-      publishSnapshotHint: () => publishSnapshotHint(tabId)
+      publishSnapshotHint: (epoch, cursor) => publishSnapshotHint(tabId, epoch, cursor)
     }),
     [tabId]
   );
@@ -200,8 +203,9 @@ export function App() {
   }
   const engine = engineRef.current;
   const { syncNow, forceFullResync, flushPendingWithKeepalive } = engine;
-  // One long-poll per visible signed-in tab: the server answers the moment
-  // another device's write moves the cursor, and the tab pulls right away.
+  // One visible signed-in tab owns the long-poll. Other tabs consume its
+  // health and snapshot notifications and take over when it releases the lock.
+  const watchHealthyAt = useRef(0);
   const watcherRef = useRef<ChangeWatcher | null>(null);
   if (!watcherRef.current) {
     watcherRef.current = new ChangeWatcher({
@@ -213,7 +217,10 @@ export function App() {
         !stateRef.current.authRequired &&
         stateRef.current.session !== null &&
         !isLogoutBarrierActive(),
-      onChanged: () => syncNow()
+      onChanged: () => syncNow(),
+      withLeadership: withChangeLeadership,
+      onHealthy: () => { watchHealthyAt.current = Date.now(); publishWatchHealthy(tabId); },
+      onAuthRequired: () => { void syncNow(); }
     });
   }
   const changeWatcher = watcherRef.current;
@@ -326,6 +333,12 @@ export function App() {
 
   useEffect(() => {
     let logoutRecoveryTimer: number | null = null;
+    const snapshots = new SnapshotRefresh({
+      eligible: () => document.visibilityState === "visible" && !stateRef.current.authRequired && !isLogoutBarrierActive(),
+      current: () => ({ epoch: stateRef.current.syncEpoch ?? undefined, cursor: stateRef.current.syncCursor ?? undefined }),
+      adopt: engine.adoptSnapshotFromStorage,
+      onError: (error) => trace("snapshot adoption failed", String(error))
+    });
     function handleOnline() {
       trace("trigger online/offline", `navigator.onLine=${navigator.onLine}`);
       commit({ type: "setOnline", payload: navigator.onLine });
@@ -339,6 +352,8 @@ export function App() {
     }
     function handleVisibilityChange() {
       trace("trigger visibility", document.visibilityState);
+      snapshots.refresh();
+      if (document.visibilityState === "hidden") engine.cancelCurrentSync();
       if (document.visibilityState === "visible" && navigator.onLine && !stateRef.current.authRequired) void syncNow();
     }
     const unsubscribe = subscribeToSyncEvents(tabId, {
@@ -347,12 +362,8 @@ export function App() {
         // outbox immediately and use focus/leader polling as the safety net.
         void engine.adoptPendingFromStorage();
       },
-      onSnapshotHint: () => {
-        // Another tab pulled cloud changes: show them from the shared local
-        // database instead of waiting for this tab's own focus or poll.
-        trace("trigger snapshot hint");
-        void engine.adoptSnapshotFromStorage();
-      },
+      onSnapshotHint: (message) => snapshots.hint(message),
+      onWatchHealthy: () => { watchHealthyAt.current = Date.now(); },
       onLogoutStart: () => {
         void engine.suspend();
         if (logoutRecoveryTimer !== null) window.clearTimeout(logoutRecoveryTimer);
@@ -376,9 +387,17 @@ export function App() {
     });
     const interval = window.setInterval(async () => {
       const eligible = navigator.onLine && document.visibilityState === "visible" && !stateRef.current.authRequired;
-      const claimed = eligible && (await claimBackgroundPoll(tabId));
-      trace("trigger poll", eligible ? (claimed ? "claimed" : "another tab polled recently") : "not eligible");
-      if (claimed) void syncNow();
+      // A healthy leader already checks the cloud cursor. Only use the old
+      // full cycle when that signal is missing, including unsupported locks.
+      changeWatcher.refresh();
+      const fallback = Date.now() - watchHealthyAt.current > 60_000;
+      try {
+        const claimed = eligible && fallback && (await claimBackgroundPoll(tabId));
+        trace("trigger poll", !eligible ? "not eligible" : !fallback ? "change watcher healthy" : claimed ? "claimed" : "another tab polled recently");
+        if (claimed) void syncNow();
+      } catch (error) {
+        trace("fallback poll failed", String(error));
+      }
     }, 30_000);
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOnline);
@@ -388,12 +407,13 @@ export function App() {
       window.clearInterval(interval);
       if (logoutRecoveryTimer !== null) window.clearTimeout(logoutRecoveryTimer);
       unsubscribe();
+      snapshots.dispose();
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOnline);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [engine, syncNow, tabId]);
+  }, [engine, syncNow, tabId, changeWatcher]);
 
   useEffect(() => () => engine.dispose(), [engine]);
 

@@ -62,6 +62,19 @@ export function HeroPulse({ pct }: HeroPulseProps) {
     if (!ctx) return;
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const root = document.documentElement;
+    const readPalette = () => {
+      const style = getComputedStyle(canvas);
+      const channels = (name: string) => style.getPropertyValue(`--hero-${name}`).trim();
+      return {
+        start: channels("body-start"), mid: channels("body-mid"),
+        edge: channels("body-edge"), tail: channels("body-tail"),
+        dark: channels("dot-dark").split(",").map(Number),
+        light: channels("dot-light").split(",").map(Number),
+        sheen: channels("sheen"), shade: channels("shade"),
+      };
+    };
+    let palette = readPalette();
 
     let raf = 0;
     let W = 0;
@@ -116,11 +129,11 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       //    the fill and the pixels a single object with a gradient between them.
       const f = Math.min(Math.max(pctX / W, 0.0001), 0.9999);
       const body = ctx.createLinearGradient(0, 0, W, 0);
-      body.addColorStop(0, "rgba(16, 180, 120, 0.34)");
-      body.addColorStop(f * 0.55, "rgba(11, 168, 116, 0.56)");
-      body.addColorStop(f, "rgba(4, 146, 100, 0.72)");
-      body.addColorStop(Math.min(1, f + (1 - f) * 0.42), "rgba(16, 185, 129, 0.14)");
-      body.addColorStop(1, "rgba(16, 185, 129, 0)");
+      body.addColorStop(0, `rgba(${palette.start}, 0.34)`);
+      body.addColorStop(f * 0.55, `rgba(${palette.mid}, 0.56)`);
+      body.addColorStop(f, `rgba(${palette.edge}, 0.72)`);
+      body.addColorStop(Math.min(1, f + (1 - f) * 0.42), `rgba(${palette.tail}, 0.14)`);
+      body.addColorStop(1, `rgba(${palette.tail}, 0)`);
       ctx.fillStyle = body;
       ctx.fillRect(0, 0, W, H);
 
@@ -168,9 +181,9 @@ export function HeroPulse({ pct }: HeroPulseProps) {
             // the dissolve longest, so the far scattered dots read pale), high
             // bias cells the dark ones; everything whitens toward the right.
             const L = Math.min(0.12 + (1 - bias[idx]) * 0.8 + white, 1);
-            const r = Math.round(8 + 244 * L);
-            const g = Math.round(120 + 135 * L);
-            const b = Math.round(84 + 166 * L);
+            const r = Math.round(palette.dark[0] + (palette.light[0] - palette.dark[0]) * L);
+            const g = Math.round(palette.dark[1] + (palette.light[1] - palette.dark[1]) * L);
+            const b = Math.round(palette.dark[2] + (palette.light[2] - palette.dark[2]) * L);
             ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${a})`;
             ctx.fillRect(x, cy * CELL, DOT, DOT);
           }
@@ -181,14 +194,14 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       //    (green + pixels), following its shape and alpha, so there is no seam.
       ctx.globalCompositeOperation = "source-atop";
       const sheen = ctx.createLinearGradient(0, 0, 0, H);
-      sheen.addColorStop(0, "rgba(255, 255, 255, 0.42)");
-      sheen.addColorStop(0.45, "rgba(255, 255, 255, 0.05)");
-      sheen.addColorStop(0.8, "rgba(255, 255, 255, 0)");
+      sheen.addColorStop(0, `rgba(${palette.sheen}, 0.42)`);
+      sheen.addColorStop(0.45, `rgba(${palette.sheen}, 0.05)`);
+      sheen.addColorStop(0.8, `rgba(${palette.sheen}, 0)`);
       ctx.fillStyle = sheen;
       ctx.fillRect(0, 0, W, H);
       const shade = ctx.createLinearGradient(0, H * 0.45, 0, H);
-      shade.addColorStop(0, "rgba(3, 60, 40, 0)");
-      shade.addColorStop(1, "rgba(3, 60, 40, 0.42)");
+      shade.addColorStop(0, `rgba(${palette.shade}, 0)`);
+      shade.addColorStop(1, `rgba(${palette.shade}, 0.42)`);
       ctx.fillStyle = shade;
       ctx.fillRect(0, 0, W, H);
       ctx.globalCompositeOperation = "source-over";
@@ -198,6 +211,16 @@ export function HeroPulse({ pct }: HeroPulseProps) {
       render(tms);
       raf = requestAnimationFrame(loop);
     };
+
+    // Also repaint a static, reduced-motion canvas when its palette changes.
+    const refreshPalette = () => {
+      palette = readPalette();
+      render(performance.now());
+    };
+    const paletteObserver = new MutationObserver(refreshPalette);
+    paletteObserver.observe(root, { attributes: true, attributeFilter: ["data-bg", "data-theme"] });
+    const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+    colorScheme.addEventListener("change", refreshPalette);
 
     resize();
     // Setting canvas.width wipes the bitmap, and in the frame pipeline the
@@ -215,6 +238,8 @@ export function HeroPulse({ pct }: HeroPulseProps) {
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      paletteObserver.disconnect();
+      colorScheme.removeEventListener("change", refreshPalette);
     };
   }, []);
 

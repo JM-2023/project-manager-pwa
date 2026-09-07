@@ -2964,8 +2964,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .page-content.cache-page,
   .page-content.settings-page { width: min(760px, 100%); }
 
-  /* The desktop navigation shares the page ground. Items stay flat, with
-     one solid selection wash; Settings occupies the remaining bottom space. */
+  /* The desktop navigation shares the page ground. Selection changes only
+     the icon colour; Settings occupies the remaining bottom space. */
   .bottom-nav {
     top: 0; right: auto; width: 92px; height: 100dvh;
     display: flex; flex-direction: column; gap: 4px;
@@ -2982,11 +2982,16 @@ button.project-row.active { color: var(--chip-accent-dark); }
     color: var(--ink-soft);
     transition: color var(--t) var(--ease), background var(--t) var(--ease);
   }
-  .bottom-nav button span { font-size: 0.875rem; letter-spacing: normal; }
-  .bottom-nav button.active {
-    color: var(--ink);
-    background: var(--primary-tint);
+  .bottom-nav button span,
+  .bottom-nav button.active span {
+    font-size: 0.875rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    color: var(--ink-soft);
   }
+  .bottom-nav button.active { color: var(--ink-soft); }
+  .bottom-nav button svg { transition: color var(--t) var(--ease); }
+  .bottom-nav button.active svg { color: var(--primary-dark); }
   .bottom-nav button:active { transform: none; }
   .bottom-nav button[data-nav="search"] { margin-top: 16px; }
   .bottom-nav button[data-nav="settings"] { margin-top: auto; }
@@ -2998,7 +3003,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
     margin-bottom: 16px;
     color: var(--ink-soft);
     font-size: 0.875rem;
-    font-weight: 700;
+    font-weight: 400;
     letter-spacing: normal;
   }
 

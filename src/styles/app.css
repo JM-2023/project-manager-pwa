@@ -2980,7 +2980,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
     align-content: center;
     gap: 4px;
     color: var(--ink-soft);
-    transition: color var(--t) var(--ease), background var(--t) var(--ease);
+    transition: color var(--t) var(--ease), transform 0.14s var(--ease-out);
   }
   .bottom-nav button span,
   .bottom-nav button.active span {
@@ -2992,7 +2992,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .bottom-nav button.active { color: var(--ink-soft); }
   .bottom-nav button svg { transition: color var(--t) var(--ease); }
   .bottom-nav button.active svg { color: var(--primary-dark); }
-  .bottom-nav button:active { transform: none; }
+  .bottom-nav button:hover { background: transparent; }
   .bottom-nav button[data-nav="settings"] { margin-top: auto; }
   .nav-brand {
     display: grid;

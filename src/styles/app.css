@@ -2993,7 +2993,6 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .bottom-nav button svg { transition: color var(--t) var(--ease); }
   .bottom-nav button.active svg { color: var(--primary-dark); }
   .bottom-nav button:active { transform: none; }
-  .bottom-nav button[data-nav="search"] { margin-top: 16px; }
   .bottom-nav button[data-nav="settings"] { margin-top: auto; }
   .nav-brand {
     display: grid;

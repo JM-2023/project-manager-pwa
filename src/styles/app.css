@@ -397,14 +397,15 @@
    Keep --bg in sync with chromeColor.ts + theme-init.js.
    ========================================================================= */
 :root[data-bg="gray"] {
-  --hero-body-start: 16, 172, 148;
-  --hero-body-mid: 11, 160, 141;
-  --hero-body-edge: 4, 138, 122;
-  --hero-body-tail: 16, 177, 156;
-  --hero-dot-dark: 8, 112, 105;
-  --hero-dot-light: 247, 252, 255;
-  --hero-sheen: 242, 248, 255;
-  --hero-shade: 3, 52, 52;
+  /* Keep the liquid green: a small blue lift cools it without turning cyan. */
+  --hero-body-start: 16, 180, 126;
+  --hero-body-mid: 11, 168, 122;
+  --hero-body-edge: 4, 146, 106;
+  --hero-body-tail: 16, 185, 135;
+  --hero-dot-dark: 8, 120, 90;
+  --hero-dot-light: 248, 255, 251;
+  --hero-sheen: 248, 255, 252;
+  --hero-shade: 3, 60, 44;
   --bg: #eef0f3;
   --surface: #ffffff;
   --surface-2: #f7f8fa;

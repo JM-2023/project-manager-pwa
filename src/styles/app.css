@@ -2964,34 +2964,42 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .page-content.cache-page,
   .page-content.settings-page { width: min(760px, 100%); }
 
+  /* The desktop navigation shares the page ground. Items stay flat, with
+     one solid selection wash; Settings occupies the remaining bottom space. */
   .bottom-nav {
-    top: 0; right: auto; width: 92px; height: 100vh;
-    /* Row 1 is the wordmark and sizes to itself; every nav item after it
-       rides the 72px auto-row. overflow-y keeps a short landscape viewport
-       from clipping the last tab. */
-    grid-template-columns: 1fr; grid-template-rows: auto; grid-auto-rows: 64px;
-    align-content: start; gap: 4px; overflow-y: auto;
-    padding: calc(20px + env(safe-area-inset-top)) 10px 20px;
-    border-top: 0; border-right: 1px solid var(--line);
+    top: 0; right: auto; width: 92px; height: 100dvh;
+    display: flex; flex-direction: column; gap: 4px;
+    overflow-y: auto;
+    padding: calc(32px + env(safe-area-inset-top)) 8px calc(16px + env(safe-area-inset-bottom));
+    background: var(--bg);
+    border: 0;
   }
-  .bottom-nav button { min-height: 64px; }
-  /* Must stay scoped to the button. `.bottom-nav span` loses to the base
-     `.bottom-nav button span` on specificity, so it never reached the labels
-     it was written for — while still outranking .nav-brand and inflating the
-     wordmark, which is the opposite of what it was for. */
-  .bottom-nav button span { font-size: 0.6875rem; }
-  /* The wordmark only exists in rail mode; on the bottom bar it would just
-     eat a sixth of the row. */
+  .bottom-nav button {
+    flex: none;
+    min-height: 64px;
+    align-content: center;
+    gap: 4px;
+    color: var(--ink-soft);
+    transition: color var(--t) var(--ease), background var(--t) var(--ease);
+  }
+  .bottom-nav button span { font-size: 0.875rem; letter-spacing: normal; }
+  .bottom-nav button.active {
+    color: var(--ink);
+    background: var(--primary-tint);
+  }
+  .bottom-nav button:active { transform: none; }
+  .bottom-nav button[data-nav="search"] { margin-top: 16px; }
+  .bottom-nav button[data-nav="settings"] { margin-top: auto; }
   .nav-brand {
     display: grid;
+    flex: none;
     place-items: center;
-    height: 34px;
-    margin-bottom: 14px;
-    color: var(--muted);
-    font-size: 0.6875rem;
+    height: 32px;
+    margin-bottom: 16px;
+    color: var(--ink-soft);
+    font-size: 0.875rem;
     font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
+    letter-spacing: normal;
   }
 
   .mapping-panel { padding: 18px; }

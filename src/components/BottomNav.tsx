@@ -26,7 +26,7 @@ export function BottomNav({ current, onChange }: BottomNavProps) {
         PM
       </span>
       {items.map(({ id, label, Icon }) => (
-        <button key={id} type="button" className={current === id ? "active" : ""} onClick={() => onChange(id)}>
+        <button key={id} type="button" data-nav={id} aria-current={current === id ? "page" : undefined} className={current === id ? "active" : ""} onClick={() => onChange(id)}>
           <Icon size={20} aria-hidden="true" />
           <span>{m.nav[label]}</span>
         </button>

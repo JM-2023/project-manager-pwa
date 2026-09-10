@@ -22,8 +22,8 @@
    (4/6/8/12/16) kept concentric: an inner corner is its parent minus the
    padding between them (seg thumb, menu rows, table header), or simply the
    next stop down. True circles (dots, ×-buttons, slider thumbs) may be full
-   capsules; the desktop navigation is a vertical capsule as well. The glass
-   buttons ride the same scale: rest at --r-xl, swelling
+   capsules. The floating navigation uses its own concentric Dock outline.
+   The glass buttons ride the same scale: rest at --r-xl, swelling
    +4px on hover; the project chips morph --r-md → --r-lg.
 
    All colour flows through tokens; dark theme is a token swap layered on
@@ -642,9 +642,7 @@ select {
 /* =========================================================================
    App shell + page scaffolding
    ========================================================================= */
-/* Clearance for the fixed bottom bar is carried by .page-content's own
-   bottom padding (110px), not by the shell — so a page can scroll its last
-   row clear of the bar without the shell reserving the space twice. */
+/* Keep the final row above the floating navigation and the home indicator. */
 .app-shell {
   min-height: 100vh;
 }
@@ -652,7 +650,7 @@ select {
 .page-content {
   width: 100%;
   margin: 0 auto;
-  padding: calc(20px + env(safe-area-inset-top)) 14px 110px;
+  padding: calc(20px + env(safe-area-inset-top)) 14px calc(110px + env(safe-area-inset-bottom));
   animation: fade-up var(--t-slow) var(--ease) both;
 }
 
@@ -860,19 +858,29 @@ select {
 }
 
 /* =========================================================================
-   Navigation — a solid fixed bar; the hairline does the separating. Items
-   are flat at rest; the active item lifts into a quiet accent chip.
+   Navigation — a floating Dock with short straight ends and rounded corners.
+   The 32/28/24px outline scale adapts to the bar's shorter edge; each inner
+   radius subtracts the border and inset from its surrounding surface.
    ========================================================================= */
 .bottom-nav {
+  --nav-radius: 28px;
+  --nav-inset: 8px;
   position: fixed;
-  right: 0; bottom: 0; left: 0;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: calc(8px + env(safe-area-inset-bottom));
+  left: max(12px, env(safe-area-inset-left));
   z-index: 30;
+  width: auto;
+  max-width: 480px;
+  margin-inline: auto;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 4px;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+  padding: var(--nav-inset);
   background: var(--surface);
-  border-top: 1px solid var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--nav-radius);
+  box-shadow: var(--shadow-sm);
 }
 
 .bottom-nav button {
@@ -886,7 +894,7 @@ select {
   color: var(--muted);
   background: transparent;
   border: 0;
-  border-radius: var(--r-md);
+  border-radius: calc(var(--nav-radius) - var(--nav-inset) - 1px);
   transition: color var(--t) var(--ease), background var(--t) var(--ease), transform 0.14s var(--ease-out);
 }
 @media (hover: hover) {
@@ -911,6 +919,13 @@ select {
   white-space: nowrap;
 }
 .bottom-nav button.active span { font-weight: 700; }
+
+/* A continuous curve approaches the Dock's softened corners on browsers
+   that support it; the same inset geometry retains a rounded fallback. */
+@supports (corner-shape: superellipse(1.5)) {
+  .bottom-nav,
+  .bottom-nav button { corner-shape: superellipse(1.5); }
+}
 
 /* =========================================================================
    Sync pill — a floating solid status chip. Elevation (shadow-lg) is earned:
@@ -2961,39 +2976,43 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .project-page .project-list { grid-row: 2 / span 3; }
 }
 
-/* The rail takes over at 900px — the same breakpoint the design's
-   [data-rail] flips at, and the point where a 288px project sidebar plus a
-   task table stop competing for the same width. */
+/* A side rail becomes practical once the project list and task table have
+   enough room. Its center bisects the actual left content gutter. */
 @media (min-width: 900px) {
-  .app-shell { padding-left: 92px; }
-  .page-content { width: min(1280px, 100%); padding: calc(32px + env(safe-area-inset-top)) 32px 56px; }
+  .app-shell {
+    --page-width: 1280px;
+    --rail-space: 92px;
+    --page-inset: 32px;
+    padding-left: var(--rail-space);
+  }
+  .page-content { width: min(var(--page-width), 100%); padding: calc(32px + env(safe-area-inset-top)) var(--page-inset) 56px; }
   .page-header { margin-bottom: 32px; }
   .page-header h1 { font-size: 2.125rem; }
 
   /* Calendar is a chart page: a narrower measure keeps the week cards and
      the heatmap from stretching into thin ribbons. Next and Settings read as
      documents, so they cap much shorter still. */
-  .page-content.calendar-page { width: min(1120px, 100%); }
-  .page-content.cache-page,
-  .page-content.settings-page { width: min(760px, 100%); }
+  .app-shell:has(.calendar-page) { --page-width: 1120px; }
+  .app-shell:has(.cache-page),
+  .app-shell:has(.settings-page) { --page-width: 760px; }
 
-  /* One solid capsule, centered against the left window edge. The buttons
-     follow one continuous rhythm, with the current icon in the brand accent. */
+  /* Content begins after the reserved rail, centered page margin, and page
+     inset. Half that distance is the center of the available left gutter. */
   .bottom-nav {
-    top: 50%; right: auto; bottom: auto; left: 8px;
+    --nav-radius: 32px;
+    top: 50%; right: auto; bottom: auto;
+    left: calc((var(--rail-space) + max(0px, (100% - var(--rail-space) - var(--page-width)) / 2) + var(--page-inset)) / 2);
     width: 80px;
+    max-width: none;
+    margin: 0;
     max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    transform: translateY(-50%);
+    transform: translate(-50%, -50%);
     display: flex; flex-direction: column; gap: 4px;
     overflow-y: auto;
     overscroll-behavior-y: contain;
     scrollbar-width: thin;
     scroll-padding-block: 16px;
-    padding: 16px 8px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 40px;
-    box-shadow: var(--shadow-sm);
+    padding: 16px var(--nav-inset);
   }
   .bottom-nav button {
     flex: none;
@@ -3001,7 +3020,6 @@ button.project-row.active { color: var(--chip-accent-dark); }
     align-content: center;
     gap: 4px;
     color: var(--ink-soft);
-    border-radius: 31px; /* Capsule radius minus its border and inner padding. */
     transition: color var(--t) var(--ease), transform 0.14s var(--ease-out);
   }
   .bottom-nav button span,
@@ -3036,6 +3054,19 @@ button.project-row.active { color: var(--chip-accent-dark); }
 
 @media (min-width: 900px) and (max-height: 520px) {
   .bottom-nav button { min-height: 52px; }
+}
+
+/* Six full-size targets remain visible on small phones. The tighter inset
+   goes around the bar; labels and touch targets keep their normal size. */
+@media (max-width: 374px) {
+  .bottom-nav {
+    --nav-inset: 4px;
+    --nav-radius: 24px;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    gap: 0;
+  }
+  .bottom-nav button { padding-inline: 0; }
 }
 
 @media (max-width: 430px) {

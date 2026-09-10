@@ -22,7 +22,8 @@
    (4/6/8/12/16) kept concentric: an inner corner is its parent minus the
    padding between them (seg thumb, menu rows, table header), or simply the
    next stop down. True circles (dots, ×-buttons, slider thumbs) may be full
-   capsules. The glass buttons ride the same scale: rest at --r-xl, swelling
+   capsules; the desktop navigation is a vertical capsule as well. The glass
+   buttons ride the same scale: rest at --r-xl, swelling
    +4px on hover; the project chips morph --r-md → --r-lg.
 
    All colour flows through tokens; dark theme is a token swap layered on
@@ -874,10 +875,6 @@ select {
   border-top: 1px solid var(--line);
 }
 
-/* Rail-only wordmark (see the 900px block) — on the bottom bar it would
-   just eat a sixth of the row. */
-.nav-brand { display: none; }
-
 .bottom-nav button {
   position: relative;
   display: grid;
@@ -904,8 +901,6 @@ select {
   color: var(--primary-dark);
 }
 
-/* Scoped to the buttons: an unscoped `.bottom-nav span` also caught the rail
-   wordmark and overrode its weight and tracking. */
 .bottom-nav button span {
   overflow: hidden;
   max-width: 100%;
@@ -2982,15 +2977,23 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .page-content.cache-page,
   .page-content.settings-page { width: min(760px, 100%); }
 
-  /* The desktop navigation shares the page ground. Selection changes only
-     the icon colour; Settings occupies the remaining bottom space. */
+  /* One solid capsule, centered against the left window edge. The buttons
+     follow one continuous rhythm, with the current icon in the brand accent. */
   .bottom-nav {
-    top: 0; right: auto; width: 92px; height: 100dvh;
+    top: 50%; right: auto; bottom: auto; left: 8px;
+    width: 80px;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    transform: translateY(-50%);
     display: flex; flex-direction: column; gap: 4px;
     overflow-y: auto;
-    padding: calc(32px + env(safe-area-inset-top)) 8px calc(16px + env(safe-area-inset-bottom));
-    background: var(--bg);
-    border: 0;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+    scroll-padding-block: 16px;
+    padding: 16px 8px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 40px;
+    box-shadow: var(--shadow-sm);
   }
   .bottom-nav button {
     flex: none;
@@ -2998,6 +3001,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
     align-content: center;
     gap: 4px;
     color: var(--ink-soft);
+    border-radius: 31px; /* Capsule radius minus its border and inner padding. */
     transition: color var(--t) var(--ease), transform 0.14s var(--ease-out);
   }
   .bottom-nav button span,
@@ -3010,19 +3014,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .bottom-nav button.active { color: var(--ink-soft); }
   .bottom-nav button svg { transition: color var(--t) var(--ease); }
   .bottom-nav button.active svg { color: var(--primary-dark); }
-  .bottom-nav button:hover { background: transparent; }
-  .bottom-nav button[data-nav="settings"] { margin-top: auto; }
-  .nav-brand {
-    display: grid;
-    flex: none;
-    place-items: center;
-    height: 32px;
-    margin-bottom: 16px;
-    color: var(--muted);
-    font-size: 0.6875rem;
-    font-weight: 400;
-    letter-spacing: 0.12em;
-  }
+  .bottom-nav button:hover:not(:focus-visible) { background: transparent; }
 
   .mapping-panel { padding: 18px; }
   .task-list { grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); align-items: start; }
@@ -3040,6 +3032,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
 
   .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 360px; }
+}
+
+@media (min-width: 900px) and (max-height: 520px) {
+  .bottom-nav button { min-height: 52px; }
 }
 
 @media (max-width: 430px) {

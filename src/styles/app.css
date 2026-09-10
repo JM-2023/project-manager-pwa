@@ -2984,7 +2984,10 @@ button.project-row.active { color: var(--chip-accent-dark); }
     --page-width: var(--layout-width);
     --rail-space: 92px;
     --page-inset: 32px;
-    padding-left: var(--rail-space);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    padding-left: calc(var(--safe-left) + var(--rail-space));
+    padding-right: var(--safe-right);
   }
   .page-content { width: min(var(--page-width), 100%); padding: calc(32px + env(safe-area-inset-top)) var(--page-inset) 56px; }
   .page-header { margin-bottom: 32px; }
@@ -2997,12 +3000,12 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .app-shell:has(.cache-page),
   .app-shell:has(.settings-page) { --page-width: 760px; }
 
-  /* Bisect the Today gutter on every page. Viewport width keeps the rail
-     steady when page widths or document scrollbars change. */
+  /* Bisect the Today gutter inside the safe viewport on every page. Viewport
+     width keeps the rail steady when page widths or scrollbars change. */
   .bottom-nav {
     --nav-radius: 32px;
     top: 50%; right: auto; bottom: auto;
-    left: calc((var(--rail-space) + max(0px, (100vw - var(--rail-space) - var(--layout-width)) / 2) + var(--page-inset)) / 2);
+    left: calc(var(--safe-left) + (var(--rail-space) + max(0px, (100vw - var(--safe-left) - var(--safe-right) - var(--rail-space) - var(--layout-width)) / 2) + var(--page-inset)) / 2);
     width: 80px;
     max-width: none;
     margin: 0;
@@ -3057,9 +3060,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .bottom-nav button { min-height: 52px; }
 }
 
-/* Six full-size targets remain visible on small phones. The tighter inset
-   goes around the bar; labels and touch targets keep their normal size. */
-@media (max-width: 374px) {
+/* Six full-size targets and bold English labels fit on small phones. The
+   tighter inset goes around the bar; text keeps its normal size. */
+@media (max-width: 390px) {
   .bottom-nav {
     --nav-inset: 4px;
     --nav-radius: 24px;

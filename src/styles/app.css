@@ -659,7 +659,7 @@ select {
   align-items: baseline;
   justify-content: space-between;
   gap: 16px;
-  margin: 0 0 24px;
+  margin: 0 0 32px;
 }
 .page-header h1 {
   margin: 0;
@@ -2034,7 +2034,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
    Next / cache board
    ========================================================================= */
 .cache-board { display: grid; gap: 10px; width: 100%; }
-.cache-project-add { margin: -2px 0 16px; }
+.cache-project-add { margin: 0 0 16px; }
 .cache-section {
   border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface);
   box-shadow: var(--shadow-xs); overflow: hidden; animation: fade-up var(--t-slow) var(--ease) both;
@@ -3019,7 +3019,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
    ========================================================================= */
 @media (min-width: 720px) {
   .project-page { display: grid; grid-template-columns: 288px minmax(0, 1fr); gap: 32px; }
-  .project-page .page-header { grid-column: 1 / -1; }
+  /* The grid already supplies the shared 32px header-to-content spacing. */
+  .project-page .page-header { grid-column: 1 / -1; margin-bottom: 0; }
   .project-page .task-list,
   .project-page .task-table-wrap,
   .project-page .progress-summary { grid-column: 2; }
@@ -3040,7 +3041,6 @@ button.project-row.active { color: var(--chip-accent-dark); }
     padding-right: var(--safe-right);
   }
   .page-content { width: min(var(--page-width), 100%); padding: calc(32px + env(safe-area-inset-top)) var(--page-inset) 56px; }
-  .page-header { margin-bottom: 32px; }
   .page-header h1 { font-size: 2.125rem; }
 
   /* Calendar is a chart page: a narrower measure keeps the week cards and

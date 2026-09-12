@@ -182,6 +182,8 @@ const en = {
     subtitle: (n: number, pct: number) => `${plural(n, "Task")} · Average ${pct}%`
   },
   projectList: {
+    chooseProject: "Project",
+    browseProjects: "Browse Projects",
     archived: "Archived",
     noArchived: "No Archived Projects.",
     archivePrompt: "Archive This Project?",
@@ -582,6 +584,8 @@ const zh: Messages = {
     subtitle: (n, pct) => `${n} 个任务 · 平均推进 ${pct}%`
   },
   projectList: {
+    chooseProject: "项目",
+    browseProjects: "浏览项目",
     archived: "已归档",
     noArchived: "暂无归档项目。",
     archivePrompt: "归档这个项目？",

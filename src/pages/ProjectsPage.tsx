@@ -1,6 +1,6 @@
 import { ProjectList } from "../components/ProjectList";
 import { TaskTable } from "../components/TaskTable";
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import { useI18n } from "../lib/i18n";
 import { isWorklogTask, summarizeWorklogOverview } from "../lib/progress";
 import { matchesProjectFilter } from "../state/appStore";
@@ -25,6 +25,9 @@ export function ProjectsPage(props: TaskPageProps) {
   } = props;
 
   const selectedProjectId = filters.projectId;
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [selectedProjectId]);
   const projectTasks = useMemo(
     () => tasks.filter((task) => isWorklogTask(task) && matchesProjectFilter(selectedProjectId, task.project_id)),
     [selectedProjectId, tasks]

@@ -1,5 +1,6 @@
 import { ArchiveRestore, Check, ChevronDown, MoreHorizontal, Plus } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import { buildSwatchMap } from "../lib/projectColor";
 import type { Project, Task } from "../lib/types";
 import { useI18n } from "../lib/i18n";
@@ -59,6 +60,7 @@ function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchi
   const menu = usePresence(menuOpen, 300);
   const [confirm, setConfirm] = useState<ConfirmAction | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   const exitActionRef = useRef<(project: Project) => void>(onDelete);
   const { ref: rowRef, removing, begin: beginRemove, onTransitionEnd } = useRemoveTransition<HTMLDivElement>(
     () => exitActionRef.current(project)
@@ -74,13 +76,14 @@ function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchi
     }
 
     function closeOnOutsideClick(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) {
+      if (!menuRef.current?.contains(event.target as Node) && !popoverRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     }
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setMenuOpen(false);
+        menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
       }
     }
 
@@ -91,6 +94,38 @@ function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchi
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [menuOpen]);
+
+  // Render above the scroll container so the first/last row's menu and its
+  // existing entrance/exit animations have room in either direction.
+  useLayoutEffect(() => {
+    if (!menu.mounted || menu.closing) return;
+    const anchor = menuRef.current;
+    const popover = popoverRef.current;
+    if (!anchor || !popover) return;
+    function position() {
+      if (!anchor || !popover) return;
+      const rect = anchor.getBoundingClientRect();
+      const clip = anchor.closest(".project-list-scroll")?.getBoundingClientRect();
+      if (clip && (rect.bottom <= clip.top || rect.top >= clip.bottom)) {
+        setMenuOpen(false);
+        return;
+      }
+      popover.style.left = `${Math.max(8, Math.min(rect.right - popover.offsetWidth, window.innerWidth - popover.offsetWidth - 8))}px`;
+      popover.style.top = `${Math.max(8, Math.min(rect.bottom - popover.offsetHeight, window.innerHeight - popover.offsetHeight - 8))}px`;
+      popover.style.visibility = "visible";
+    }
+    position();
+    popover.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+    const observer = new ResizeObserver(position);
+    observer.observe(popover);
+    window.addEventListener("scroll", position, true);
+    window.addEventListener("resize", position);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", position, true);
+      window.removeEventListener("resize", position);
+    };
+  }, [menu.mounted, menu.closing, confirm]);
 
   // Reset the confirm step whenever the menu closes so it reopens on the root view.
   useEffect(() => {
@@ -177,11 +212,20 @@ function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchi
         >
           <MoreHorizontal size={17} aria-hidden="true" />
         </button>
-        {menu.mounted ? (
+        {menu.mounted ? createPortal(
           <div
-            className={`task-action-menu${menu.closing ? " is-closing" : ""}`}
+            ref={popoverRef}
+            className={`task-action-menu project-action-menu${menu.closing ? " is-closing" : ""}`}
             role="menu"
             aria-label={m.projectList.optionsFor(project.name)}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.stopPropagation();
+                event.preventDefault();
+                setMenuOpen(false);
+                menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+              }
+            }}
             onAnimationEnd={(event) => {
               if (event.target === event.currentTarget) menu.onExited();
             }}
@@ -218,7 +262,7 @@ function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchi
                 </button>
               </>
             )}
-          </div>
+          </div>, document.body
         ) : null}
       </div>
     </div>
@@ -272,6 +316,69 @@ export function ProjectList({
   const { m } = useI18n();
   const [name, setName] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const pickerRef = useRef<HTMLButtonElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const scrollIdleTimer = useRef<number>();
+  const panelId = useId();
+  const selectedName = !selectedProjectId ? m.common.allProjects : selectedProjectId === NO_PROJECT_FILTER
+    ? m.common.noProject : projects.find((project) => project.id === selectedProjectId)?.name ?? m.common.allProjects;
+
+  const showScrollbar = useCallback(() => {
+    const scroller = scrollRef.current;
+    if (!scroller) return;
+    scroller.classList.add("is-scrolling");
+    window.clearTimeout(scrollIdleTimer.current);
+    scrollIdleTimer.current = window.setTimeout(() => scroller.classList.remove("is-scrolling"), 1000);
+  }, []);
+  useEffect(() => () => window.clearTimeout(scrollIdleTimer.current), []);
+
+  // A sticky sidebar starts below the page header, then moves toward its top
+  // inset. Recompute the available space so its bottom stays above the Dock
+  // throughout page scrolling, resizing and mobile picker expansion.
+  useLayoutEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!sidebar) return;
+    const header = sidebar.parentElement?.querySelector(".page-header");
+    let frame = 0;
+    function measure() {
+      if (!sidebar) return;
+      // Use the header's natural position, not the sticky box's constrained
+      // position: changing its height must not feed back into its own limit.
+      const inset = Number.parseFloat(getComputedStyle(sidebar).top) || 0;
+      const top = Math.ceil(Math.max(inset, (header?.getBoundingClientRect().bottom ?? 0) + 32));
+      sidebar.style.setProperty("--project-sidebar-top", `${top}px`);
+    }
+    function schedule() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(measure);
+    }
+    measure();
+    const observer = new ResizeObserver(schedule);
+    observer.observe(sidebar);
+    if (header) observer.observe(header);
+    window.addEventListener("scroll", schedule);
+    window.addEventListener("resize", schedule);
+    window.visualViewport?.addEventListener("resize", schedule);
+    sidebar.parentElement?.addEventListener("animationend", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      window.visualViewport?.removeEventListener("resize", schedule);
+      sidebar.parentElement?.removeEventListener("animationend", schedule);
+    };
+  }, []);
+
+  function selectProject(id: string) {
+    onSelect(id);
+    setPickerOpen(false);
+    if (window.matchMedia("(max-width: 719px)").matches) {
+      pickerRef.current?.focus({ preventScroll: true });
+    }
+  }
   // Live and archived share one assignment pass so an archived project never
   // duplicates a live one's dot.
   const swatches = useMemo(() => buildSwatchMap(projects, archivedProjects), [projects, archivedProjects]);
@@ -305,7 +412,7 @@ export function ProjectList({
   // previously active chip to the newly selected one on a crisp in-out curve,
   // instead of each chip flashing its own border on/off. First placement
   // lands without a transition so the ring doesn't fly in from the top.
-  const listRef = useRef<HTMLElement | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
   const ringRef = useRef<HTMLDivElement | null>(null);
   const ringArmedRef = useRef(false);
 
@@ -356,94 +463,129 @@ export function ProjectList({
   }
 
   return (
-    <section className="project-list" ref={listRef}>
-      <div ref={ringRef} className="project-active-ring" aria-hidden="true" />
-      {onCreate ? (
-        <div className="project-create">
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                createProject();
-              }
-            }}
-            placeholder={m.composer.newProject}
-            aria-label={m.composer.newProjectAria}
-          />
-          <button type="button" onClick={createProject} aria-label={m.composer.createProject}>
-            <Plus size={18} aria-hidden="true" />
-          </button>
-        </div>
-      ) : null}
+    <section className={`project-sidebar${pickerOpen ? " is-open" : ""}`} ref={sidebarRef} aria-label={m.projectsPage.title}>
       <button
+        ref={pickerRef}
         type="button"
-        className={!selectedProjectId ? "project-row active" : "project-row"}
-        data-chip-id=""
-        style={{ "--chip-i": 0 } as CSSProperties}
-        onClick={() => onSelect("")}
+        className="project-picker"
+        aria-expanded={pickerOpen}
+        aria-controls={panelId}
+        onClick={() => setPickerOpen((open) => !open)}
       >
-        <span>{m.common.allProjects}</span>
-        <strong>{allSummary.averageProgress}%</strong>
-        <ProgressMeter value={allSummary.averageProgress} />
+        <span>{m.projectList.chooseProject}</span>
+        <strong>{selectedName}</strong>
+        <ChevronDown size={16} aria-hidden="true" />
       </button>
-      <button
-        type="button"
-        className={selectedProjectId === NO_PROJECT_FILTER ? "project-row active" : "project-row"}
-        data-chip-id={NO_PROJECT_FILTER}
-        style={{ "--chip-i": 1 } as CSSProperties}
-        onClick={() => onSelect(NO_PROJECT_FILTER)}
-      >
-        <span>{m.common.noProject}</span>
-        <strong>{noProjectSummary.averageProgress}%</strong>
-        <ProgressMeter value={noProjectSummary.averageProgress} />
-      </button>
-      {projects.map((project, index) => {
-        const summary = summariesByProject.get(project.id) ?? EMPTY_WORKLOG_OVERVIEW;
-        return (
-          <ProjectRow
-            key={project.id}
-            project={project}
-            summary={summary}
-            swatch={swatches.get(project.id) ?? "var(--chip-accent)"}
-            active={selectedProjectId === project.id}
-            index={index + 2}
-            onSelect={onSelect}
-            onArchive={onArchive}
-            onDelete={onDelete}
-            onRename={onRename}
-          />
-        );
-      })}
+      <div id={panelId} className="project-sidebar__collapse" onKeyDown={(event) => {
+        if (event.key === "Escape" && pickerOpen && !event.defaultPrevented) {
+          setPickerOpen(false);
+          pickerRef.current?.focus({ preventScroll: true });
+        }
+      }}>
+        <div className="project-sidebar__panel">
+          {onCreate ? (
+            <div className="project-create">
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    createProject();
+                  }
+                }}
+                placeholder={m.composer.newProject}
+                aria-label={m.composer.newProjectAria}
+              />
+              <button type="button" onClick={createProject} aria-label={m.composer.createProject}>
+                <Plus size={18} aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
+          <div
+            ref={scrollRef}
+            className="project-list-scroll"
+            role="region"
+            aria-label={m.projectList.browseProjects}
+            tabIndex={0}
+            onScroll={showScrollbar}
+            onPointerMove={showScrollbar}
+            onPointerEnter={showScrollbar}
+            onKeyDown={showScrollbar}
+          >
+            <div className="project-list" ref={listRef}>
+              <div ref={ringRef} className="project-active-ring" aria-hidden="true" />
+              <button
+                type="button"
+                className={!selectedProjectId ? "project-row active" : "project-row"}
+                data-chip-id=""
+                style={{ "--chip-i": 0 } as CSSProperties}
+                onClick={() => selectProject("")}
+              >
+                <span>{m.common.allProjects}</span>
+                <strong>{allSummary.averageProgress}%</strong>
+                <ProgressMeter value={allSummary.averageProgress} />
+              </button>
+              <button
+                type="button"
+                className={selectedProjectId === NO_PROJECT_FILTER ? "project-row active" : "project-row"}
+                data-chip-id={NO_PROJECT_FILTER}
+                style={{ "--chip-i": 1 } as CSSProperties}
+                onClick={() => selectProject(NO_PROJECT_FILTER)}
+              >
+                <span>{m.common.noProject}</span>
+                <strong>{noProjectSummary.averageProgress}%</strong>
+                <ProgressMeter value={noProjectSummary.averageProgress} />
+              </button>
+              {projects.map((project, index) => {
+                const summary = summariesByProject.get(project.id) ?? EMPTY_WORKLOG_OVERVIEW;
+                return (
+                  <ProjectRow
+                    key={project.id}
+                    project={project}
+                    summary={summary}
+                    swatch={swatches.get(project.id) ?? "var(--chip-accent)"}
+                    active={selectedProjectId === project.id}
+                    index={index + 2}
+                    onSelect={selectProject}
+                    onArchive={onArchive}
+                    onDelete={onDelete}
+                    onRename={onRename}
+                  />
+                );
+              })}
 
-      <div className={`archived-panel${showArchived ? " is-open" : ""}`}>
-        <button
-          type="button"
-          className="archived-toggle"
-          onClick={() => setShowArchived((open) => !open)}
-          aria-expanded={showArchived}
-        >
-          <span>{m.projectList.archived}</span>
-          <span className="archived-toggle__count">{archivedProjects.length}</span>
-          <ChevronDown className="archived-toggle__chevron" size={16} aria-hidden="true" />
-        </button>
-        {/* Always mounted: the wrapper's grid-row tweens 0fr -> 1fr so the
-            panel unfolds/refolds instead of popping; visibility gates focus. */}
-        <div className="archived-collapse">
-          <div className="archived-list" aria-hidden={!showArchived}>
-            {archivedProjects.length === 0 ? (
-              <p className="archived-empty">{m.projectList.noArchived}</p>
-            ) : (
-              archivedProjects.map((project) => (
-                <ArchivedRow
-                  key={project.id}
-                  project={project}
-                  swatch={swatches.get(project.id) ?? "var(--chip-accent)"}
-                  onUnarchive={onUnarchive}
-                />
-              ))
-            )}
+              <div className={`archived-panel${showArchived ? " is-open" : ""}`}>
+                <button
+                  type="button"
+                  className="archived-toggle"
+                  onClick={() => setShowArchived((open) => !open)}
+                  aria-expanded={showArchived}
+                >
+                  <span>{m.projectList.archived}</span>
+                  <span className="archived-toggle__count">{archivedProjects.length}</span>
+                  <ChevronDown className="archived-toggle__chevron" size={16} aria-hidden="true" />
+                </button>
+                {/* Always mounted: the wrapper's grid-row tweens 0fr -> 1fr so the
+                    panel unfolds/refolds instead of popping; visibility gates focus. */}
+                <div className="archived-collapse">
+                  <div className="archived-list" aria-hidden={!showArchived}>
+                    {archivedProjects.length === 0 ? (
+                      <p className="archived-empty">{m.projectList.noArchived}</p>
+                    ) : (
+                      archivedProjects.map((project) => (
+                        <ArchivedRow
+                          key={project.id}
+                          project={project}
+                          swatch={swatches.get(project.id) ?? "var(--chip-accent)"}
+                          onUnarchive={onUnarchive}
+                        />
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

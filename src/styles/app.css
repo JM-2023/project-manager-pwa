@@ -1851,8 +1851,56 @@ input:focus, select:focus, textarea:focus { outline: none; }
 /* =========================================================================
    Projects
    ========================================================================= */
-.project-list { position: relative; display: grid; align-content: start; gap: 8px; margin-bottom: 14px; scrollbar-width: none; -ms-overflow-style: none; }
-.project-list::-webkit-scrollbar { width: 0; height: 0; display: none; }
+.project-sidebar {
+  --project-sidebar-bottom: calc(110px + env(safe-area-inset-bottom));
+  --project-sidebar-height: max(0px, calc(100dvh - var(--project-sidebar-top, 120px) - var(--project-sidebar-bottom)));
+  position: sticky; top: calc(16px + env(safe-area-inset-top)); align-self: start;
+  min-width: 0; z-index: 30; background: var(--bg); margin-bottom: 16px; overflow-anchor: none;
+}
+.project-picker {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px;
+  padding: 10px 12px; text-align: left; color: var(--ink);
+  background: var(--surface); border: 1px solid var(--line-strong);
+  border-radius: var(--r-md); box-shadow: var(--shadow-xs);
+}
+.project-picker > span { color: var(--muted); font-size: 0.8125rem; }
+.project-picker > strong { flex: 1; min-width: 0; font-size: 0.875rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-picker > svg { flex: none; color: var(--muted); transition: transform var(--t-slow) var(--ease); }
+.project-sidebar.is-open .project-picker > svg { transform: rotate(180deg); }
+.project-picker:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.project-sidebar__collapse {
+  display: grid; grid-template-rows: 0fr; visibility: hidden;
+  transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow);
+}
+.project-sidebar.is-open .project-sidebar__collapse { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
+.project-sidebar__panel { display: flex; flex-direction: column; min-height: 0; overflow: hidden; max-height: min(60dvh, calc(var(--project-sidebar-height) - 44px)); }
+.project-sidebar__panel::before { content: ""; flex: 0 0 16px; }
+.project-sidebar__panel > .project-create { flex: none; margin: 0 8px; }
+@property --project-scroll-thumb { syntax: "<color>"; inherits: true; initial-value: transparent; }
+.project-list-scroll {
+  --project-scroll-thumb: transparent;
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain;
+  padding: 8px; scrollbar-gutter: stable; scrollbar-width: thin;
+  scrollbar-color: var(--project-scroll-thumb) transparent;
+  transition: scrollbar-color var(--t) var(--ease), --project-scroll-thumb var(--t) var(--ease);
+}
+.project-list-scroll.is-scrolling,
+.project-list-scroll:focus-visible,
+.project-list-scroll:has(:focus-visible) { --project-scroll-thumb: var(--muted); }
+.project-list-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; border-radius: var(--r-md); }
+/* Retain the native draggable thumb. Only its paint changes on activity,
+   so revealing the scrollbar never shifts the project rows. */
+@supports selector(::-webkit-scrollbar) {
+  .project-list-scroll { scrollbar-width: auto; scrollbar-color: auto; }
+  .project-list-scroll::-webkit-scrollbar { width: 8px; }
+  .project-list-scroll::-webkit-scrollbar-track { background: transparent; }
+  .project-list-scroll::-webkit-scrollbar-thumb { background: var(--project-scroll-thumb); border: 2px solid transparent; background-clip: padding-box; border-radius: 8px; }
+  .project-list-scroll::-webkit-scrollbar-thumb:active { background-color: var(--ink-soft); }
+}
+@media (forced-colors: active) {
+  .project-list-scroll { scrollbar-color: auto; --project-scroll-thumb: CanvasText; }
+}
+.project-list { position: relative; display: grid; align-content: start; gap: 8px; }
 
 /* Selection ring — a single element that glides from the previously active
    chip to the new one on a crisp in-out curve (position + height set inline by
@@ -2453,6 +2501,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   animation: task-menu-morph-out 0.18s var(--ease) both;
 }
 .task-action-menu.is-closing button { animation: none; }
+.project-action-menu { position: fixed; inset: auto; z-index: 100; visibility: hidden; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow-y: auto; }
 @keyframes task-menu-morph-out { to { opacity: 0; transform: translate(2px, 4px) scale(0.94); } }
 
 .task-action-menu button {
@@ -3024,7 +3073,14 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .project-page .task-list,
   .project-page .task-table-wrap,
   .project-page .progress-summary { grid-column: 2; }
-  .project-page .project-list { grid-row: 2 / span 3; }
+  .project-page .project-sidebar { grid-row: 2; }
+  .project-sidebar { margin-bottom: 0; }
+  .project-picker { display: none; }
+  .project-sidebar__collapse { display: contents; visibility: visible; }
+  .project-sidebar__panel { max-height: var(--project-sidebar-height); overflow: visible; padding: 8px; margin: -8px; }
+  .project-sidebar__panel::before { display: none; }
+  .project-sidebar__panel > .project-create { margin: 0 8px 0 0; }
+  .project-list-scroll { margin: 0 -8px -8px; }
 }
 
 /* A side rail becomes practical once the project list and task table have
@@ -3091,16 +3147,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .mapping-panel { padding: 18px; }
   .task-list { grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); align-items: start; }
 
-  /* Sticky, but NOT a scroll container. `overflow-y: auto` forces overflow-x
-     to compute to hidden (one axis can't scroll while the other stays
-     visible), and that clipped the composer button's hover swell and its cast
-     shadow flat against the column edge — the sidebar looked like it was
-     boxing the control in. The design has no scroller here either; a long
-     project list scrolls with the page instead. */
-  .project-page .project-list {
-    position: sticky; top: 32px; align-self: start;
-    overflow: visible; padding: 8px; margin: -8px;
-  }
+  .project-sidebar { --project-sidebar-bottom: calc(32px + env(safe-area-inset-bottom)); top: calc(32px + env(safe-area-inset-top)); }
 
   .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 360px; }

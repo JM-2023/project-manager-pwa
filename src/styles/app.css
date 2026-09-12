@@ -1248,7 +1248,7 @@ select {
 /* =========================================================================
    Inputs / fields
    ========================================================================= */
-.search-filters > input,
+.search-filters > :is(input, select),
 .project-create input,
 .field-label input,
 .field-label select,
@@ -1266,14 +1266,14 @@ select {
 }
 
 @media (hover: hover) {
-  .search-filters > input:hover, .project-create input:hover,
+  .search-filters > :is(input, select):hover, .project-create input:hover,
   .field-label input:hover, .field-label select:hover, .field-label textarea:hover,
   .filter-grid select:hover { border-color: var(--muted); }
 }
 
 input:focus, select:focus, textarea:focus { outline: none; }
 
-.search-filters > input:focus, .project-create input:focus,
+.search-filters > :is(input, select):focus, .project-create input:focus,
 .field-label input:focus, .field-label select:focus, .field-label textarea:focus,
 .mapping-row select:focus, .filter-grid select:focus,
 .cache-item textarea:focus,
@@ -1308,7 +1308,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .mapping-panel { margin-top: 12px; animation: scale-in var(--t) var(--ease) both; }
 /* The filter card is a control surface, not content: it wants a clear break
    before the results it governs. */
-.search-filters { margin-bottom: 24px; }
+.search-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-bottom: 24px; }
+.search-filters > .filter-grid { margin-top: 0; }
 
 /* =========================================================================
    Progress summary (Today hero)
@@ -1496,7 +1497,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
    (useRemoveTransition) can transition its margin to 0 along with its height,
    so it exits owning zero space — a gap would stay 12px tall until the row
    unmounted and then snap shut. */
-.task-table { display: grid; gap: 0; width: 100%; }
+/* A zero-minimum track keeps offscreen, content-visibility rows from holding
+   the table at a previously measured width when the viewport shrinks. */
+.task-table { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; width: 100%; }
 .task-table > .task-table-row { margin-bottom: 12px; }
 .task-table-header { display: none; }
 
@@ -1508,7 +1511,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   --importance-color: var(--line-strong);
   position: relative;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 10px;
   padding: 15px;
   overflow: visible;

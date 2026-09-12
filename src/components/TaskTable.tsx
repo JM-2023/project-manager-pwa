@@ -11,6 +11,7 @@ import {
   type ReactNode,
   type TextareaHTMLAttributes
 } from "react";
+import { createPortal } from "react-dom";
 import type { Project, Task } from "../lib/types";
 import { addDays, todayDate, toDateInput } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
@@ -171,6 +172,7 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
   const menu = usePresence(menuOpen, 300);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   // Damped slider: the input is uncontrolled and the visible fill/thumb/badge
   // chase the target on a critically-damped ease each frame, so dragging has
   // weight instead of snapping between the 25% detents.
@@ -265,7 +267,7 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
     }
 
     function closeOnOutsideClick(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) {
+      if (!menuRef.current?.contains(event.target as Node) && !popoverRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     }
@@ -273,6 +275,7 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setMenuOpen(false);
+        menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
       }
     }
 
@@ -283,6 +286,38 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
       document.removeEventListener("keydown", closeOnEscape);
     };
   }, [menuOpen]);
+
+  // Keep the menu in the viewport even when its row is near the top or
+  // inside a clipped card. Reposition as the user scrolls or resizes.
+  useLayoutEffect(() => {
+    if (!menu.mounted || menu.closing) return;
+    const anchor = menuRef.current;
+    const popover = popoverRef.current;
+    if (!anchor || !popover) return;
+    function position() {
+      if (!anchor || !popover) return;
+      const rect = anchor.getBoundingClientRect();
+      if (rect.bottom <= 0 || rect.top >= window.innerHeight) {
+        setMenuOpen(false);
+        return;
+      }
+      popover.style.left = `${Math.max(8, Math.min(rect.right - popover.offsetWidth, window.innerWidth - popover.offsetWidth - 8))}px`;
+      popover.style.top = `${Math.max(8, Math.min(rect.bottom - popover.offsetHeight, window.innerHeight - popover.offsetHeight - 8))}px`;
+      popover.style.visibility = "visible";
+    }
+    position();
+    popover.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+    const observer = new ResizeObserver(position);
+    observer.observe(popover);
+    observer.observe(anchor);
+    window.addEventListener("scroll", position, true);
+    window.addEventListener("resize", position);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", position, true);
+      window.removeEventListener("resize", position);
+    };
+  }, [menu.mounted, menu.closing, confirmingDelete]);
 
   // Reset the delete-confirm step whenever the menu closes so it reopens on
   // the root view (same two-step pattern as ProjectList).
@@ -623,9 +658,10 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
                 <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label={m.taskTable.taskActions} aria-haspopup="menu" aria-expanded={menuOpen}>
                   <MoreHorizontal size={17} aria-hidden="true" />
                 </button>
-                {menu.mounted ? (
+                {menu.mounted ? createPortal(
                   <div
-                    className={`task-action-menu${menu.closing ? " is-closing" : ""}`}
+                    ref={popoverRef}
+                    className={`task-action-menu task-action-menu--floating${menu.closing ? " is-closing" : ""}`}
                     role="menu"
                     aria-label={m.taskTable.taskActions}
                     onAnimationEnd={(event) => {
@@ -672,7 +708,8 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
                         </button>
                       </>
                     )}
-                  </div>
+                  </div>,
+                  document.body
                 ) : null}
               </div>
             </div>

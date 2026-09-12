@@ -14,11 +14,12 @@ function taskRecordDate(task: Task): string {
   return toDateInput(task.start_date);
 }
 
-export function TodayPage(props: TaskPageProps & { initialDate?: string | null }) {
+export function TodayPage(props: TaskPageProps & { selectedDate: string | null; onDateChange: (date: string) => void }) {
   const { m, lang } = useI18n();
-  const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask, initialDate } = props;
+  const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask, selectedDate, onDateChange } = props;
   const today = useToday();
-  const [viewDate, setViewDate] = useState(initialDate || today);
+  // A null selection follows today across midnight; explicit dates stay put.
+  const viewDate = selectedDate ?? today;
   const [navDir, setNavDir] = useState<NavDirection>(1);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
   // Roll-over choreography: rows on this list collapse out (staggered) and
@@ -26,13 +27,6 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
   const [pendingExit, setPendingExit] = useState<PendingRowExit | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const bodySettledRef = useRef(false);
-
-  // Follow day selections made from the Calendar view.
-  useEffect(() => {
-    if (initialDate) {
-      setViewDate(initialDate);
-    }
-  }, [initialDate]);
 
   // A remembered focus target only applies to the day it was created on.
   useEffect(() => {
@@ -77,7 +71,7 @@ export function TodayPage(props: TaskPageProps & { initialDate?: string | null }
 
   function goTo(date: string, dir: NavDirection) {
     setNavDir(dir);
-    setViewDate(date);
+    onDateChange(date);
   }
 
   // The day's content travels with the navigation: everything under the

@@ -6,6 +6,17 @@ import type { TaskPageProps } from "./pageProps";
 
 const EMPTY_IDEAS: NextIdea[] = [];
 
+// Adopt synced text before rendering the field, while preserving a local edit.
+// Keeping its base alongside the draft prevents an untouched field from
+// writing an older value back when it blurs after a sync.
+function useSyncedText(source: string) {
+  const [draft, setDraft] = useState({ base: source, text: source });
+  if (draft.base !== source) {
+    setDraft({ base: source, text: draft.text === draft.base ? source : draft.text });
+  }
+  return [draft.text, (text: string) => setDraft({ base: source, text })] as const;
+}
+
 function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const value = typeof props.value === "string" ? props.value : String(props.value ?? "");
@@ -46,10 +57,11 @@ function NextIdeaItem({
   onDelete: (idea: NextIdea) => void;
 }) {
   const { m } = useI18n();
-  const [title, setTitle] = useState(idea.title);
+  const [title, setTitle] = useSyncedText(idea.title);
 
   function commit() {
     const cleanTitle = title.trim();
+    setTitle(cleanTitle);
     if (cleanTitle !== idea.title) {
       onUpdate(idea, { title: cleanTitle });
     }
@@ -84,7 +96,7 @@ function NextProjectSection({
 }) {
   const { m } = useI18n();
   const [title, setTitle] = useState("");
-  const [name, setName] = useState(project.name);
+  const [name, setName] = useSyncedText(project.name);
   const [confirming, setConfirming] = useState(false);
 
   function createIdea() {
@@ -97,6 +109,7 @@ function NextProjectSection({
   function renameProject() {
     const clean = name.trim();
     if (clean && clean !== project.name) {
+      setName(clean);
       onUpdateProject(project, { name: clean });
     } else {
       setName(project.name);

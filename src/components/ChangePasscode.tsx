@@ -1,5 +1,5 @@
 import { KeyRound } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { changePassword, login } from "../lib/api";
 import { useI18n, type Messages } from "../lib/i18n";
 import { PasscodePad } from "./PasscodePad";
@@ -36,6 +36,21 @@ export function ChangePasscode({ onClose, closing, onExited }: ChangePasscodePro
   const [error, setError] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [entryKey, setEntryKey] = useState(0);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+
+  useLayoutEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    // Native modality moves focus inside, makes the background inert, and
+    // restores the opener's focus when the closing animation has finished.
+    dialog.showModal();
+    return () => {
+      dialog.close();
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   function advance(nextStep: Step) {
     setStep(nextStep);
@@ -93,11 +108,15 @@ export function ChangePasscode({ onClose, closing, onExited }: ChangePasscodePro
   const subtitle = error && notice ? notice : copy.subtitle;
 
   return (
-    <div
+    <dialog
+      ref={dialogRef}
       className={`passcode-overlay${closing ? " is-closing" : ""}`}
-      role="dialog"
       aria-modal="true"
       aria-label={m.passcode.dialogAria}
+      onCancel={(event) => {
+        event.preventDefault();
+        if (step !== "done") onClose();
+      }}
       onAnimationEnd={(event) => {
         if (closing && event.target === event.currentTarget) onExited?.();
       }}
@@ -118,6 +137,6 @@ export function ChangePasscode({ onClose, closing, onExited }: ChangePasscodePro
       <button type="button" className="ghost-button passcode-cancel" onClick={onClose} disabled={step === "done"}>
         <span>{m.common.cancel}</span>
       </button>
-    </div>
+    </dialog>
   );
 }

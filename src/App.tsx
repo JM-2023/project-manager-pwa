@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
 import { BottomNav } from "./components/BottomNav";
 import { OfflineBanner } from "./components/OfflineBanner";
 import {
@@ -14,7 +14,7 @@ import {
   uploadCloudExcel,
   waitForChanges
 } from "./lib/api";
-import { nowIso } from "./lib/dates";
+import { nowIso, todayDate } from "./lib/dates";
 import { getOrCreateClientId, newId, newMutationId } from "./lib/ids";
 import {
   buildWorkbookBlobInWorker,
@@ -188,6 +188,16 @@ export function App() {
     stateRef.current = appReducer(stateRef.current, action);
     dispatch(action);
   }, []);
+  const selectDate = useCallback((date: string) => {
+    commit({ type: "setSelectedDate", payload: date === todayDate() ? null : date });
+  }, [commit]);
+
+  // Reset before paint when a page changes. Search jumps in Next schedule
+  // their target scroll for the following frame, after this initial reset.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [state.currentTab, state.authRequired]);
+
   const clientId = useMemo(() => getOrCreateClientId(), []);
   const tabId = useMemo(() => crypto.randomUUID(), []);
   const engineIO = useMemo<SyncIO>(
@@ -992,13 +1002,13 @@ export function App() {
   return (
     <div className="app-shell">
       <OfflineBanner online={state.online} pendingCount={state.pendingCount} syncStatus={state.syncStatus} error={state.error} onSync={syncNow} />
-      {state.currentTab === "today" ? <TodayPage {...pageProps} initialDate={state.selectedDate} /> : null}
+      {state.currentTab === "today" ? <TodayPage {...pageProps} selectedDate={state.selectedDate} onDateChange={selectDate} /> : null}
       {state.currentTab === "calendar" ? (
         <CalendarPage
           {...pageProps}
           initialDate={state.selectedDate}
           onOpenDay={(date) => {
-            commit({ type: "setSelectedDate", payload: date });
+            selectDate(date);
             commit({ type: "setTab", payload: "today" });
           }}
         />

@@ -1875,7 +1875,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .project-sidebar.is-open .project-sidebar__collapse { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
 .project-sidebar__panel { display: flex; flex-direction: column; min-height: 0; overflow: hidden; max-height: min(60dvh, calc(var(--project-sidebar-height) - 44px)); }
 .project-sidebar__panel::before { content: ""; flex: 0 0 16px; }
-.project-sidebar__panel > .project-create { flex: none; margin: 0 8px; }
+/* Keep this gap outside the scrolling content so clipped rows never touch
+   the fixed composer after the list's own top padding has scrolled away. */
+.project-sidebar__panel > .project-create { flex: none; margin: 0 8px 16px; }
 @property --project-scroll-thumb { syntax: "<color>"; inherits: true; initial-value: transparent; }
 .project-list-scroll {
   --project-scroll-thumb: transparent;
@@ -3079,7 +3081,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
   .project-sidebar__collapse { display: contents; visibility: visible; }
   .project-sidebar__panel { max-height: var(--project-sidebar-height); overflow: visible; padding: 8px; margin: -8px; }
   .project-sidebar__panel::before { display: none; }
-  .project-sidebar__panel > .project-create { margin: 0 8px 0 0; }
+  .project-sidebar__panel > .project-create { margin: 0 8px 16px 0; }
   .project-list-scroll { margin: 0 -8px -8px; }
 }
 

@@ -1,5 +1,5 @@
 import { Check, ChevronRight, Plus, Trash2, X } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState, type TextareaHTMLAttributes } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type TextareaHTMLAttributes } from "react";
 import { useI18n } from "../lib/i18n";
 import type { NextIdea, NextProject } from "../lib/types";
 import type { TaskPageProps } from "./pageProps";
@@ -16,6 +16,22 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
     element.style.height = "0px";
     element.style.height = `${element.scrollHeight}px`;
   }, [value]);
+
+  // Opening a group (including a search jump) reveals previously unmeasurable
+  // textareas. Refit when their width changes from zero to the visible width.
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    let width = -1;
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth === width) return;
+      width = element.clientWidth;
+      element.style.height = "0px";
+      element.style.height = `${element.scrollHeight}px`;
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   return <textarea {...props} ref={ref} />;
 }
@@ -40,7 +56,7 @@ function NextIdeaItem({
   }
 
   return (
-    <article className="cache-item">
+    <article className="cache-item" data-idea-id={idea.id}>
       <AutoTextarea value={title} onChange={(event) => setTitle(event.target.value)} onBlur={commit} rows={1} aria-label={m.next.ideaAria} />
       <button type="button" className="icon-button danger" onClick={() => onDelete(idea)} aria-label={m.next.deleteIdea} title={m.common.delete}>
         <Trash2 size={16} aria-hidden="true" />
@@ -173,10 +189,23 @@ function NextProjectSection({
   );
 }
 
-export function NextPage(props: TaskPageProps) {
+export function NextPage(props: TaskPageProps & { initialIdeaId?: string | null }) {
   const { m } = useI18n();
   const { nextProjects, nextIdeas, onCreateNextProject, onUpdateNextProject, onDeleteNextProject, onCreateNextIdea, onUpdateNextIdea, onDeleteNextIdea } = props;
   const [projectName, setProjectName] = useState("");
+  const boardRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (!props.initialIdeaId) return;
+    const item = boardRef.current?.querySelector<HTMLElement>(`[data-idea-id="${CSS.escape(props.initialIdeaId)}"]`);
+    if (!item) return;
+    const group = item.closest("details");
+    if (group) group.open = true;
+    const frame = requestAnimationFrame(() => {
+      item.querySelector("textarea")?.focus({ preventScroll: true });
+      item.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [props.initialIdeaId]);
   const { ideaCount, ideasByProject } = useMemo(() => {
     const grouped = new Map<string, NextIdea[]>();
     let count = 0;
@@ -231,7 +260,7 @@ export function NextPage(props: TaskPageProps) {
           <Plus size={18} aria-hidden="true" />
         </button>
       </section>
-      <section className="cache-board" aria-label={m.next.boardAria}>
+      <section ref={boardRef} className="cache-board" aria-label={m.next.boardAria}>
         {nextProjects.map((project) => (
           <NextProjectSection
             key={project.id}

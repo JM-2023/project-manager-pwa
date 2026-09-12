@@ -1668,6 +1668,35 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table-note-cell .icon-button { align-self: stretch; min-width: 44px; color: var(--muted); }
 .task-table-note-cell .icon-button.danger { color: var(--danger); }
 
+/* Compact reading rows share the same editor as the wide table. Keeping the
+   fields mounted preserves drafts, slider motion and exit animations. */
+.task-table-row { gap: 0; --task-row-intrinsic-block-size: 150px; }
+.task-summary {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px;
+  width: 100%; padding: 0; text-align: left; background: transparent; border: 0;
+}
+.task-summary__meta { grid-column: 1 / -1; color: var(--muted); font-size: 0.8125rem; overflow-wrap: anywhere; }
+.task-summary__title { font-size: 1rem; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
+.task-summary__progress { align-self: center; font-size: 0.875rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.task-summary__preview { grid-column: 1 / -1; color: var(--ink-soft); font-size: 0.875rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.task-summary__action { grid-column: 1 / -1; display: flex; align-items: center; gap: 4px; min-height: 24px; color: var(--muted); font-size: 0.8125rem; }
+.task-summary__action svg { transition: transform var(--t-slow) var(--ease); }
+.is-expanded > .task-summary .task-summary__action svg { transform: rotate(180deg); }
+.task-summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: var(--r-xs); }
+.task-editor { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow); }
+.task-editor__fields { min-height: 0; overflow: hidden; display: grid; gap: 16px; }
+.is-expanded > .task-editor { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
+.task-editor__fields > .tt-cell:first-child { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.task-editor__fields:has(.task-menu.is-open) { overflow: visible; }
+.task-editor-close { display: flex; justify-content: center; align-items: center; gap: 4px; min-height: 44px; padding: 8px; color: var(--muted); font-size: 0.8125rem; background: transparent; border: 0; border-top: 1px solid var(--line); }
+.task-editor-close svg { transform: rotate(180deg); }
+.task-editor-close:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+@container tasktable (min-width: 881px) {
+  .task-summary, .task-editor-close { display: none; }
+  .task-editor, .task-editor__fields { display: contents; visibility: visible; }
+  .task-editor__fields > .tt-cell:first-child { margin-top: 0; padding-top: 8px; border-top: 0; }
+}
+
 /* Wide spreadsheet layout. The switch is a CONTAINER query, so the same
    table is a spreadsheet on Today and a card stack inside the Projects split
    view without either page having to know. 881px is the narrowest width at
@@ -2054,7 +2083,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cache-item textarea { width: 100%; min-width: 0; padding: 2px 0; overflow: hidden; color: var(--ink); font-size: 0.875rem; font-weight: 600; line-height: 1.4; background: transparent; border: 0; resize: none; }
 .cache-item textarea:focus { outline: none; box-shadow: none; }
 .cache-item .icon-button { align-self: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; }
-.search-next-results { display: grid; gap: 10px; margin-top: 32px; }
+.search-next-results { display: grid; gap: 16px; }
+.search-results { animation: fade-up var(--t-slow) var(--ease) both; }
+.search-filters > .cal-seg { justify-self: start; }
 .search-next-results h2 {
   margin: 0;
   color: var(--muted);
@@ -2063,7 +2094,13 @@ button.project-row.active { color: var(--chip-accent-dark); }
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
-.search-next-item { align-items: start; grid-template-columns: minmax(88px, 0.32fr) minmax(0, 1fr); }
+.search-next-item { width: 100%; text-align: left; align-items: start; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; background: transparent; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; transition: background var(--t) var(--ease); }
+.search-next-item > span, .search-next-item > strong { grid-column: 1; }
+.search-next-item > svg { grid-column: 2; grid-row: 1 / 3; align-self: center; color: var(--muted); }
+.search-next-item:hover, .search-next-item:focus-visible { background: var(--wash); }
+.search-next-item:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.search-next-item__note { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cache-item:focus-within { background: var(--wash); }
 .search-next-item span { color: var(--muted); font-size: 0.8125rem; font-weight: 650; overflow-wrap: anywhere; }
 .search-next-item strong { color: var(--ink); font-size: 0.875rem; font-weight: 650; line-height: 1.35; overflow-wrap: anywhere; }
 
@@ -2605,18 +2642,16 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-summary__value { font-size: 3rem; font-weight: 650; letter-spacing: -0.035em; line-height: 0.9; font-variant-numeric: tabular-nums; }
 .cal-summary__hero .mini-bar { height: 10px; margin-top: 4px; }
 
-.cal-summary__stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  align-content: center;
+/* Counts are part of the summary surface, separated by hairlines. */
+.cal-summary__stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; align-content: center; }
+.cal-summary__stats div { display: grid; gap: 8px; justify-items: center; align-content: center; text-align: center; padding: 16px 8px; background: transparent; border: 0; border-radius: 0; }
+.cal-summary__stats div + div { border-left: 1px solid var(--line); }
+@media (max-width: 640px) {
+  .cal-summary__stats { border-top: 1px solid var(--line); padding-top: 8px; }
 }
-.cal-summary__stats div {
-  display: grid; gap: 4px; justify-items: center; align-content: center; text-align: center;
-  padding: 14px 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-md);
+@media (max-width: 430px) {
+  .cal-summary__stats div:nth-child(3) { border-left: 0; }
+  .cal-summary__stats div:nth-child(n + 3) { border-top: 1px solid var(--line); }
 }
 /* Child combinator on purpose: the counter digits are RollDigits spans inside
    the strong, and a descendant selector would paint them hint-gray at 0.7rem. */
@@ -2668,7 +2703,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 @keyframes bar-sweep { from { width: 0; } }
 .cal-week .mini-bar::after, .cal-insights .mini-bar::after { animation: bar-sweep 0.2s var(--ease-out) 0.03s both; }
 
-.cal-insights__pulse { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.cal-insights__pulse { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .cal-stat strong.trend-up { color: var(--prog-done); }
 .cal-stat strong.trend-down { color: var(--danger); }
 .cal-stat small { color: var(--muted); font-size: 0.6875rem; font-weight: 600; font-variant-numeric: tabular-nums; }
@@ -2814,10 +2849,21 @@ button.project-row.active { color: var(--chip-accent-dark); }
 
 /* ---- Year view ---- */
 .cal-year { display: grid; gap: 20px; }
-.cal-year__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.cal-year__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.cal-insights__pulse, .cal-year__stats { gap: 0; padding: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs); }
 .cal-stat {
-  position: relative; display: grid; gap: 3px; justify-items: start; padding: 14px 16px;
-  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
+  position: relative; display: grid; align-content: start; gap: 8px; justify-items: start; padding: 16px;
+  min-width: 0; background: transparent; border: 0; border-radius: 0; box-shadow: none;
+}
+.cal-insights__pulse > .cal-stat + .cal-stat { border-left: 1px solid var(--line); }
+.cal-year__stats > .cal-stat:not(:nth-child(3n + 1)) { border-left: 1px solid var(--line); }
+.cal-year__stats > .cal-stat:nth-child(n + 4) { border-top: 1px solid var(--line); }
+.cal-stat > span, .cal-stat > small { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .cal-insights__pulse > .cal-stat, .cal-year__stats > .cal-stat { border-left: 0; border-top: 0; padding: 16px 12px; }
+  .cal-insights__pulse > .cal-stat:nth-child(odd), .cal-year__stats > .cal-stat:nth-child(odd) { border-left: 0; }
+  .cal-insights__pulse > .cal-stat:nth-child(even), .cal-year__stats > .cal-stat:nth-child(even) { border-left: 1px solid var(--line); }
+  .cal-insights__pulse > .cal-stat:nth-child(n + 3), .cal-year__stats > .cal-stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
 }
 /* Direct children only — the strong's RollDigits and the small's SwapText are
    spans too, and must keep their own type scale. */

@@ -1,4 +1,4 @@
-import { MoreHorizontal } from "lucide-react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -29,6 +29,7 @@ import {
 } from "../lib/progress";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
 import { usePresence } from "../lib/usePresence";
+import { RollDigits } from "./RollDigits";
 
 /** Rows to collapse out (staggered top-to-bottom); each commits its new date
  * as its own exit finishes. Driven by the Today page's roll-over button. */
@@ -56,6 +57,7 @@ interface TaskTableProps {
 interface TaskRowProps {
   task: Task;
   projectOptions: ReactNode;
+  projectName: string;
   showDate: boolean;
   autoFocusTitle?: boolean;
   exitOnMove?: boolean;
@@ -156,8 +158,9 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} ref={ref} />;
 }
 
-function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exitOnMove, pendingExitIndex, pendingExitDate, onCreate, onUpdate, onDelete }: TaskRowProps) {
+function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFocusTitle, exitOnMove, pendingExitIndex, pendingExitDate, onCreate, onUpdate, onDelete }: TaskRowProps) {
   const { m } = useI18n();
+  const [expanded, setExpanded] = useState(Boolean(autoFocusTitle || !task.title.trim()));
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
   const [blocker, setBlocker] = useState(worklogBlocker(task));
@@ -442,217 +445,244 @@ function TaskRowComponent({ task, projectOptions, showDate, autoFocusTitle, exit
   return (
     <div
       ref={rowRef}
-      className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}${removing ? " is-removing" : ""}${autoFocusTitle ? " is-new" : ""}`}
+      className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}${removing ? " is-removing" : ""}${autoFocusTitle ? " is-new" : ""}${expanded ? " is-expanded" : ""}`}
       onTransitionEnd={onTransitionEnd}
     >
-      <label className="tt-cell tt-importance">
-        <span className="tt-label">{m.taskTable.importance}</span>
-        <select
-          className={`task-table-importance imp-${importance}`}
-          value={importance}
-          onChange={(event) => updateImportance(Number(event.target.value) as TaskImportance)}
-          aria-label={m.taskTable.importance}
-        >
-          {importanceValues.map((value) => (
-            <option key={value} value={value}>
-              {value}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="tt-cell tt-project">
-        <span className="tt-label">{m.common.project}</span>
-        <select
-          value={task.project_id ?? ""}
-          onChange={(event) => onUpdate(task, { project_id: event.target.value || null })}
-          aria-label={m.common.project}
-        >
-          <option value="">{m.common.noProject}</option>
-          {projectOptions}
-        </select>
-      </label>
-
-      <label className="tt-cell tt-task">
-        <span className="tt-label">{m.taskTable.task}</span>
-        <AutoTextarea
-          className="task-table-title"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          onBlur={commitText}
-          rows={1}
-          autoFocus={autoFocusTitle}
-          placeholder={m.taskTable.newTask}
-          aria-label={m.taskTable.task}
-        />
-      </label>
-
-      <div className="tt-cell tt-progress">
-        <span className="tt-label">{m.taskTable.progressHeader}</span>
-        <div
-          ref={progressWrapRef}
-          className={`task-table-progress tone-${progressTone(progress)}`}
-          style={{ "--pct": `${progressDisplayRef.current}%` } as CSSProperties}
-        >
-          <span ref={progressBadgeRef} className="progress-badge">
-            {Math.round(progressDisplayRef.current)}%
+      <button
+        type="button"
+        className="task-summary"
+        aria-expanded={expanded}
+        aria-controls={`task-editor-${task.id}`}
+        onClick={() => { commitText(); setMenuOpen(false); setExpanded((value) => !value); }}
+      >
+        <span className="task-summary__meta">{projectName}{showDate && task.start_date ? ` · ${task.start_date}` : ""} · P{importance}</span>
+        <strong className="task-summary__title">{title || m.taskTable.newTask}</strong>
+        <span className="task-summary__progress"><RollDigits value={progress} text={`${progress}%`} /></span>
+        {(output || blocker || nextAction || notes) ? (
+          <span className="task-summary__preview">
+            {blocker ? `${m.taskTable.blocker}: ${blocker}` : output ? `${m.taskTable.output}: ${output}` : nextAction ? `${m.taskTable.nextStep}: ${nextAction}` : notes}
           </span>
-          <span className="progress-meter">
-            <span className="progress-meter__fill" />
-            {/* No step attribute: a stepped input quantizes programmatic writes,
-              which would snap the fill out of the damped glide. The drag is
-              free and the target snaps to the 25% detents; keys step manually. */}
-            <input
-            ref={progressSliderRef}
-            type="range"
-            className="progress-slider"
-            min={0}
-            max={100}
-            defaultValue={progress}
-            onPointerDown={() => {
-              progressDraggingRef.current = true;
-            }}
-            onChange={(event) => {
-              const raw = Number(event.target.value);
-              const snapped = (Math.round(raw / 25) * 25) as TaskProgress;
-              progressTargetRef.current = snapped;
-              if (progressDraggingRef.current) {
-                // Fill and badge track the pointer 1:1 while the finger is
-                // down; the weight moves to the release, which settles onto
-                // the detent.
-                cancelAnimationFrame(progressRafRef.current);
-                paintProgress(raw, { skipInput: true });
-              }
-              setProgress(snapped);
-            }}
-            onKeyDown={(event) => {
-              const delta =
-                event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "PageUp"
-                  ? 25
-                  : event.key === "ArrowLeft" || event.key === "ArrowDown" || event.key === "PageDown"
-                    ? -25
-                    : event.key === "Home"
-                      ? -100
-                      : event.key === "End"
-                        ? 100
-                        : 0;
-              if (delta === 0) return;
-              event.preventDefault();
-              const next = Math.max(0, Math.min(100, progressTargetRef.current + delta)) as TaskProgress;
-              progressTargetRef.current = next;
-              setProgress(next);
-            }}
-            onPointerUp={releaseProgress}
-            onPointerCancel={(event) => {
-              // iOS cancels the pointer the moment the native slider takes the
-              // touch; the drag itself continues and ends with touchend/change.
-              if (event.pointerType === "touch" || !progressDraggingRef.current) return;
-              releaseProgress();
-            }}
-            onTouchEnd={releaseProgress}
-            onTouchCancel={releaseProgress}
-            onKeyUp={() => commitProgress(progressTargetRef.current)}
-            aria-label={m.taskTable.progressHeader}
-            aria-valuetext={`${progress}%`}
+        ) : null}
+        <span className="task-summary__action">{expanded ? m.taskTable.collapseDetails : m.taskTable.editDetails}<ChevronDown size={14} aria-hidden="true" /></span>
+      </button>
+      <div className="task-editor" id={`task-editor-${task.id}`}>
+        <div className="task-editor__fields">
+          <label className="tt-cell tt-importance">
+            <span className="tt-label">{m.taskTable.importance}</span>
+            <select
+              className={`task-table-importance imp-${importance}`}
+              value={importance}
+              onChange={(event) => updateImportance(Number(event.target.value) as TaskImportance)}
+              aria-label={m.taskTable.importance}
+            >
+              {importanceValues.map((value) => (
+                <option key={value} value={value}>
+                  {value}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="tt-cell tt-project">
+            <span className="tt-label">{m.common.project}</span>
+            <select
+              value={task.project_id ?? ""}
+              onChange={(event) => onUpdate(task, { project_id: event.target.value || null })}
+              aria-label={m.common.project}
+            >
+              <option value="">{m.common.noProject}</option>
+              {projectOptions}
+            </select>
+          </label>
+
+          <label className="tt-cell tt-task">
+            <span className="tt-label">{m.taskTable.task}</span>
+            <AutoTextarea
+              className="task-table-title"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              onBlur={commitText}
+              rows={1}
+              autoFocus={autoFocusTitle}
+              placeholder={m.taskTable.newTask}
+              aria-label={m.taskTable.task}
             />
-          </span>
-        </div>
-      </div>
+          </label>
 
-      {showDate ? (
-        <label className="tt-cell tt-date">
-          <span className="tt-label">{m.taskTable.date}</span>
-          <input
-            type="date"
-            value={task.start_date ?? ""}
-            onChange={(event) => onUpdate(task, { start_date: event.target.value || null })}
-            aria-label={m.taskTable.date}
-          />
-        </label>
-      ) : null}
-
-      <label className="tt-cell tt-output">
-        <span className="tt-label">{m.taskTable.output}</span>
-        <AutoTextarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.output} />
-      </label>
-
-      <label className="tt-cell tt-blocker">
-        <span className="tt-label">{m.taskTable.blocker}</span>
-        <AutoTextarea
-          className={blocker ? "is-filled" : undefined}
-          value={blocker}
-          onChange={(event) => setBlocker(event.target.value)}
-          onBlur={commitText}
-          rows={1}
-          aria-label={m.taskTable.blocker}
-        />
-      </label>
-
-      <label className="tt-cell tt-next">
-        <span className="tt-label">{m.taskTable.nextStep}</span>
-        <AutoTextarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.nextStep} />
-      </label>
-
-      <div className="tt-cell tt-notes">
-        <span className="tt-label">{m.common.notes}</span>
-        <div className="task-table-note-cell">
-          <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} placeholder={m.common.notes} aria-label={m.taskTable.noteAria} />
-          <div className={`task-menu${menuOpen ? " is-open" : ""}`} ref={menuRef}>
-            <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label={m.taskTable.taskActions} aria-haspopup="menu" aria-expanded={menuOpen}>
-              <MoreHorizontal size={17} aria-hidden="true" />
-            </button>
-            {menu.mounted ? (
-              <div
-                className={`task-action-menu${menu.closing ? " is-closing" : ""}`}
-                role="menu"
-                aria-label={m.taskTable.taskActions}
-                onAnimationEnd={(event) => {
-                  if (event.target === event.currentTarget) menu.onExited();
+          <div className="tt-cell tt-progress">
+            <span className="tt-label">{m.taskTable.progressHeader}</span>
+            <div
+              ref={progressWrapRef}
+              className={`task-table-progress tone-${progressTone(progress)}`}
+              style={{ "--pct": `${progressDisplayRef.current}%` } as CSSProperties}
+            >
+              <span ref={progressBadgeRef} className="progress-badge">
+                {Math.round(progressDisplayRef.current)}%
+              </span>
+              <span className="progress-meter">
+                <span className="progress-meter__fill" />
+                {/* No step attribute: a stepped input quantizes programmatic writes,
+                  which would snap the fill out of the damped glide. The drag is
+                  free and the target snaps to the 25% detents; keys step manually. */}
+                <input
+                ref={progressSliderRef}
+                type="range"
+                className="progress-slider"
+                min={0}
+                max={100}
+                defaultValue={progress}
+                onPointerDown={() => {
+                  progressDraggingRef.current = true;
                 }}
-              >
-                {confirmingDelete ? (
-                  <>
-                    <span className="task-action-menu__prompt" role="presentation">
-                      {m.taskTable.deletePrompt}
-                    </span>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      className="danger"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        exitActionRef.current = () => onDelete(task);
-                        beginRemove();
-                      }}
-                    >
-                      <span>{m.taskTable.confirmDelete}</span>
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => setConfirmingDelete(false)}>
-                      <span>{m.common.cancel}</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
-                      <span>{m.taskTable.copyToYesterday}</span>
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => copyTask(1)}>
-                      <span>{m.taskTable.copyToTomorrow}</span>
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
-                      <span>{m.taskTable.moveToYesterday}</span>
-                    </button>
-                    <button type="button" role="menuitem" onClick={() => moveTask(1)}>
-                      <span>{m.taskTable.moveToTomorrow}</span>
-                    </button>
-                    <button type="button" role="menuitem" className="danger" onClick={() => setConfirmingDelete(true)}>
-                      <span>{m.taskTable.deleteTask}</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : null}
+                onChange={(event) => {
+                  const raw = Number(event.target.value);
+                  const snapped = (Math.round(raw / 25) * 25) as TaskProgress;
+                  progressTargetRef.current = snapped;
+                  if (progressDraggingRef.current) {
+                    // Fill and badge track the pointer 1:1 while the finger is
+                    // down; the weight moves to the release, which settles onto
+                    // the detent.
+                    cancelAnimationFrame(progressRafRef.current);
+                    paintProgress(raw, { skipInput: true });
+                  }
+                  setProgress(snapped);
+                }}
+                onKeyDown={(event) => {
+                  const delta =
+                    event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "PageUp"
+                      ? 25
+                      : event.key === "ArrowLeft" || event.key === "ArrowDown" || event.key === "PageDown"
+                        ? -25
+                        : event.key === "Home"
+                          ? -100
+                          : event.key === "End"
+                            ? 100
+                            : 0;
+                  if (delta === 0) return;
+                  event.preventDefault();
+                  const next = Math.max(0, Math.min(100, progressTargetRef.current + delta)) as TaskProgress;
+                  progressTargetRef.current = next;
+                  setProgress(next);
+                }}
+                onPointerUp={releaseProgress}
+                onPointerCancel={(event) => {
+                  // iOS cancels the pointer the moment the native slider takes the
+                  // touch; the drag itself continues and ends with touchend/change.
+                  if (event.pointerType === "touch" || !progressDraggingRef.current) return;
+                  releaseProgress();
+                }}
+                onTouchEnd={releaseProgress}
+                onTouchCancel={releaseProgress}
+                onKeyUp={() => commitProgress(progressTargetRef.current)}
+                aria-label={m.taskTable.progressHeader}
+                aria-valuetext={`${progress}%`}
+                />
+              </span>
+            </div>
           </div>
+
+          {showDate ? (
+            <label className="tt-cell tt-date">
+              <span className="tt-label">{m.taskTable.date}</span>
+              <input
+                type="date"
+                value={task.start_date ?? ""}
+                onChange={(event) => onUpdate(task, { start_date: event.target.value || null })}
+                aria-label={m.taskTable.date}
+              />
+            </label>
+          ) : null}
+
+          <label className="tt-cell tt-output">
+            <span className="tt-label">{m.taskTable.output}</span>
+            <AutoTextarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.output} />
+          </label>
+
+          <label className="tt-cell tt-blocker">
+            <span className="tt-label">{m.taskTable.blocker}</span>
+            <AutoTextarea
+              className={blocker ? "is-filled" : undefined}
+              value={blocker}
+              onChange={(event) => setBlocker(event.target.value)}
+              onBlur={commitText}
+              rows={1}
+              aria-label={m.taskTable.blocker}
+            />
+          </label>
+
+          <label className="tt-cell tt-next">
+            <span className="tt-label">{m.taskTable.nextStep}</span>
+            <AutoTextarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.nextStep} />
+          </label>
+
+          <div className="tt-cell tt-notes">
+            <span className="tt-label">{m.common.notes}</span>
+            <div className="task-table-note-cell">
+              <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} placeholder={m.common.notes} aria-label={m.taskTable.noteAria} />
+              <div className={`task-menu${menuOpen ? " is-open" : ""}`} ref={menuRef}>
+                <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label={m.taskTable.taskActions} aria-haspopup="menu" aria-expanded={menuOpen}>
+                  <MoreHorizontal size={17} aria-hidden="true" />
+                </button>
+                {menu.mounted ? (
+                  <div
+                    className={`task-action-menu${menu.closing ? " is-closing" : ""}`}
+                    role="menu"
+                    aria-label={m.taskTable.taskActions}
+                    onAnimationEnd={(event) => {
+                      if (event.target === event.currentTarget) menu.onExited();
+                    }}
+                  >
+                    {confirmingDelete ? (
+                      <>
+                        <span className="task-action-menu__prompt" role="presentation">
+                          {m.taskTable.deletePrompt}
+                        </span>
+                        <button
+                          type="button"
+                          role="menuitem"
+                          className="danger"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            exitActionRef.current = () => onDelete(task);
+                            beginRemove();
+                          }}
+                        >
+                          <span>{m.taskTable.confirmDelete}</span>
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => setConfirmingDelete(false)}>
+                          <span>{m.common.cancel}</span>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
+                          <span>{m.taskTable.copyToYesterday}</span>
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => copyTask(1)}>
+                          <span>{m.taskTable.copyToTomorrow}</span>
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
+                          <span>{m.taskTable.moveToYesterday}</span>
+                        </button>
+                        <button type="button" role="menuitem" onClick={() => moveTask(1)}>
+                          <span>{m.taskTable.moveToTomorrow}</span>
+                        </button>
+                        <button type="button" role="menuitem" className="danger" onClick={() => setConfirmingDelete(true)}>
+                          <span>{m.taskTable.deleteTask}</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+          <button type="button" className="task-editor-close" onClick={() => {
+            commitText();
+            setMenuOpen(false);
+            setExpanded(false);
+            rowRef.current?.querySelector<HTMLButtonElement>(".task-summary")?.focus();
+          }}>{m.taskTable.collapseDetails}<ChevronDown size={14} aria-hidden="true" /></button>
         </div>
       </div>
     </div>
@@ -663,6 +693,7 @@ function taskRowPropsEqual(previous: Readonly<TaskRowProps>, next: Readonly<Task
   return (
     previous.task === next.task &&
     previous.projectOptions === next.projectOptions &&
+    previous.projectName === next.projectName &&
     previous.showDate === next.showDate &&
     previous.autoFocusTitle === next.autoFocusTitle &&
     previous.exitOnMove === next.exitOnMove &&
@@ -772,6 +803,7 @@ export function TaskTable({
             key={task.id}
             task={task}
             projectOptions={projectOptions}
+            projectName={liveProjects.find((project) => project.id === task.project_id)?.name ?? m.common.noProject}
             showDate={showDate}
             autoFocusTitle={task.id === focusTaskId}
             exitOnMove={exitOnMove}

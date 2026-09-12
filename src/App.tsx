@@ -175,6 +175,7 @@ const baseSyncIO: Omit<SyncIO, "publishSyncHint"> = {
 
 export function App() {
   const { m } = useI18n();
+  const focusedNextIdea = useRef<string | null>(null);
   const [state, dispatch] = useReducer(appReducer, initialState);
   const stateRef = useRef(state);
   // The app's single state write path: apply the action to the synchronous
@@ -1003,8 +1004,8 @@ export function App() {
         />
       ) : null}
       {state.currentTab === "projects" ? <ProjectsPage {...pageProps} /> : null}
-      {state.currentTab === "next" ? <NextPage {...pageProps} /> : null}
-      {state.currentTab === "search" ? <SearchPage {...pageProps} /> : null}
+      {state.currentTab === "next" ? <NextPage {...pageProps} initialIdeaId={focusedNextIdea.current} /> : null}
+      {state.currentTab === "search" ? <SearchPage {...pageProps} onOpenIdea={(id) => { focusedNextIdea.current = id; commit({ type: "setTab", payload: "next" }); }} /> : null}
       {state.currentTab === "settings" ? (
         <SettingsPage
           taskCount={visibleTasks(state.tasks).length}
@@ -1028,6 +1029,7 @@ export function App() {
       <BottomNav
         current={state.currentTab}
         onChange={(tab) => {
+          focusedNextIdea.current = null;
           if (tab === "today") {
             commit({ type: "setSelectedDate", payload: null });
           }

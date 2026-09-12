@@ -143,6 +143,8 @@ const en = {
     judgementLabel: "Today's Verdict"
   },
   taskTable: {
+    editDetails: "Edit Details",
+    collapseDetails: "Collapse",
     tableAria: "Task Table",
     importance: "Importance",
     progressHeader: "Progress",
@@ -215,6 +217,13 @@ const en = {
   },
   search: {
     title: "Search",
+    scope: "Search In",
+    resultCount: (n: number) => `${n} ${n === 1 ? "Result" : "Results"}`,
+    tasks: "Tasks",
+    allGroups: "All Idea Groups",
+    filterGroup: "Filter Idea Group",
+    ideasPlaceholder: "Search Idea Groups, Ideas, Notes",
+    openIdea: "Open Idea",
     subtitle: (tasks: number, ideas: number) => `${tasks} Matching Tasks · ${ideas} Next Ideas`,
     placeholder: "Search Projects, Tasks, Output, Blockers",
     searchAria: "Search Tasks",
@@ -535,6 +544,8 @@ const zh: Messages = {
     judgementLabel: "今日判断"
   },
   taskTable: {
+    editDetails: "展开编辑",
+    collapseDetails: "收起详情",
     tableAria: "任务表格",
     importance: "重要程度",
     progressHeader: "进度",
@@ -606,6 +617,13 @@ const zh: Messages = {
   },
   search: {
     title: "搜索",
+    scope: "搜索范围",
+    resultCount: (n) => `${n} 个结果`,
+    tasks: "任务",
+    allGroups: "全部想法分组",
+    filterGroup: "筛选想法分组",
+    ideasPlaceholder: "搜索想法分组、想法、备注",
+    openIdea: "打开想法",
     subtitle: (tasks, ideas) => `${tasks} 个匹配任务 · ${ideas} 条想法`,
     placeholder: "搜索项目、任务、产出、卡点",
     searchAria: "搜索任务",

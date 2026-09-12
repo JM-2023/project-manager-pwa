@@ -1,12 +1,16 @@
 import { TaskTable } from "../components/TaskTable";
-import { useMemo } from "react";
+import { ArrowUpRight } from "lucide-react";
+import { SegControl } from "../components/SegControl";
+import { useMemo, useState } from "react";
 import { useI18n } from "../lib/i18n";
 import { getTaskImportance, getTaskProgress, isProjectCacheTask, worklogBlocker, worklogOutput } from "../lib/progress";
 import { NO_PROJECT_FILTER, matchesProjectFilter } from "../state/appStore";
 import type { TaskPageProps } from "./pageProps";
 
-export function SearchPage(props: TaskPageProps) {
+export function SearchPage(props: TaskPageProps & { onOpenIdea: (id: string) => void }) {
   const { m } = useI18n();
+  const [scope, setScope] = useState<"tasks" | "ideas">("tasks");
+  const [groupId, setGroupId] = useState("");
   const { projects, tasks, nextProjects, nextIdeas, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask } = props;
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
   const nextProjectMap = useMemo(() => new Map(nextProjects.map((project) => [project.id, project.name])), [nextProjects]);
@@ -57,20 +61,21 @@ export function SearchPage(props: TaskPageProps) {
   const filteredNextIdeas = useMemo(
     () =>
       searchableNextIdeas
-        .filter(({ idea, haystack }) => !idea.deleted_at && (!query || haystack.includes(query)))
+        .filter(({ idea, haystack }) => !idea.deleted_at && nextProjectMap.has(idea.next_project_id) && (!groupId || idea.next_project_id === groupId) && (!query || haystack.includes(query)))
         .map(({ idea }) => idea),
-    [query, searchableNextIdeas]
+    [groupId, nextProjectMap, query, searchableNextIdeas]
   );
 
   return (
     <main className="page-content">
       <header className="page-header">
         <h1>{m.search.title}</h1>
-        <p>{m.search.subtitle(filtered.length, filteredNextIdeas.length)}</p>
+        <p>{m.search.resultCount(scope === "tasks" ? filtered.length : filteredNextIdeas.length)}</p>
       </header>
       <section className="search-filters">
-        <input value={filters.search} onChange={(event) => onFiltersChange({ search: event.target.value })} placeholder={m.search.placeholder} aria-label={m.search.searchAria} />
-        <div className="filter-grid">
+        <SegControl options={[{ id: "tasks", label: m.search.tasks }, { id: "ideas", label: m.search.nextIdeas }]} value={scope} onChange={setScope} ariaLabel={m.search.scope} />
+        <input value={filters.search} onChange={(event) => onFiltersChange({ search: event.target.value })} placeholder={scope === "tasks" ? m.search.placeholder : m.search.ideasPlaceholder} aria-label={scope === "tasks" ? m.search.searchAria : m.search.nextResultsAria} />
+        {scope === "tasks" ? <div className="filter-grid">
           <select value={filters.projectId} onChange={(event) => onFiltersChange({ projectId: event.target.value })} aria-label={m.search.filterProject}>
             <option value="">{m.common.allProjects}</option>
             <option value={NO_PROJECT_FILTER}>{m.common.noProject}</option>
@@ -96,24 +101,31 @@ export function SearchPage(props: TaskPageProps) {
               </option>
             ))}
           </select>
-        </div>
+        </div> : <select value={groupId} onChange={(event) => setGroupId(event.target.value)} aria-label={m.search.filterGroup}>
+          <option value="">{m.search.allGroups}</option>
+          {nextProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+        </select>}
       </section>
-      <TaskTable tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
+      <div key={scope} className="search-results">
+      {scope === "tasks" ? <TaskTable tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} /> :
       <section className="search-next-results" aria-label={m.search.nextResultsAria}>
         <h2>{m.search.nextIdeas}</h2>
         {filteredNextIdeas.length > 0 ? (
           <div className="cache-items">
             {filteredNextIdeas.map((idea) => (
-              <article key={idea.id} className="cache-item search-next-item">
+              <button type="button" key={idea.id} className="cache-item search-next-item" onClick={() => props.onOpenIdea(idea.id)} aria-label={`${m.search.openIdea}: ${idea.title || m.search.untitledIdea}`}>
                 <span>{nextProjectMap.get(idea.next_project_id) ?? m.search.nextFallback}</span>
                 <strong>{idea.title || m.search.untitledIdea}</strong>
-              </article>
+                {idea.note ? <span className="search-next-item__note">{idea.note}</span> : null}
+                <ArrowUpRight size={16} aria-hidden="true" />
+              </button>
             ))}
           </div>
         ) : (
           <p className="empty-state">{m.search.noNextMatch}</p>
         )}
-      </section>
+      </section>}
+      </div>
     </main>
   );
 }

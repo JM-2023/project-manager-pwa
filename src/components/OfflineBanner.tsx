@@ -15,6 +15,9 @@ interface OfflineBannerProps {
 interface BannerView {
   state: string;
   message: string;
+  /** Raw error text: often an English exception message, so it stays out of
+   * the localized pill and only rides along as a tooltip. Settings shows it. */
+  detail: string | undefined;
   Icon: typeof CloudOff;
   showSync: boolean;
   syncing: boolean;
@@ -31,13 +34,13 @@ export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync 
   if (visible) {
     const state = error ? "error" : online ? syncStatus : "offline";
     const message = error
-      ? m.offline.syncIssue(error)
+      ? m.offline.syncIssue
       : !online
       ? pendingCount > 0
         ? m.offline.savedOffline(pendingCount)
         : m.offline.offline
       : syncStatus === "error"
-        ? m.offline.syncIssue(error)
+        ? m.offline.syncIssue
         : syncStatus === "syncing"
           ? m.offline.syncing(pendingCount)
           : syncStatus === "queued"
@@ -52,7 +55,7 @@ export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync 
         : syncStatus === "syncing"
           ? RefreshCcw
           : UploadCloud;
-    lastViewRef.current = { state, message, Icon, showSync: online, syncing: syncStatus === "syncing" };
+    lastViewRef.current = { state, message, detail: error ?? undefined, Icon, showSync: online, syncing: syncStatus === "syncing" };
   }
 
   const view = lastViewRef.current;
@@ -60,7 +63,7 @@ export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync 
     return null;
   }
 
-  const { state, message, Icon, showSync, syncing } = view;
+  const { state, message, detail, Icon, showSync, syncing } = view;
   return (
     <div
       className={`offline-banner ${state}${presence.closing ? " is-leaving" : ""}`}
@@ -73,7 +76,7 @@ export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync 
       <span className="offline-banner__icon">
         <Icon size={16} aria-hidden="true" />
       </span>
-      <span className="offline-banner__text">{message}</span>
+      <span className="offline-banner__text" title={detail}>{message}</span>
       {showSync ? (
         <button type="button" onClick={onSync} disabled={syncing || presence.closing} aria-label={m.offline.syncNow}>
           <RefreshCcw size={16} aria-hidden="true" />

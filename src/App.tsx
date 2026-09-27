@@ -35,7 +35,7 @@ import {
   type LocalEntityWrite,
   type SavableEntity
 } from "./lib/localDb";
-import { parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
+import { isProjectCacheTask, parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
 import { compactPendingMutations, mutationRecordKey, replayPendingMutations } from "./lib/syncMerge";
 import { SyncEngine, type SyncIO } from "./lib/syncEngine";
@@ -957,6 +957,16 @@ export function App() {
     [state.projects]
   );
   const tasks = useMemo(() => sortedTasks(state.tasks), [state.tasks]);
+  // What deleting each project would purge, archived tasks included, so the
+  // confirm step can say it. Internal project-cache rows aren't user tasks.
+  const projectTaskCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const task of state.tasks) {
+      if (!task.project_id || task.deleted_at || isProjectCacheTask(task)) continue;
+      counts.set(task.project_id, (counts.get(task.project_id) ?? 0) + 1);
+    }
+    return counts;
+  }, [state.tasks]);
   const nextProjects = useMemo(
     () =>
       state.nextProjects
@@ -1013,7 +1023,7 @@ export function App() {
           }}
         />
       ) : null}
-      {state.currentTab === "projects" ? <ProjectsPage {...pageProps} /> : null}
+      {state.currentTab === "projects" ? <ProjectsPage {...pageProps} projectTaskCounts={projectTaskCounts} /> : null}
       {state.currentTab === "next" ? <NextPage {...pageProps} initialIdeaId={focusedNextIdea.current} /> : null}
       {state.currentTab === "search" ? <SearchPage {...pageProps} onOpenIdea={(id) => { focusedNextIdea.current = id; commit({ type: "setTab", payload: "next" }); }} /> : null}
       {state.currentTab === "settings" ? (

@@ -30,6 +30,7 @@ import {
 } from "../lib/progress";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
 import { usePresence } from "../lib/usePresence";
+import { handleMenuKeyDown } from "../lib/menuKeys";
 import { RollDigits } from "./RollDigits";
 
 /** Rows to collapse out (staggered top-to-bottom); each commits its new date
@@ -664,6 +665,7 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
                     className={`task-action-menu task-action-menu--floating${menu.closing ? " is-closing" : ""}`}
                     role="menu"
                     aria-label={m.taskTable.taskActions}
+                    onKeyDown={handleMenuKeyDown}
                     onAnimationEnd={(event) => {
                       if (event.target === event.currentTarget) menu.onExited();
                     }}
@@ -692,16 +694,16 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
                     ) : (
                       <>
                         <button type="button" role="menuitem" onClick={() => copyTask(-1)}>
-                          <span>{m.taskTable.copyToYesterday}</span>
+                          <span>{m.taskTable.copyToPrevDay}</span>
                         </button>
                         <button type="button" role="menuitem" onClick={() => copyTask(1)}>
-                          <span>{m.taskTable.copyToTomorrow}</span>
+                          <span>{m.taskTable.copyToNextDay}</span>
                         </button>
                         <button type="button" role="menuitem" onClick={() => moveTask(-1)}>
-                          <span>{m.taskTable.moveToYesterday}</span>
+                          <span>{m.taskTable.moveToPrevDay}</span>
                         </button>
                         <button type="button" role="menuitem" onClick={() => moveTask(1)}>
-                          <span>{m.taskTable.moveToTomorrow}</span>
+                          <span>{m.taskTable.moveToNextDay}</span>
                         </button>
                         <button type="button" role="menuitem" className="danger" onClick={() => setConfirmingDelete(true)}>
                           <span>{m.taskTable.deleteTask}</span>

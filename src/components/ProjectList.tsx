@@ -8,6 +8,7 @@ import { isWorklogTask, progressTone, summarizeWorklogOverview, type WorklogOver
 import { NO_PROJECT_FILTER } from "../state/appStore";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
 import { usePresence } from "../lib/usePresence";
+import { handleMenuKeyDown } from "../lib/menuKeys";
 
 const EMPTY_WORKLOG_OVERVIEW = summarizeWorklogOverview([]);
 
@@ -25,6 +26,8 @@ interface ProjectListProps {
   projects: Project[];
   archivedProjects: Project[];
   tasks: Task[];
+  /** Tasks a delete would purge per project, archived ones included. */
+  taskCounts: ReadonlyMap<string, number>;
   selectedProjectId: string;
   onSelect: (projectId: string) => void;
   onCreate?: (name: string) => void;
@@ -37,6 +40,7 @@ interface ProjectListProps {
 interface ProjectRowProps {
   project: Project;
   summary: WorklogOverview;
+  taskCount: number;
   swatch: string;
   active: boolean;
   /** Position in the chip stack, for the entrance cascade. */
@@ -52,7 +56,7 @@ interface ProjectRowProps {
 // single tap.
 type ConfirmAction = "archive" | "delete";
 
-function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchive, onDelete, onRename }: ProjectRowProps) {
+function ProjectRow({ project, summary, taskCount, swatch, active, index, onSelect, onArchive, onDelete, onRename }: ProjectRowProps) {
   const { m } = useI18n();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(project.name);
@@ -224,6 +228,8 @@ function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchi
                 event.preventDefault();
                 setMenuOpen(false);
                 menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+              } else {
+                handleMenuKeyDown(event);
               }
             }}
             onAnimationEnd={(event) => {
@@ -235,6 +241,11 @@ function ProjectRow({ project, summary, swatch, active, index, onSelect, onArchi
                 <span className="task-action-menu__prompt" role="presentation">
                   {confirm === "archive" ? m.projectList.archivePrompt : m.projectList.deletePrompt}
                 </span>
+                {confirm === "delete" ? (
+                  <span className="task-action-menu__warning" role="presentation">
+                    {m.projectList.deleteWarning(taskCount)}
+                  </span>
+                ) : null}
                 <button
                   type="button"
                   role="menuitem"
@@ -305,6 +316,7 @@ export function ProjectList({
   projects,
   archivedProjects,
   tasks,
+  taskCounts,
   selectedProjectId,
   onSelect,
   onCreate,
@@ -544,6 +556,7 @@ export function ProjectList({
                     key={project.id}
                     project={project}
                     summary={summary}
+                    taskCount={taskCounts.get(project.id) ?? 0}
                     swatch={swatches.get(project.id) ?? "var(--chip-accent)"}
                     active={selectedProjectId === project.id}
                     index={index + 2}

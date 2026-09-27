@@ -6,7 +6,7 @@ import { isWorklogTask, summarizeWorklogOverview } from "../lib/progress";
 import { matchesProjectFilter } from "../state/appStore";
 import type { TaskPageProps } from "./pageProps";
 
-export function ProjectsPage(props: TaskPageProps) {
+export function ProjectsPage(props: TaskPageProps & { projectTaskCounts: ReadonlyMap<string, number> }) {
   const { m } = useI18n();
   const {
     projects,
@@ -21,7 +21,8 @@ export function ProjectsPage(props: TaskPageProps) {
     onArchiveProject,
     onUnarchiveProject,
     onDeleteProject,
-    onRenameProject
+    onRenameProject,
+    projectTaskCounts
   } = props;
 
   const selectedProjectId = filters.projectId;
@@ -44,6 +45,7 @@ export function ProjectsPage(props: TaskPageProps) {
         projects={projects}
         archivedProjects={archivedProjects}
         tasks={tasks}
+        taskCounts={projectTaskCounts}
         selectedProjectId={selectedProjectId}
         onSelect={(projectId) => onFiltersChange({ projectId })}
         onCreate={onCreateProject}

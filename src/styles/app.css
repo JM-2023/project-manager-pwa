@@ -2530,6 +2530,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .task-action-menu button.danger { color: var(--danger); }
 @media (hover: hover) { .task-action-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); } }
 .task-action-menu__prompt { display: block; padding: 6px 12px 4px; color: var(--muted); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
+.task-action-menu__warning { display: block; margin-top: -2px; padding: 0 12px 6px; color: var(--danger); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 
 .project-row .task-menu { justify-self: center; }
 .project-row .task-menu-trigger { width: 36px; min-width: 36px; min-height: 36px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; border-radius: var(--r-sm); box-shadow: none; }

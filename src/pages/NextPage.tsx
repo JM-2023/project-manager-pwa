@@ -122,7 +122,13 @@ function NextProjectSection({
   }
 
   return (
-    <details className="cache-section">
+    <details
+      className="cache-section"
+      onToggle={(event) => {
+        // A pending delete confirmation doesn't outlive the section closing.
+        if (!event.currentTarget.open) setConfirming(false);
+      }}
+    >
       <summary className="cache-section__head">
         <ChevronRight className="cache-chevron" size={18} aria-hidden="true" />
         <span className="cache-section__name">{project.name}</span>

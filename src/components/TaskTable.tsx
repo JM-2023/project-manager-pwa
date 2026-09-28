@@ -184,10 +184,15 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
   const progressTargetRef = useRef<TaskProgress>(progress);
   const progressDisplayRef = useRef<number>(progress);
   const progressRafRef = useRef(0);
-  // While the fill moves, its edge breaks into pixels (lib/meterDither).
-  const progressDitherRef = useRef<HTMLCanvasElement | null>(null);
-  const progressDither = useMeterDither(progressDitherRef, progressDisplayRef);
   const progressDraggingRef = useRef(false);
+  // While dragging, pixels break off the fill's end and fly right; on
+  // release they stream back into place (lib/meterDither).
+  const progressDitherRef = useRef<HTMLCanvasElement | null>(null);
+  const progressDither = useMeterDither(progressDitherRef, {
+    value: progressDisplayRef,
+    target: progressTargetRef,
+    dragging: progressDraggingRef
+  });
   // The value most recently handed to onUpdate and not yet reflected in the
   // task prop. A release can arrive through several events at once (native
   // change, pointerup, touchend); only the first may create a mutation.

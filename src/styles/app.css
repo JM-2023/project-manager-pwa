@@ -1656,7 +1656,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   -webkit-mask-image: linear-gradient(90deg, #000 var(--dither-cut, 100%), transparent var(--dither-cut, 100%));
   mask-image: linear-gradient(90deg, #000 var(--dither-cut, 100%), transparent var(--dither-cut, 100%));
 }
-/* Motion texture over the fill's edge (lib/meterDither): blank and bitmap-free
+/* Pixel particles off the fill's end (lib/meterDither): blank and bitmap-free
    at rest; tinted by the row's tone through `color`. */
 .progress-meter__dither {
   position: absolute;

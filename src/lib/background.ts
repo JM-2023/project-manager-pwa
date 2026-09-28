@@ -5,16 +5,19 @@ import { syncChromeColor } from "./chromeColor";
 /**
  * Ground colour under the whole app. "default" is the bone paper the app
  * ships with; "gray" turns the ground a near-white neutral gray (see the
- * Ground section in app.css) beneath the same cards. A device-local display
- * preference stored like the theme; theme-init.js applies it before first
- * paint and the CSS keys off html[data-bg].
+ * Ground section in app.css) beneath the same cards; "prussian" is a whole
+ * palette — milk-apricot paper, Prussian-blue ink, wine-red accent. A
+ * device-local display preference stored like the theme; theme-init.js
+ * applies it before first paint and the CSS keys off html[data-bg].
  */
-export type BackgroundStyle = "default" | "gray";
+export type BackgroundStyle = "default" | "gray" | "prussian";
+
+export const BACKGROUND_STYLES: readonly BackgroundStyle[] = ["default", "gray", "prussian"];
 
 const STORAGE_KEY = "pm:bg";
 
 function isBackgroundStyle(value: unknown): value is BackgroundStyle {
-  return value === "default" || value === "gray";
+  return BACKGROUND_STYLES.includes(value as BackgroundStyle);
 }
 
 export function getStoredBackground(): BackgroundStyle {

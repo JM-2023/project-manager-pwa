@@ -59,6 +59,22 @@ describe("background preference", () => {
     expect(dark.content).toBe("#17181a");
   });
 
+  it("stores prussian and retints both chrome metas to its own grounds", () => {
+    const storage = stubStorage();
+    const attributes = new Map<string, string>();
+    const light = makeMeta("(prefers-color-scheme: light)");
+    const dark = makeMeta("(prefers-color-scheme: dark)");
+    stubDocument(attributes, [light, dark]);
+
+    setStoredBackground("prussian");
+
+    expect(storage.get("pm:bg")).toBe("prussian");
+    expect(getStoredBackground()).toBe("prussian");
+    expect(attributes.get("data-bg")).toBe("prussian");
+    expect(light.content).toBe("#f6f0e7");
+    expect(dark.content).toBe("#0e1720");
+  });
+
   it("returning to paper clears the key, the attribute and the retint", () => {
     const storage = stubStorage({ "pm:bg": "gray" });
     const attributes = new Map<string, string>([["data-bg", "gray"]]);

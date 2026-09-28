@@ -4,19 +4,21 @@
 // Lives as an external file (not inline) so the CSP can stay 'self'-only.
 (function () {
   try {
-    // Ground colour: bone paper unless the neutral gray is pinned.
-    // Applied pre-paint so the gray never flashes bone first.
-    var bg = localStorage.getItem("pm:bg") === "gray" ? "gray" : "default";
-    if (bg === "gray") {
-      document.documentElement.setAttribute("data-bg", "gray");
-    }
-
     // Browser-chrome colors per ground × scheme; keep in sync with
     // src/lib/chromeColor.ts and the --bg tokens in app.css.
     var COLORS = {
       default: { light: "#f5f3ee", dark: "#131211" },
-      gray: { light: "#eef0f3", dark: "#17181a" }
+      gray: { light: "#eef0f3", dark: "#17181a" },
+      prussian: { light: "#f6f0e7", dark: "#0e1720" }
     };
+
+    // Ground colour: bone paper unless another ground is pinned.
+    // Applied pre-paint so a pinned ground never flashes bone first.
+    var storedBg = localStorage.getItem("pm:bg");
+    var bg = storedBg && storedBg !== "default" && COLORS.hasOwnProperty(storedBg) ? storedBg : "default";
+    if (bg !== "default") {
+      document.documentElement.setAttribute("data-bg", bg);
+    }
 
     var t = localStorage.getItem("pm:theme");
     var pinned = t === "light" || t === "dark";

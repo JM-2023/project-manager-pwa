@@ -10,12 +10,15 @@
  */
 
 type Scheme = "light" | "dark";
-type Ground = "default" | "gray";
+type Ground = "default" | "gray" | "prussian";
 
 const CHROME_COLORS: Record<Ground, Record<Scheme, string>> = {
   default: { light: "#f5f3ee", dark: "#131211" },
-  gray: { light: "#eef0f3", dark: "#17181a" }
+  gray: { light: "#eef0f3", dark: "#17181a" },
+  prussian: { light: "#f6f0e7", dark: "#0e1720" }
 };
+
+const isGround = (value: string | null): value is Ground => value !== null && value in CHROME_COLORS;
 
 /**
  * Point the theme-color metas at what the root is actually rendering. A
@@ -25,7 +28,8 @@ const CHROME_COLORS: Record<Ground, Record<Scheme, string>> = {
 export function syncChromeColor(): void {
   const root = document.documentElement;
   const pinned = root.getAttribute("data-theme");
-  const ground: Ground = root.getAttribute("data-bg") === "gray" ? "gray" : "default";
+  const attr = root.getAttribute("data-bg");
+  const ground: Ground = isGround(attr) ? attr : "default";
   const colors = CHROME_COLORS[ground];
   const metas = document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]');
   metas.forEach((meta) => {

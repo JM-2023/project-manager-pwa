@@ -475,6 +475,213 @@
   --shade: 22, 26, 34;
 }
 
+/* =========================================================================
+   Ground — Prussian (html[data-bg="prussian"])
+   --------------------------------------------------------------------------
+   Unlike the gray ground this IS a second palette, and it is colour-BLOCKED
+   rather than tinted: three solid colours meeting at hard edges, in a clear
+   proportion.
+
+     paper   — a light milk apricot, the ground and (near-white) cards; most
+               of the screen, and quiet on purpose
+     block   — solid Prussian blue on the structure: the navigation rail /
+               dock, the task table's header band, the selected cell of
+               every segmented control (apricot type on top)
+     accent  — wine red; on the rail it is the selection pill (springing
+               between tabs, lib/navIndicator.ts) so red meets blue directly,
+               elsewhere the small accent jobs the brick-rose had
+
+   Ink is a quiet navy, not a fourth colour. Completion greens are NOT part
+   of the swap — the hero liquid, --prog-high / --prog-done and the done
+   status keep their greens, so "finished" reads the same on every palette.
+
+   In dark the paper becomes a near-black navy; the block stays a lighter
+   Prussian so the rail still reads as a solid piece laid on the page.
+
+   Every token the light block sets is set again by both dark blocks (the
+   light block ties the default dark block on specificity and comes later).
+   Keep --bg in sync with chromeColor.ts + theme-init.js.
+   ========================================================================= */
+:root[data-bg="prussian"] {
+  --block: #1f3d5a;
+  --block-ink: #f3e2cb;
+  --block-accent: #8a2f40;
+
+  --primary: #8a2f40;
+  --primary-dark: #76253a;
+  --primary-ink: #ffffff;
+  --primary-tint: #f1e3e2;
+  --primary-tint-strong: #e5cfd0;
+
+  --bg: #f6f0e7;
+  --surface: #fffcf8;
+  --surface-2: #fbf6ef;
+  --surface-3: #f0e8dc;
+  --field-bg: #fffdfa;
+  --table-head-bg: #f9f4ec;
+
+  --ink: #1b2c3e;
+  --ink-soft: #45576b;
+  --muted: #7b8594;
+  --line: #ece3d6;
+  --line-strong: #dccfbd;
+
+  --danger: #8a2f40;
+  --st-blocked-bg: #f1e3e2; --st-blocked-fg: #8a2f40;
+
+  --prog-none: #dcd2c3;
+  --prog-low: #bf8490;
+  --prog-mid: #8a2f40;
+
+  --imp-1: #003153;
+  --imp-2: #2d5c84;
+  --imp-3: #7ea3c2;
+  --imp-4: #bcd0e1;
+
+  --ring: rgba(138, 47, 64, 0.22);
+  --lgb-rim: rgba(16, 38, 60, 0.18);
+  --lgb-danger-rim: rgba(138, 47, 64, 0.38);
+
+  --shade: 24, 40, 58;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-bg="prussian"]:not([data-theme="light"]) {
+    --block: #22425f;
+    --block-ink: #f3e2cb;
+    --block-accent: #963548;
+
+    --primary: #d98e9b;
+    --primary-dark: #ebb0ba;
+    --primary-ink: #2a0f16;
+    --primary-tint: #33222b;
+    --primary-tint-strong: #4b2f3b;
+
+    --bg: #0e1720;
+    --surface: #151f2a;
+    --surface-2: #1a2530;
+    --surface-3: #212d39;
+    --field-bg: #121b25;
+    --table-head-bg: #1a2530;
+
+    --ink: #f1e6d7;
+    --ink-soft: #c9bba8;
+    --muted: #8e98a5;
+    --line: #24303c;
+    --line-strong: #34414e;
+
+    --danger: #e39aa6;
+    --st-blocked-bg: #33222b; --st-blocked-fg: #e39aa6;
+
+    --prog-none: #34414e;
+    --prog-low: #b97c88;
+    --prog-mid: #d98e9b;
+
+    --imp-1: #a9c8e4;
+    --imp-2: #6f9cc4;
+    --imp-3: #46729b;
+    --imp-4: #2e4d6b;
+
+    --ring: rgba(217, 142, 155, 0.3);
+    --lgb-rim: rgba(241, 230, 215, 0.3);
+    --lgb-danger-rim: rgba(227, 154, 166, 0.38);
+
+    --shade: 4, 10, 18;
+  }
+}
+:root[data-bg="prussian"][data-theme="dark"] {
+  --block: #22425f;
+  --block-ink: #f3e2cb;
+  --block-accent: #963548;
+
+  --primary: #d98e9b;
+  --primary-dark: #ebb0ba;
+  --primary-ink: #2a0f16;
+  --primary-tint: #33222b;
+  --primary-tint-strong: #4b2f3b;
+
+  --bg: #0e1720;
+  --surface: #151f2a;
+  --surface-2: #1a2530;
+  --surface-3: #212d39;
+  --field-bg: #121b25;
+  --table-head-bg: #1a2530;
+
+  --ink: #f1e6d7;
+  --ink-soft: #c9bba8;
+  --muted: #8e98a5;
+  --line: #24303c;
+  --line-strong: #34414e;
+
+  --danger: #e39aa6;
+  --st-blocked-bg: #33222b; --st-blocked-fg: #e39aa6;
+
+  --prog-none: #34414e;
+  --prog-low: #b97c88;
+  --prog-mid: #d98e9b;
+
+  --imp-1: #a9c8e4;
+  --imp-2: #6f9cc4;
+  --imp-3: #46729b;
+  --imp-4: #2e4d6b;
+
+  --ring: rgba(217, 142, 155, 0.3);
+  --lgb-rim: rgba(241, 230, 215, 0.3);
+  --lgb-danger-rim: rgba(227, 154, 166, 0.38);
+
+  --shade: 4, 10, 18;
+}
+
+/* ---- Prussian blocks ----------------------------------------------------
+   The palette's solid pieces. Keyed on :root[data-bg] so they outrank the
+   rail/dock breakpoint rules without !important. */
+
+/* Rail / dock: a solid Prussian piece; tabs in apricot at two strengths. */
+:root[data-bg="prussian"] .bottom-nav {
+  background: var(--block);
+  border-color: var(--block);
+  box-shadow: 0 1px 2px rgba(var(--shade), 0.12), 0 12px 28px -14px rgba(var(--shade), 0.55);
+}
+:root[data-bg="prussian"] .bottom-nav button,
+:root[data-bg="prussian"] .bottom-nav button span,
+:root[data-bg="prussian"] .bottom-nav button .nav-icon {
+  color: color-mix(in srgb, var(--block-ink) 62%, var(--block));
+}
+:root[data-bg="prussian"] .bottom-nav button { z-index: 1; }
+@media (hover: hover) {
+  :root[data-bg="prussian"] .bottom-nav button:hover,
+  :root[data-bg="prussian"] .bottom-nav button:hover span,
+  :root[data-bg="prussian"] .bottom-nav button:hover .nav-icon { color: var(--block-ink); }
+  :root[data-bg="prussian"] .bottom-nav button:hover:not(.active) { background: color-mix(in srgb, var(--block-ink) 8%, transparent); }
+}
+:root[data-bg="prussian"] .bottom-nav button:focus-visible { background: color-mix(in srgb, var(--block-ink) 14%, transparent); }
+/* The selected tab is carried by the wine pill underneath, not by the
+   button — so the button itself stays transparent and the pill can travel. */
+:root[data-bg="prussian"] .bottom-nav button.active,
+:root[data-bg="prussian"] .bottom-nav button.active span,
+:root[data-bg="prussian"] .bottom-nav button.active .nav-icon { color: var(--block-ink); }
+:root[data-bg="prussian"] .bottom-nav button.active { background: transparent; }
+:root[data-bg="prussian"] .bottom-nav__indicator {
+  display: block;
+  background: var(--block-accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 2px rgba(0, 0, 0, 0.18);
+}
+
+/* Task table: the header is a Prussian band over the paper rows. */
+:root[data-bg="prussian"] .task-table-header {
+  color: color-mix(in srgb, var(--block-ink) 86%, var(--block));
+  background: var(--block);
+  border-bottom-color: var(--block);
+}
+:root[data-bg="prussian"] .task-table-header span { border-right-color: color-mix(in srgb, var(--block-ink) 14%, var(--block)); }
+
+/* Segmented controls: the selected cell is a small Prussian block. */
+:root[data-bg="prussian"] .cal-seg__thumb {
+  background: var(--block);
+  border-color: var(--block);
+}
+:root[data-bg="prussian"] .cal-seg button.active { color: var(--block-ink); }
+
 * { box-sizing: border-box; }
 
 ::selection {
@@ -567,6 +774,12 @@ button.project-row:focus-visible {
   :root[data-bg="gray"]:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 }
 :root[data-bg="gray"][data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+/* The Prussian palette's --muted, same arrangement. */
+:root[data-bg="prussian"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%237B8594' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+@media (prefers-color-scheme: dark) {
+  :root[data-bg="prussian"]:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238E98A5' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+}
+:root[data-bg="prussian"][data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238E98A5' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 
 select {
   appearance: none;
@@ -902,6 +1115,17 @@ select {
 }
 .bottom-nav button:active { transform: scale(0.97); }
 
+/* Selection pill. Its box (left/top/width/height) is written inline by
+   lib/navIndicator.ts, which springs it between tabs; palettes that don't
+   paint the selected tab as a block leave it hidden. */
+.bottom-nav__indicator {
+  display: none;
+  position: absolute;
+  z-index: 0;
+  border-radius: calc(var(--nav-radius) - var(--nav-inset) - 1px);
+  pointer-events: none;
+}
+
 /* Selected nav: the current tab's icon and label take the accent, the label
    thickens, and the canvas icon (NavIcon.tsx) fills its outline in place. The
    icon does not move or grow; a nudge here reads as the rail twitching every
@@ -935,7 +1159,8 @@ select {
    that support it; the same inset geometry retains a rounded fallback. */
 @supports (corner-shape: superellipse(1.5)) {
   .bottom-nav,
-  .bottom-nav button { corner-shape: superellipse(1.5); }
+  .bottom-nav button,
+  .bottom-nav__indicator { corner-shape: superellipse(1.5); }
 }
 
 /* =========================================================================

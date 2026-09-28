@@ -19,6 +19,25 @@ export function initPageTransitions(): void {
   if (supported()) document.documentElement.dataset.pageVt = "";
 }
 
+/**
+ * Jump the arriving page's own CSS entrances (sections, rows and cards that
+ * fade up from 0, several of them staggered) to their end state. Those are
+ * written for things appearing within a page; under a page entrance they made
+ * the page arrive twice — mostly transparent inside the cross-fade, then a
+ * second staggered wave fading up after it had ended, which read as a blink
+ * on landing (worst on a phone, where more of the stagger outlives the
+ * fade). Elements that mount later, like a newly added row, still animate.
+ */
+function settleEntrances(): void {
+  const page = document.querySelector(".page-content");
+  if (!page || typeof CSSAnimation === "undefined") return;
+  for (const animation of page.getAnimations({ subtree: true })) {
+    if (!(animation instanceof CSSAnimation)) continue;
+    if (animation.effect?.getComputedTiming().endTime === Infinity) continue;
+    animation.finish();
+  }
+}
+
 let transitionToken = 0;
 
 /**
@@ -27,12 +46,18 @@ let transitionToken = 0;
  */
 export function switchPageAnimated(dir: number, swap: () => void): void {
   const root = document.documentElement;
-  const animatable =
-    dir !== 0 &&
-    supported() &&
-    !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!animatable) {
+  if (dir === 0 || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     swap();
+    return;
+  }
+  // flushSync: the new page must be in the DOM (and its canvases painted)
+  // before its entrances can be settled and the new snapshot is captured.
+  const land = () => {
+    flushSync(swap);
+    settleEntrances();
+  };
+  if (!supported()) {
+    land();
     return;
   }
   // The token keeps a rapid second tap from clearing the attribute while its
@@ -40,11 +65,7 @@ export function switchPageAnimated(dir: number, swap: () => void): void {
   const token = ++transitionToken;
   root.dataset.pageSwitch = dir > 0 ? "fwd" : "back";
   document
-    .startViewTransition(() => {
-      // flushSync: the new page must be in the DOM (and its canvases painted)
-      // when the callback returns, or the new snapshot is captured empty.
-      flushSync(swap);
-    })
+    .startViewTransition(land)
     .finished.catch(() => undefined)
     .finally(() => {
       if (token === transitionToken) delete root.dataset.pageSwitch;

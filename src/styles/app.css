@@ -171,9 +171,15 @@
   --chip-accent-dark: var(--primary-dark);
   --chip-ring: var(--ring);
   /* Selection slab — the solid block under the selected chip, and the ink
-     its label turns. References, so every theme's accent flows through. */
-  --chip-slab: var(--primary);
-  --chip-slab-ink: var(--primary-ink);
+     its label turns. Each ground picks its own colour, never the accent or
+     a green (the meter fills are drawn in those and must stay legible on
+     it): bone paper takes a slate blue, cool against the warm page; the
+     gray ground a pale ice tint (set there); Prussian its blue block.
+     --chip-slab-focus is the keyboard outline, which needs contrast with
+     the page rather than the slab. */
+  --chip-slab: #5b6b7d;
+  --chip-slab-ink: #f5f3ee;
+  --chip-slab-focus: var(--chip-slab);
 
   /* Meter material (the liquid-glass mode of the progress bars / heat tiles;
      see the Meter material section) */
@@ -283,6 +289,8 @@
     --chip-accent: var(--primary);
     --chip-accent-dark: var(--primary-dark);
     --chip-ring: var(--ring);
+    --chip-slab: #4a5a6b;
+    --chip-slab-ink: #edeae4;
 
     --meter-rim: rgba(255, 255, 255, 0.1);
     --meter-sheen: rgba(255, 255, 255, 0.12);
@@ -376,6 +384,8 @@
   --chip-accent: var(--primary);
   --chip-accent-dark: var(--primary-dark);
   --chip-ring: var(--ring);
+  --chip-slab: #4a5a6b;
+  --chip-slab-ink: #edeae4;
 
   --meter-rim: rgba(255, 255, 255, 0.1);
   --meter-sheen: rgba(255, 255, 255, 0.12);
@@ -426,6 +436,13 @@
 
   --prog-none: #c4c8cf;
 
+  /* Selection: a pale ice tint with deep slate type — the quiet block. Its
+     own colour is too close to the page for a focus ring, so that takes the
+     type colour. */
+  --chip-slab: #dbe3ec;
+  --chip-slab-ink: #2a3a4d;
+  --chip-slab-focus: var(--chip-slab-ink);
+
   --shade: 22, 26, 34;
 }
 
@@ -453,6 +470,9 @@
     --primary-tint-strong: #554143;
     --st-blocked-bg: #2f2226;
 
+    --chip-slab: #2c3744;
+    --chip-slab-ink: #c8d6e6;
+
     --shade: 22, 26, 34;
   }
 }
@@ -475,6 +495,9 @@
   --primary-tint: #3c3235;
   --primary-tint-strong: #554143;
   --st-blocked-bg: #2f2226;
+
+  --chip-slab: #2c3744;
+  --chip-slab-ink: #c8d6e6;
 
   --shade: 22, 26, 34;
 }
@@ -2401,7 +2424,7 @@ button.project-row > span { flex: 1; min-width: 0; }
    slab, so it gets an outline in the slab's colour instead. */
 .project-list > button.project-row.active:focus-visible,
 .project-list > .project-row.active:has(> button:first-child:focus-visible) {
-  outline: 2px solid var(--chip-slab);
+  outline: 2px solid var(--chip-slab-focus);
   outline-offset: 2px;
 }
 

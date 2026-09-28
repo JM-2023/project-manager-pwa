@@ -10,8 +10,8 @@
    TWO exceptions keep a liquid-glass material: the Tier-A action buttons
    (Add task, Export, form "+" buttons…) — a transparent body carried by a
    rim, a real backdrop sample and an SVG rim distortion, growing physically
-   on hover (--lgb-*) — and the project-list chips (--chip-*) with their
-   radius swell + breathing completion meter. Both are deliberate; nothing
+   on hover (--lgb-*) — and the project-list chips (--chip-*), which hold
+   still under the pointer, with their breathing completion meter. Both are deliberate; nothing
    else samples the backdrop. Completion meters additionally have a
    user-switchable skin (html[data-meters], see the Meter material section):
    "glass" restores the v2.1.29 liquid tubes/sheens, "flat" is the solid one.
@@ -24,7 +24,7 @@
    next stop down. True circles (dots, ×-buttons, slider thumbs) may be full
    capsules. The floating navigation uses its own concentric Dock outline.
    The glass buttons ride the same scale: rest at --r-xl, swelling
-   +4px on hover; the project chips morph --r-md → --r-lg.
+   +4px on hover; the project chips stay at --r-md.
 
    All colour flows through tokens; dark theme is a token swap layered on
    prefers-color-scheme with a manual [data-theme] override on top.
@@ -774,7 +774,7 @@ button.project-row:focus-visible {
   background: var(--chip-hover-fill);
   box-shadow: var(--chip-hover-shadow);
 }
-.project-row:focus-within { background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); }
+.project-row:has(> button:first-child:focus-visible) { background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); }
 
 .icon-button:focus-visible,
 .bottom-nav button:focus-visible,
@@ -2224,11 +2224,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
 }
-/* The slab IS the selected chip's body, so it follows the chip's hover
-   swell and press dip. */
-@media (hover: hover) {
-  .project-list:has(> .project-row.active:hover) > .project-active-slab { border-radius: var(--r-lg); }
-}
+/* The slab IS the selected chip's body, so it follows the chip's press dip. */
 .project-list:has(> .project-row.active:active) > .project-active-slab {
   scale: 0.97;
   transition: opacity 0.2s var(--ease), border-radius 0.2s var(--ease-in-out), scale 0.12s var(--ease-out);
@@ -2243,8 +2239,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .project-create input { min-height: 42px; padding: 10px 15px; }
 
 /* The project chips are the app's second glass exception (see header): the
-   original liquid-glass material. Radii ride the new scale — rest --r-md,
-   swelling quickly to --r-lg on hover. */
+   original liquid-glass material. They hold still under the pointer — no
+   fill, shadow, radius or label change on hover; only the press dips. */
 .project-row {
   position: relative;
   display: grid;
@@ -2264,10 +2260,6 @@ input:focus, select:focus, textarea:focus { outline: none; }
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
   transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.16s var(--ease-out);
 }
-@media (hover: hover) {
-  .project-row:hover { background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
-  .project-row:hover > button:first-child { color: var(--chip-accent-dark); }
-}
 /* Press dips fast and releases without overshoot. */
 .project-row:active {
   transform: scale(0.97);
@@ -2285,7 +2277,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 /* Completion meter lives inside the clickable project surface. It tints the
    lower inside edge instead of sitting outside the button as a detached rule.
-   It holds still on hover — the chip itself already answers the pointer. */
+   It holds still on hover, like the chip itself. */
 .row-progress {
   position: absolute;
   right: 7px; bottom: 6px; left: 7px;
@@ -2359,9 +2351,6 @@ button.project-row {
   transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.16s var(--ease-out);
 }
 button.project-row .row-progress { right: 11px; left: 11px; bottom: 10px; }
-@media (hover: hover) {
-  button.project-row:hover { color: var(--chip-accent-dark); background: var(--chip-hover-fill); box-shadow: var(--chip-hover-shadow); border-radius: var(--r-lg); }
-}
 button.project-row:active {
   transform: scale(0.97);
   transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.12s var(--ease-out);
@@ -2378,8 +2367,8 @@ button.project-row > span { flex: 1; min-width: 0; }
 
 /* The selected chip: its glass clears so the slab underneath is its body,
    and everything on it — label, figure, dot rim, meter — turns to the
-   slab's ink. The `.project-list >` prefix outranks hover, focus-within and
-   focus-visible, which would otherwise paint the glass back over the slab.
+   slab's ink. The `.project-list >` prefix outranks the keyboard-focus
+   rules, which would otherwise paint the glass back over the slab.
    The ink lands a beat late (the slab's lead edge needs ~110ms to arrive);
    leaving, it reverts at once as the slab pulls away. */
 .project-list > .project-row.active,

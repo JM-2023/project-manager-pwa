@@ -1648,13 +1648,13 @@ input:focus, select:focus, textarea:focus { outline: none; }
      itself, which is what gives the drag its weight. */
   transition: background-color var(--t) var(--ease);
 }
-/* While the fill moves, its last --dither-fade px fade out and the dither
-   canvas's dot mosaic takes over across exactly that stretch, so the fill
-   dissolves into pixels instead of stopping at a hard edge. Only while
-   moving: at rest the class is gone and the edge is clean. */
+/* While the fill moves, the dither loop cuts it off hard at --dither-cut (a
+   line of its pixel grid) and continues it as cells in the same material,
+   so the fill's end breaks up into pixels instead of stopping at an edge.
+   Only while moving: at rest the class is gone and the edge is clean. */
 .progress-meter.is-dithering .progress-meter__fill {
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--dither-fade, 0px)), transparent);
-  mask-image: linear-gradient(90deg, #000 calc(100% - var(--dither-fade, 0px)), transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 var(--dither-cut, 100%), transparent var(--dither-cut, 100%));
+  mask-image: linear-gradient(90deg, #000 var(--dither-cut, 100%), transparent var(--dither-cut, 100%));
 }
 /* Motion texture over the fill's edge (lib/meterDither): blank and bitmap-free
    at rest; tinted by the row's tone through `color`. */

@@ -1,13 +1,8 @@
 import { authenticate, isResponse } from "./_utils/auth";
-import { ensureSyncStateStatement } from "./_utils/db";
+import { readSyncState } from "./_utils/db";
 import { json } from "./_utils/response";
 import { nowIso } from "./_utils/time";
 import type { AppContext } from "./_utils/types";
-
-interface SyncStateRow {
-  epoch: string;
-  seq: number;
-}
 
 /** Longest a single wait is held open; the client immediately opens the next one. */
 export const MAX_WAIT_MS = 25_000;
@@ -52,8 +47,6 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
   const user = await authenticate(context);
   if (isResponse(user)) return user;
 
-  await ensureSyncStateStatement(context.env, user.id).run();
-
   const url = new URL(context.request.url);
   const requestedEpoch = url.searchParams.get("epoch")?.trim() || null;
   const requestedCursor = parseCursor(url.searchParams.get("cursor"));
@@ -61,12 +54,7 @@ export async function onRequestGet(context: AppContext): Promise<Response> {
   const signal = context.request.signal;
 
   for (;;) {
-    const state = await context.env.DB.prepare("SELECT epoch, seq FROM sync_state WHERE user_id = ?")
-      .bind(user.id)
-      .first<SyncStateRow>();
-    if (!state) {
-      throw new Error("Synchronization state is missing");
-    }
+    const state = await readSyncState(context.env, user.id);
     const cursor = Number(state.seq);
     // A client without a cursor, on another epoch, or ahead of the server
     // (rolled back dataset) needs a pull just as much as one that is behind.

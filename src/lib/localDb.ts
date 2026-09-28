@@ -1,6 +1,14 @@
 import type { BootstrapResponse, ClientMutation, NextIdea, NextProject, Project, SessionResponse, Task } from "./types";
 import { sanitizeSettings } from "./sync";
-import { compactPendingMutations, mergeMutationRecord, mutationData } from "./syncMerge";
+import {
+  compactPendingMutations,
+  mergeMutationRecord,
+  mutationData,
+  shiftPendingVersions,
+  shiftRecordVersion,
+  type MergeEntity,
+  type VersionCorrection
+} from "./syncMerge";
 import { describeError, trace } from "./syncTrace";
 
 const DB_NAME = "project-manager-pwa";
@@ -420,6 +428,48 @@ export async function commitLocalMutation(mutation: ClientMutation, commit: Loca
     }
     await transactionDone(tx);
     return durableMutation;
+  });
+}
+
+const ENTITY_STORES: Record<MergeEntity, EntityStoreName> = {
+  project: "projects",
+  task: "tasks",
+  next_project: "nextProjects",
+  next_idea: "nextIdeas"
+};
+
+/**
+ * Align stored optimistic versions with the server after a compacted group
+ * applied: the durable row and every later queued edit of it move together,
+ * in one transaction, so a crash cannot leave the two out of step.
+ */
+export async function correctLocalVersions(corrections: VersionCorrection[]): Promise<void> {
+  if (corrections.length === 0) return;
+  return withDb("correctLocalVersions", async (db) => {
+    const entityStores = [...new Set(corrections.map((item) => ENTITY_STORES[item.entity]))];
+    const tx = db.transaction(["pendingMutations", ...entityStores], "readwrite");
+    const pendingStore = tx.objectStore("pendingMutations");
+    const pendingRequest = pendingStore.getAll();
+    pendingRequest.onsuccess = () => {
+      const pending = pendingRequest.result as ClientMutation[];
+      const shifted = shiftPendingVersions(pending, corrections);
+      shifted.forEach((mutation, index) => {
+        if (mutation !== pending[index]) pendingStore.put(mutation);
+      });
+    };
+    pendingRequest.onerror = () => tx.abort();
+    for (const correction of corrections) {
+      const store = tx.objectStore(ENTITY_STORES[correction.entity]);
+      const request = store.get(correction.recordId);
+      request.onsuccess = () => {
+        const record = request.result as SavableEntity | undefined;
+        if (!record) return;
+        const shifted = shiftRecordVersion(record, correction);
+        if (shifted !== record) store.put(shifted);
+      };
+      request.onerror = () => tx.abort();
+    }
+    await transactionDone(tx);
   });
 }
 

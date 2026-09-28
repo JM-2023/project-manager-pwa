@@ -65,7 +65,8 @@ describe("bootstrap snapshot cursor", () => {
     } as unknown as AppContext;
 
     const response = await onRequestGet(context);
-    expect(events).toEqual(["authenticate", "ensure-state", "state:12"]);
+    // An existing sync state is only read; the create-if-missing write is skipped.
+    expect(events).toEqual(["authenticate", "state:12"]);
     const body = await response.json() as { syncCursor: number; projects: Array<{ sync_seq: number }> };
     expect(body.syncCursor).toBe(12);
     expect(body.projects[0].sync_seq).toBe(13);

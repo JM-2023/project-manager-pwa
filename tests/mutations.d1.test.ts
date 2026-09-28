@@ -46,7 +46,7 @@ const BASE_SCHEMA = [
 
 interface MutationResponse {
   ok: boolean;
-  applied: Array<{ id: string; recordId: string }>;
+  applied: Array<{ id: string; recordId: string; version?: number }>;
   conflicts: Array<{ id: string; recordId: string; reason: string; permanent?: boolean }>;
 }
 
@@ -286,5 +286,40 @@ describe("D1 record deletion guards", () => {
       record_id: "pre-migration-project",
       deleted_at: "2026-07-02T00:00:00.000Z"
     });
+  });
+});
+
+describe("D1 applied versions", () => {
+  let miniflare: Miniflare | undefined;
+
+  afterEach(async () => {
+    await miniflare?.dispose();
+    miniflare = undefined;
+  });
+
+  it("reports the version each committed write produced, so a later delete can use it", async () => {
+    const setup = await baseDatabase();
+    miniflare = setup.miniflare;
+    await applyDeletionGuardMigration(setup.database);
+    const id = "11111111-1111-4111-8111-111111111111";
+    const now = "2026-07-01T00:00:00.000Z";
+    const record = { id, name: "A", description: null, color: null, sort_order: 0, archived: 0, created_at: now, updated_at: now, deleted_at: null, version: 1 };
+
+    const created = await postMutation(setup.database, { id: "v-create", entity: "project", operation: "upsert", baseVersion: null, data: record });
+    expect(created.applied).toEqual([expect.objectContaining({ id: "v-create", version: 1 })]);
+
+    // Two local edits compacted: optimistic version 3, one server increment.
+    const edit: IncomingMutation = { id: "v-edit", entity: "project", operation: "upsert", baseVersion: 1, data: { ...record, name: "C", version: 3 }, patch: { name: "C" } };
+    const edited = await postMutation(setup.database, edit);
+    expect(edited.applied).toEqual([expect.objectContaining({ id: "v-edit", version: 2 })]);
+
+    // A replay answered from the ledger cannot vouch for the current version.
+    const replayed = await postMutation(setup.database, edit);
+    expect(replayed.applied).toHaveLength(1);
+    expect(replayed.applied[0].version).toBeUndefined();
+
+    const deleted = await postMutation(setup.database, { id: "v-delete", entity: "project", operation: "delete", baseVersion: 2, data: { id } });
+    expect(deleted.conflicts).toEqual([]);
+    expect(deleted.applied).toEqual([expect.objectContaining({ id: "v-delete" })]);
   });
 });

@@ -168,13 +168,25 @@ function mutationPatch(mutation: IncomingMutation): Record<string, unknown> {
     : mutation.data;
 }
 
-function appliedResult(mutation: IncomingMutation, recordId: string, existing?: Record<string, unknown> | null): Applied {
+/**
+ * `version` is the row version this mutation's own write produces. It is only
+ * reported once the ledger proves that write committed, so a client can align
+ * its optimistic local version (which counts every compacted edit) with the
+ * server's single increment.
+ */
+function appliedResult(
+  mutation: IncomingMutation,
+  recordId: string,
+  existing?: Record<string, unknown> | null,
+  version?: number
+): Applied {
   const serverVersion = existing ? Number(existing.version ?? 0) : undefined;
   const hasBase = mutation.baseVersion !== null && mutation.baseVersion !== undefined;
   return {
     id: mutation.id,
     entity: mutation.entity,
     recordId,
+    ...(version === undefined ? {} : { version }),
     ...(hasBase ? { rebased: serverVersion === undefined || mutation.baseVersion !== serverVersion, serverVersion } : {})
   };
 }
@@ -406,7 +418,7 @@ function planProject(
   const id = assertUuidish(mutation.data.id);
   if (existing && mutation.baseVersion !== null && mutation.baseVersion !== undefined) {
     return {
-      result: appliedResult(mutation, id, existing),
+      result: appliedResult(mutation, id, existing, Number(existing.version ?? 0) + 1),
       statements: [guardedUpdate(context, user, mutation, "projects", id, PROJECT_FIELDS, timestamp, Number(existing.version ?? 0))]
     };
   }
@@ -417,7 +429,7 @@ function planProject(
     PROJECT_FIELDS.archived.normalize(data.archived), createdAt, timestamp, null, createVersion(data)
   ];
   return {
-    result: appliedResult(mutation, id),
+    result: appliedResult(mutation, id, undefined, createVersion(data)),
     statements: [guardedInsert(context, user, mutation, "projects",
       ["id", "user_id", "name", "description", "color", "sort_order", "archived", "created_at", "updated_at", "deleted_at", "version"],
       values, ["name", "description", "color", "sort_order", "archived"])]
@@ -518,7 +530,7 @@ async function planTask(
   }
   if (existing && mutation.baseVersion !== null && mutation.baseVersion !== undefined) {
     return {
-      result: appliedResult(mutation, id, existing),
+      result: appliedResult(mutation, id, existing, Number(existing.version ?? 0) + 1),
       statements: [guardedUpdate(
         context,
         user,
@@ -551,7 +563,7 @@ async function planTask(
     "archived", "created_at", "updated_at", "deleted_at", "version"
   ];
   return {
-    result: appliedResult(mutation, id),
+    result: appliedResult(mutation, id, undefined, createVersion(data)),
     statements: [guardedInsert(
       context,
       user,
@@ -601,7 +613,7 @@ function planNextProject(
   const id = assertUuidish(mutation.data.id);
   if (existing && mutation.baseVersion !== null && mutation.baseVersion !== undefined) {
     return {
-      result: appliedResult(mutation, id, existing),
+      result: appliedResult(mutation, id, existing, Number(existing.version ?? 0) + 1),
       statements: [guardedUpdate(context, user, mutation, "next_projects", id, NEXT_PROJECT_FIELDS, timestamp, Number(existing.version ?? 0))]
     };
   }
@@ -612,7 +624,7 @@ function planNextProject(
     NEXT_PROJECT_FIELDS.archived.normalize(data.archived), createdAt, timestamp, null, createVersion(data)
   ];
   return {
-    result: appliedResult(mutation, id),
+    result: appliedResult(mutation, id, undefined, createVersion(data)),
     statements: [guardedInsert(context, user, mutation, "next_projects",
       ["id", "user_id", "name", "description", "color", "sort_order", "source_project_id", "archived", "created_at", "updated_at", "deleted_at", "version"],
       values, Object.values(NEXT_PROJECT_FIELDS).map((spec) => spec.column))]
@@ -655,7 +667,7 @@ async function planNextIdea(
   }
   if (existing && mutation.baseVersion !== null && mutation.baseVersion !== undefined) {
     return {
-      result: appliedResult(mutation, id, existing),
+      result: appliedResult(mutation, id, existing, Number(existing.version ?? 0) + 1),
       statements: [guardedUpdate(
         context,
         user,
@@ -677,7 +689,7 @@ async function planNextIdea(
     createdAt, timestamp, null, createVersion(data)
   ];
   return {
-    result: appliedResult(mutation, id),
+    result: appliedResult(mutation, id, undefined, createVersion(data)),
     statements: [guardedInsert(
       context,
       user,
@@ -1326,8 +1338,14 @@ export async function onRequestPost(context: AppContext): Promise<Response> {
 
     for (const commit of commits) {
       const ledgerApplied = Number(results[commit.ledgerIndex!]?.meta?.changes ?? 0) > 0;
-      if (ledgerApplied || committedIds.has(commit.mutation.id)) {
+      if (ledgerApplied) {
         applied.push(commit.result);
+        continue;
+      }
+      if (committedIds.has(commit.mutation.id)) {
+        // A concurrent delivery committed it; this request cannot vouch for the version.
+        const { version: _unknownVersion, ...result } = commit.result;
+        applied.push(result);
         continue;
       }
 

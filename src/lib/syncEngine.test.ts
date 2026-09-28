@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiResponseError, AuthRequiredError } from "./api";
 import { WorkbookWorkerBuildError, WorkbookWorkerTimeoutError } from "./excelWorkbookClient";
 import { SyncEngine, type SyncIO } from "./syncEngine";
+import { shiftPendingVersions } from "./syncMerge";
 import type { AppState } from "../state/appStore";
 import type { BootstrapResponse, ClientMutation, ExportDataResponse, MutationsResponse, Task } from "./types";
 import type { LocalMutationCommit, LocalSnapshot } from "./localDb";
@@ -91,6 +92,7 @@ function makeIO(overrides: Partial<SyncIO> = {}): SyncIO {
     })),
     getPendingMutations: vi.fn(async () => []),
     removePendingMutations: vi.fn(async () => undefined),
+    correctLocalVersions: vi.fn(async () => undefined),
     saveBootstrapSnapshot: vi.fn(async () => undefined),
     saveLocalSession: vi.fn(async () => undefined),
     saveLastSync: vi.fn(async () => undefined),
@@ -941,5 +943,177 @@ describe("SyncEngine.forceFullResync", () => {
 
     expect(stateRef.current.tasks.map((row) => row.id)).toEqual(["local"]);
     expect(io.saveBootstrapSnapshot).toHaveBeenCalledWith(expect.objectContaining({ tasks: [pendingTask] }), true);
+  });
+});
+
+describe("SyncEngine sync hardening", () => {
+  it("aligns a later queued delete with the server version after a compacted edit applies", async () => {
+    vi.useFakeTimers();
+    const first: ClientMutation = {
+      id: "e1", entity: "task", operation: "upsert", baseVersion: 1,
+      data: { ...task("t1", "2026-06-30T10:00:00.000Z", 2), title: "a" }, patch: { title: "a" },
+      createdAt: "2026-06-30T10:00:00.000Z"
+    };
+    const second: ClientMutation = {
+      id: "e2", entity: "task", operation: "upsert", baseVersion: 2,
+      data: { ...task("t1", "2026-06-30T10:00:01.000Z", 3), title: "ab" }, patch: { title: "ab" },
+      createdAt: "2026-06-30T10:00:01.000Z"
+    };
+    // Made while the compacted edit was in flight, from the optimistic version 3.
+    const deletion: ClientMutation = {
+      id: "d1", entity: "task", operation: "delete", baseVersion: 3, data: { id: "t1" },
+      createdAt: "2026-06-30T10:00:02.000Z"
+    };
+    let outbox: ClientMutation[] = [first, second];
+    const sent: ClientMutation[][] = [];
+    const io = makeIO({
+      getPendingMutations: vi.fn(async () => outbox),
+      removePendingMutations: vi.fn(async (ids: string[]) => {
+        outbox = outbox.filter((mutation) => !ids.includes(mutation.id));
+      }),
+      correctLocalVersions: vi.fn(async (corrections) => {
+        outbox = shiftPendingVersions(outbox, corrections);
+      }),
+      sendMutations: vi.fn(async (_client: string, mutations: ClientMutation[]): Promise<MutationsResponse> => {
+        sent.push(mutations);
+        if (sent.length === 1) {
+          outbox = [...outbox, deletion];
+          return { ok: true, serverTime: "t", applied: [{ id: "e2", entity: "task", recordId: "t1", version: 2 }], conflicts: [] };
+        }
+        return { ok: true, serverTime: "t", applied: mutations.map((m) => ({ id: m.id, entity: m.entity, recordId: "t1" })), conflicts: [] };
+      }),
+      // The pull that would have corrected the row never completes (e.g. the page was hidden).
+      bootstrap: vi.fn().mockRejectedValueOnce(new Error("network lost")).mockResolvedValue(bootstrapResponse([]))
+    });
+    const stateRef = { current: makeState([second.data as Task]) };
+    const engine = new SyncEngine({ stateRef, dispatch: vi.fn(), clientId: "c", io });
+    engine.hydratePending(outbox);
+
+    await engine.syncNow();
+    expect(io.correctLocalVersions).toHaveBeenCalledWith([expect.objectContaining({ key: "task:t1", from: 3, to: 2 })]);
+    expect(outbox.find((mutation) => mutation.id === "d1")?.baseVersion).toBe(2);
+
+    await engine.syncNow();
+    expect(sent[1]).toEqual([expect.objectContaining({ id: "d1", operation: "delete", baseVersion: 2 })]);
+    engine.dispose();
+    vi.clearAllTimers();
+  });
+
+  it("merges extra_json by key when rebasing over another device's edit", async () => {
+    vi.useFakeTimers();
+    const localExtra = JSON.stringify({ importance: 2, daily_output: "mine" });
+    const edit: ClientMutation = {
+      id: "m1", entity: "task", operation: "upsert", baseVersion: 1,
+      data: { ...task("t1", "2026-06-30T10:00:00.000Z", 2), extra_json: localExtra },
+      patch: { extra_json: localExtra },
+      extraPatch: { set: { daily_output: "mine" }, unset: [] },
+      createdAt: "2026-06-30T10:00:00.000Z"
+    };
+    let outbox: ClientMutation[] = [edit];
+    const serverRecord = { ...task("t1", "2026-06-30T11:00:00.000Z", 5), extra_json: JSON.stringify({ importance: 4, blocker: "waiting" }) };
+    const io = makeIO({
+      getPendingMutations: vi.fn(async () => outbox),
+      commitLocalMutation: vi.fn(async (mutation: ClientMutation, commit: LocalMutationCommit = {}) => {
+        outbox = [...outbox.filter((item) => !(commit.removePendingIds ?? []).includes(item.id)), mutation];
+      }),
+      sendMutations: vi.fn(async (): Promise<MutationsResponse> => ({
+        ok: true, serverTime: "t", applied: [],
+        conflicts: [{ id: "m1", entity: "task", recordId: "t1", reason: "Version conflict", permanent: false, serverRecord }]
+      }))
+    });
+    const engine = new SyncEngine({ stateRef: { current: makeState([edit.data as Task]) }, dispatch: vi.fn(), clientId: "c", io });
+    engine.hydratePending(outbox);
+
+    await engine.syncNow();
+
+    const rebased = outbox[0];
+    expect(rebased.baseVersion).toBe(5);
+    expect(JSON.parse(String(rebased.patch?.extra_json))).toEqual({ importance: 4, blocker: "waiting", daily_output: "mine" });
+    expect(JSON.parse(String((rebased.data as Task).extra_json))).toEqual({ importance: 4, blocker: "waiting", daily_output: "mine" });
+    engine.dispose();
+    vi.clearAllTimers();
+  });
+
+  it("sends an edit that becomes durable after the page was hidden by keepalive", async () => {
+    vi.useFakeTimers();
+    const sendBeacon = vi.fn(() => true);
+    const io = makeIO({ isPageHidden: () => true, sendBeacon });
+    const engine = new SyncEngine({ stateRef: { current: makeState([]) }, dispatch: vi.fn(), clientId: "c", io });
+
+    engine.persistMutation({ id: "late-draft", entity: "task", operation: "upsert", baseVersion: 1, data: { id: "t1" }, patch: { notes: "x" } });
+    await flushMicrotasks(20);
+
+    expect(sendBeacon).toHaveBeenCalledOnce();
+    const body = await (sendBeacon.mock.calls[0] as unknown as [string, Blob])[1].text();
+    expect(JSON.parse(body).mutations.map((m: ClientMutation) => m.id)).toEqual(["late-draft"]);
+    engine.dispose();
+    vi.clearAllTimers();
+  });
+
+  it("drains several request batches before a single pull", async () => {
+    let outbox = Array.from({ length: 25 }, (_, index): ClientMutation => ({
+      id: `m${String(index).padStart(2, "0")}`, entity: "task", operation: "upsert", baseVersion: null,
+      data: task(`t${index}`, "2026-06-30T10:00:00.000Z", 1),
+      createdAt: `2026-06-30T10:00:${String(index).padStart(2, "0")}.000Z`
+    }));
+    const io = makeIO({
+      getPendingMutations: vi.fn(async () => outbox),
+      removePendingMutations: vi.fn(async (ids: string[]) => {
+        outbox = outbox.filter((mutation) => !ids.includes(mutation.id));
+      }),
+      sendMutations: vi.fn(async (_client: string, mutations: ClientMutation[]): Promise<MutationsResponse> => ({
+        ok: true, serverTime: "t",
+        applied: mutations.map((m) => ({ id: m.id, entity: m.entity, recordId: String((m.data as Task).id), version: 1 })),
+        conflicts: []
+      }))
+    });
+    const engine = new SyncEngine({ stateRef: { current: makeState([]) }, dispatch: vi.fn(), clientId: "c", io });
+    engine.hydratePending(outbox);
+
+    await engine.syncNow();
+
+    expect(vi.mocked(io.sendMutations).mock.calls.map((call) => call[1].length)).toEqual([10, 10, 5]);
+    expect(io.bootstrap).toHaveBeenCalledOnce();
+    expect(outbox).toEqual([]);
+    engine.dispose();
+  });
+
+  it("coalesces foreground triggers that arrive together", async () => {
+    vi.useFakeTimers();
+    let release!: (snapshot: BootstrapResponse) => void;
+    const io = makeIO({
+      bootstrap: vi.fn()
+        .mockImplementationOnce(() => new Promise<BootstrapResponse>((resolve) => { release = resolve; }))
+        .mockResolvedValue(bootstrapResponse([]))
+    });
+    const engine = new SyncEngine({ stateRef: { current: makeState([]) }, dispatch: vi.fn(), clientId: "c", io });
+
+    const visible = engine.syncOnTrigger();
+    await flushMicrotasks(20);
+    const focus = engine.syncOnTrigger();
+    release(bootstrapResponse([]));
+    await Promise.all([visible, focus]);
+    await vi.advanceTimersByTimeAsync(0);
+    await engine.syncOnTrigger(); // "online" right after a successful cycle
+    expect(io.bootstrap).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(2_500);
+    await engine.syncOnTrigger();
+    expect(io.bootstrap).toHaveBeenCalledTimes(2);
+    engine.dispose();
+    vi.clearAllTimers();
+  });
+
+  it("skips a change-watcher pull that a finished cycle already covered", async () => {
+    const stateRef = { current: { ...makeState([]), syncEpoch: "epoch-1", syncCursor: 5 } };
+    const io = makeIO({ bootstrap: vi.fn(async () => ({ ...bootstrapResponse([]), full: false, syncCursor: 6 })) });
+    const engine = new SyncEngine({ stateRef, dispatch: vi.fn(), clientId: "c", io });
+
+    await engine.syncToCursor("epoch-1", 5);
+    expect(io.bootstrap).not.toHaveBeenCalled();
+
+    await engine.syncToCursor("epoch-1", 6);
+    expect(io.bootstrap).toHaveBeenCalledOnce();
+    engine.dispose();
   });
 });

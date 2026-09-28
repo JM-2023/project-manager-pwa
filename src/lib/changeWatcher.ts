@@ -15,8 +15,8 @@ export interface ChangeWatcherDeps {
   cursor: () => { epoch: string | null; cursor: number | null };
   /** Whether a wait should be open right now (visible, online, signed in). */
   shouldRun: () => boolean;
-  /** Pull the delta; runs the engine's normal sync cycle. */
-  onChanged: () => Promise<void>;
+  /** Pull the delta up to the reported cloud cursor; runs the engine's normal sync cycle. */
+  onChanged: (result: ChangesResponse) => Promise<void>;
   /** The server rejected the session; the app's recovery path takes over. */
   onAuthRequired?: () => void;
   withLeadership?: (signal: AbortSignal, work: () => Promise<void>) => Promise<void>;
@@ -64,7 +64,7 @@ export class ChangeWatcher {
         const current = this.deps.cursor();
         if (current.epoch === result.epoch && current.cursor === result.cursor) continue;
         trace("changes: server ahead", `cursor ${before.cursor} → ${result.cursor}`);
-        await abortable(this.deps.onChanged(), signal);
+        await abortable(this.deps.onChanged(result), signal);
         signal.throwIfAborted();
         const after = this.deps.cursor();
         if (after.epoch !== before.epoch || after.cursor !== before.cursor) { stalled = 0; continue; }

@@ -5,7 +5,7 @@
 // Everything here is side-effect free and decoupled from React, IndexedDB, and
 // the network so it can be unit-tested directly (see syncMerge.test.ts). The
 // imperative orchestration that calls into it lives in syncEngine.ts.
-import type { BootstrapResponse, ClientMutation } from "./types";
+import type { BootstrapResponse, ClientMutation, ExtraPatch, MutationResult } from "./types";
 import type { AppState } from "../state/appStore";
 
 export const EXCEL_DIRTY_SETTING_KEY = "excel_dirty_at";
@@ -69,6 +69,65 @@ export function mergeMutationRecord<T extends Record<string, unknown>>(
   return merged as T;
 }
 
+function parseExtraObject(value: unknown): Record<string, unknown> {
+  if (typeof value !== "string" || !value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/** The key-level difference between two `extra_json` values. */
+export function extraPatchBetween(before: string | null | undefined, after: string | null | undefined): ExtraPatch {
+  const previous = parseExtraObject(before);
+  const next = parseExtraObject(after);
+  const set: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(next)) {
+    if (!Object.prototype.hasOwnProperty.call(previous, key) || JSON.stringify(previous[key]) !== JSON.stringify(value)) {
+      set[key] = value;
+    }
+  }
+  const unset = Object.keys(previous).filter((key) => !Object.prototype.hasOwnProperty.call(next, key));
+  return { set, unset };
+}
+
+/** Apply a key-level patch to an `extra_json` value, keeping the empty-object-is-null convention. */
+export function applyExtraPatch(base: unknown, patch: ExtraPatch): string | null {
+  const merged = { ...parseExtraObject(base) };
+  for (const key of patch.unset) delete merged[key];
+  Object.assign(merged, patch.set);
+  return Object.keys(merged).length > 0 ? JSON.stringify(merged) : null;
+}
+
+function composeExtraPatches(first: ExtraPatch, second: ExtraPatch): ExtraPatch {
+  const set = { ...first.set };
+  for (const key of second.unset) delete set[key];
+  Object.assign(set, second.set);
+  const unset = new Set(first.unset.filter((key) => !Object.prototype.hasOwnProperty.call(second.set, key)));
+  for (const key of second.unset) unset.add(key);
+  return { set, unset: [...unset] };
+}
+
+/**
+ * "untouched" when the mutation leaves extra_json alone; "unknown" when it
+ * replaces extra_json without saying which keys changed (older queued edits).
+ */
+function extraChange(mutation: ClientMutation): ExtraPatch | "untouched" | "unknown" {
+  if (!mutation.patch || !Object.prototype.hasOwnProperty.call(mutation.patch, "extra_json")) return "untouched";
+  return mutation.extraPatch ?? "unknown";
+}
+
+function composeExtraChange(earlier: ClientMutation, later: ClientMutation): ExtraPatch | undefined {
+  const first = extraChange(earlier);
+  const second = extraChange(later);
+  if (first === "unknown" || second === "unknown") return undefined;
+  if (first === "untouched") return second === "untouched" ? undefined : second;
+  if (second === "untouched") return first;
+  return composeExtraPatches(first, second);
+}
+
 // Collapse every queued mutation for the same record down to its latest state,
 // preserving the list of source ids so the caller can drop them all once the
 // compacted mutation syncs.
@@ -103,17 +162,21 @@ export function compactPendingMutations(mutations: ClientMutation[]): PendingMut
       ...(existing.mutation.patch ?? {}),
       ...(mutation.patch ?? {})
     };
+    const patch =
+      mutation.operation === "upsert" && firstBaseVersion !== null && Object.keys(mergedPatch).length > 0
+        ? mergedPatch
+        : undefined;
+    const extraPatch = patch ? composeExtraChange(existing.mutation, mutation) : undefined;
     existing.mutation = {
       ...mutation,
       // A locally-created row remains a create after later edits. Existing-row
       // edits retain the earliest version they were based on and send one
       // field-wise patch, so compaction cannot discard changes to other fields.
       baseVersion: firstBaseVersion,
-      patch:
-        mutation.operation === "upsert" && firstBaseVersion !== null && Object.keys(mergedPatch).length > 0
-          ? mergedPatch
-          : undefined
+      patch,
+      extraPatch
     };
+    if (!extraPatch) delete existing.mutation.extraPatch;
   }
 
   return groups;
@@ -385,5 +448,98 @@ export function replayPendingMutations(state: SyncBootstrapState, mutations: Cli
     ...next,
     tasks: next.tasks.filter((task) => !task.project_id || !deletedProjectIds.has(task.project_id)),
     nextIdeas: next.nextIdeas.filter((idea) => !deletedNextProjectIds.has(idea.next_project_id))
+  };
+}
+
+/**
+ * A local edit bumps the optimistic version once per edit, while a compacted
+ * group bumps the server row once. After a group applies, the local row and
+ * any later queued edits for it are ahead by the difference; left alone, a
+ * later delete carries a base version the server has never had and is
+ * rejected as a conflict, reviving the row.
+ */
+export interface VersionCorrection {
+  key: string;
+  entity: MergeEntity;
+  recordId: string;
+  /** Local optimistic version the applied group produced. */
+  from: number;
+  /** Server version the same group produced. */
+  to: number;
+  /** The group's own source mutations (already removed from the outbox). */
+  excludeIds: string[];
+}
+
+export function versionCorrections(groups: PendingMutationGroup[], applied: MutationResult[]): VersionCorrection[] {
+  const groupById = new Map(groups.map((group) => [group.mutation.id, group]));
+  const corrections: VersionCorrection[] = [];
+  for (const result of applied) {
+    const group = groupById.get(result.id);
+    if (!group) continue;
+    const { mutation } = group;
+    if (mutation.entity === "setting" || mutation.operation !== "upsert") continue;
+    const data = mutationData(mutation);
+    const recordId = typeof data.id === "string" ? data.id : "";
+    const local = Number(data.version);
+    // A replay answered from the server's ledger has no reported version, but
+    // a version-guarded patch always produced exactly base + 1.
+    const hasBase = mutation.baseVersion !== null && mutation.baseVersion !== undefined;
+    const server = result.version ?? (hasBase && mutation.patch ? Number(mutation.baseVersion) + 1 : Number.NaN);
+    if (!recordId || !Number.isSafeInteger(local) || !Number.isSafeInteger(server) || local === server) continue;
+    corrections.push({
+      key: entityRecordKey(mutation.entity, recordId),
+      entity: mutation.entity,
+      recordId,
+      from: local,
+      to: server,
+      excludeIds: group.sourceIds
+    });
+  }
+  return corrections;
+}
+
+/** Rebase later queued edits of corrected records. Unchanged mutations keep their identity. */
+export function shiftPendingVersions(mutations: ClientMutation[], corrections: VersionCorrection[]): ClientMutation[] {
+  if (corrections.length === 0) return mutations;
+  return mutations.map((mutation) => {
+    const key = mutationRecordKey(mutation);
+    const correction = corrections.find((item) => item.key === key && !item.excludeIds.includes(mutation.id));
+    if (!correction) return mutation;
+    const delta = correction.to - correction.from;
+    let next = mutation;
+    if (mutation.baseVersion !== null && mutation.baseVersion !== undefined && mutation.baseVersion >= correction.from) {
+      next = { ...next, baseVersion: mutation.baseVersion + delta };
+    }
+    const data = mutationData(mutation);
+    const version = Number(data.version);
+    if (Object.prototype.hasOwnProperty.call(data, "version") && Number.isSafeInteger(version) && version >= correction.from) {
+      next = { ...next, data: { ...data, version: version + delta } };
+    }
+    return next;
+  });
+}
+
+export function shiftRecordVersion<T extends { version?: number }>(record: T, correction: VersionCorrection): T {
+  const version = Number(record.version);
+  if (!Number.isSafeInteger(version) || version < correction.from) return record;
+  return { ...record, version: version + correction.to - correction.from };
+}
+
+export function shiftStateVersions(state: SyncBootstrapState, corrections: VersionCorrection[]): SyncBootstrapState {
+  if (corrections.length === 0) return state;
+  const shift = <T extends { id: string; version?: number }>(records: T[], entity: MergeEntity): T[] => {
+    const relevant = corrections.filter((item) => item.entity === entity);
+    if (relevant.length === 0) return records;
+    return records.map((record) => {
+      const correction = relevant.find((item) => item.recordId === record.id);
+      return correction ? shiftRecordVersion(record, correction) : record;
+    });
+  };
+  return {
+    ...state,
+    projects: shift(state.projects, "project"),
+    tasks: shift(state.tasks, "task"),
+    nextProjects: shift(state.nextProjects, "next_project"),
+    nextIdeas: shift(state.nextIdeas, "next_idea")
   };
 }

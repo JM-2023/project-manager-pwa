@@ -137,7 +137,19 @@ export interface ClientMutation<T = unknown> {
   data: T;
   /** Changed user fields for an existing record. `data` remains the full optimistic local record. */
   patch?: Record<string, unknown>;
+  /**
+   * Key-level change behind `patch.extra_json`. The column holds several
+   * independent fields (daily output, blocker, importance, imported columns),
+   * so a conflict rebase merges these keys into the server's value instead of
+   * replacing the whole JSON blob. Client-side only; the server ignores it.
+   */
+  extraPatch?: ExtraPatch;
   createdAt?: string;
+}
+
+export interface ExtraPatch {
+  set: Record<string, unknown>;
+  unset: string[];
 }
 
 export interface MutationResult {

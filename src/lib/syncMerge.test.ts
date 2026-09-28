@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyExtraPatch,
   compactPendingMutations,
+  extraPatchBetween,
   KEEPALIVE_MAX_BYTES,
   keepaliveBody,
   mergeBootstrapForLocal,
@@ -8,7 +10,10 @@ import {
   mergeRecordsForSync,
   mutationRecordKey,
   pendingRecordKeys,
-  replayPendingMutations
+  replayPendingMutations,
+  shiftPendingVersions,
+  shiftStateVersions,
+  versionCorrections
 } from "./syncMerge";
 import type { BootstrapResponse, ClientMutation, Task } from "./types";
 import type { PendingMutationGroup, SyncBootstrapState } from "./syncMerge";
@@ -263,5 +268,75 @@ describe("keepaliveBody", () => {
 
   it("returns null when even a single group cannot fit", () => {
     expect(keepaliveBody("client-1", [group("m1", KEEPALIVE_MAX_BYTES + 1)])).toBeNull();
+  });
+});
+
+describe("extra_json key patches", () => {
+  it("diffs, composes through compaction, and applies by key", () => {
+    const before = JSON.stringify({ importance: 2, blocker: "old", cache_project: "P" });
+    const middle = JSON.stringify({ importance: 3, blocker: "old", cache_project: "P" });
+    const after = JSON.stringify({ importance: 3, cache_project: "P", daily_output: "done" });
+    const first: ClientMutation = {
+      id: "x1", entity: "task", operation: "upsert", baseVersion: 1, data: { id: "t1", version: 2 },
+      patch: { extra_json: middle }, extraPatch: extraPatchBetween(before, middle), createdAt: "2026-06-30T10:00:00.000Z"
+    };
+    const second: ClientMutation = {
+      id: "x2", entity: "task", operation: "upsert", baseVersion: 2, data: { id: "t1", version: 3 },
+      patch: { extra_json: after, title: "t" }, extraPatch: extraPatchBetween(middle, after), createdAt: "2026-06-30T10:00:01.000Z"
+    };
+    const [group] = compactPendingMutations([first, second]);
+    expect(group.mutation.extraPatch).toEqual({ set: { importance: 3, daily_output: "done" }, unset: ["blocker"] });
+
+    const server = JSON.stringify({ importance: 1, blocker: "old", cache_project: "Renamed", source_row: 7 });
+    expect(JSON.parse(applyExtraPatch(server, group.mutation.extraPatch!)!)).toEqual({
+      importance: 3, cache_project: "Renamed", source_row: 7, daily_output: "done"
+    });
+    expect(applyExtraPatch(JSON.stringify({ blocker: "x" }), { set: {}, unset: ["blocker"] })).toBeNull();
+  });
+
+  it("drops the key patch when an older queued edit replaced extra_json without one", () => {
+    const legacy: ClientMutation = {
+      id: "x1", entity: "task", operation: "upsert", baseVersion: 1, data: { id: "t1" },
+      patch: { extra_json: "{}" }, createdAt: "2026-06-30T10:00:00.000Z"
+    };
+    const current: ClientMutation = {
+      id: "x2", entity: "task", operation: "upsert", baseVersion: 2, data: { id: "t1" },
+      patch: { extra_json: '{"a":1}' }, extraPatch: { set: { a: 1 }, unset: [] }, createdAt: "2026-06-30T10:00:01.000Z"
+    };
+    const [group] = compactPendingMutations([legacy, current]);
+    expect(group.mutation.extraPatch).toBeUndefined();
+  });
+});
+
+describe("version corrections", () => {
+  it("derives the drift from the server's reported version or a ledger replay", () => {
+    const edit: ClientMutation = {
+      id: "e3", entity: "task", operation: "upsert", baseVersion: 4, data: { id: "t1", version: 7 }, patch: { title: "x" }
+    };
+    const groups = [{ mutation: edit, sourceIds: ["e1", "e2", "e3"] }];
+    expect(versionCorrections(groups, [{ id: "e3", entity: "task", recordId: "t1", version: 5 }])).toEqual([
+      { key: "task:t1", entity: "task", recordId: "t1", from: 7, to: 5, excludeIds: ["e1", "e2", "e3"] }
+    ]);
+    // Already processed (e.g. by a keepalive beacon): a guarded patch produced base + 1.
+    expect(versionCorrections(groups, [{ id: "e3", entity: "task", recordId: "t1" }])[0]).toEqual(expect.objectContaining({ to: 5 }));
+    const create: ClientMutation = { id: "c1", entity: "task", operation: "upsert", baseVersion: null, data: { id: "t2", version: 3 } };
+    expect(versionCorrections([{ mutation: create, sourceIds: ["c1"] }], [{ id: "c1", entity: "task", recordId: "t2", version: 3 }])).toEqual([]);
+  });
+
+  it("shifts later queued edits and the local row, but not other records", () => {
+    const correction = { key: "task:t1", entity: "task" as const, recordId: "t1", from: 7, to: 5, excludeIds: ["e3"] };
+    const later: ClientMutation = { id: "e4", entity: "task", operation: "upsert", baseVersion: 7, data: { id: "t1", version: 8 }, patch: { notes: "n" } };
+    const deletion: ClientMutation = { id: "d1", entity: "task", operation: "delete", baseVersion: 8, data: { id: "t1" } };
+    const other: ClientMutation = { id: "o1", entity: "task", operation: "upsert", baseVersion: 7, data: { id: "t9", version: 8 }, patch: {} };
+    const shifted = shiftPendingVersions([later, deletion, other], [correction]);
+    expect(shifted[0]).toEqual(expect.objectContaining({ baseVersion: 5, data: { id: "t1", version: 6 } }));
+    expect(shifted[1]).toEqual(expect.objectContaining({ baseVersion: 6, data: { id: "t1" } }));
+    expect(shifted[2]).toBe(other);
+
+    const state = shiftStateVersions(
+      { projects: [], nextProjects: [], nextIdeas: [], settings: {}, tasks: [{ id: "t1", version: 8 }, { id: "t9", version: 8 }] as never },
+      [correction]
+    );
+    expect(state.tasks.map((row) => row.version)).toEqual([6, 8]);
   });
 });

@@ -12,6 +12,7 @@ import type {
 import type { AppAction, AppState } from "../state/appStore";
 import type { EntityStoreName, LocalEntityWrite, LocalMutationCommit, LocalSnapshot, SavableEntity } from "./localDb";
 import {
+  applyExtraPatch,
   compactPendingMutations,
   excelDirtyAt,
   keepaliveBody,
@@ -20,14 +21,29 @@ import {
   mutationRecordKey,
   pendingRecordKeys,
   replayPendingMutations,
+  shiftPendingVersions,
+  shiftStateVersions,
   stateWithBootstrap,
-  upsertRecord
+  upsertRecord,
+  versionCorrections,
+  type VersionCorrection
 } from "./syncMerge";
 import { visibleTasks } from "./sync";
 import { describeError, trace } from "./syncTrace";
 
 const SYNC_DEBOUNCE_MS = 850;
 const MAX_MUTATIONS_PER_REQUEST = 10;
+/**
+ * Drain up to this many request-sized batches before the cycle's single pull,
+ * so a long offline backlog does not pay one bootstrap per ten edits.
+ */
+const MAX_BATCHES_PER_CYCLE = 5;
+/**
+ * Foreground, focus, online and poll triggers arrive together and carry no
+ * knowledge of new data. A cycle that started or succeeded this recently
+ * already answers them.
+ */
+const TRIGGER_COALESCE_MS = 2_000;
 const MAX_RETRY_MS = 30_000;
 const CLOUD_EXCEL_DEBOUNCE_MS = 15_000;
 const CLOUD_EXCEL_FILENAME = "project-manager-latest.xlsx";
@@ -56,10 +72,14 @@ export interface SyncIO {
   loadLocalSnapshot: () => Promise<LocalSnapshot>;
   getPendingMutations: () => Promise<ClientMutation[]>;
   removePendingMutations: (ids: string[]) => Promise<void>;
+  /** Align durable optimistic versions with the server after a compacted group applied. */
+  correctLocalVersions: (corrections: VersionCorrection[]) => Promise<void>;
   saveBootstrapSnapshot: (snapshot: BootstrapResponse, replaceMode: boolean, removePendingIds?: string[]) => Promise<void>;
   saveLocalSession: (session: SessionResponse | null) => Promise<void>;
   saveLastSync: (value: string) => Promise<void>;
   isOnline: () => boolean;
+  /** The page can be frozen at any moment; durable edits should leave by keepalive. */
+  isPageHidden?: () => boolean;
   now: () => string;
   withSyncLease?: <T>(work: () => Promise<T>, signal?: AbortSignal) => Promise<T>;
   publishSyncHint?: () => void;
@@ -85,6 +105,8 @@ export class SyncEngine {
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private retryAttempt = 0;
   private syncInFlight = false;
+  private cycleStartedAt = 0;
+  private lastCycleSucceededAt = 0;
   private cycleController: AbortController | null = null;
   private cycleSettled: Promise<void> | null = null;
   private syncCompletion: Promise<void> | null = null;
@@ -195,6 +217,10 @@ export class SyncEngine {
         });
         this.io.publishSyncHint?.();
         this.scheduleSync();
+        // A draft flushed on visibilitychange/pagehide becomes durable only
+        // after the keepalive for that event already left. The debounced sync
+        // will not run once iOS freezes the page, so send this edit now.
+        if (this.io.isPageHidden?.()) this.flushPendingWithKeepalive();
       })
       .catch(async (error) => {
         trace("commit failed", `${describeError(error)} after ${Date.now() - commitStartedAt}ms`);
@@ -358,6 +384,16 @@ export class SyncEngine {
     this.io.publishSnapshotHint?.(snapshot.syncEpoch, snapshot.syncCursor);
   }
 
+  private async applyVersionCorrections(corrections: VersionCorrection[], signal: AbortSignal): Promise<void> {
+    if (corrections.length === 0) return;
+    trace("versions corrected", corrections.map((item) => `${item.key} ${item.from}→${item.to}`).join(", "));
+    await this.io.correctLocalVersions(corrections);
+    signal.throwIfAborted();
+    this.pendingMutationsRef = shiftPendingVersions(this.pendingMutationsRef, corrections);
+    this.stateRef.current = { ...this.stateRef.current, ...shiftStateVersions(this.stateRef.current, corrections) };
+    this.overlayPendingState(this.pendingMutationsRef);
+  }
+
   private async rebaseConflict(
     group: ReturnType<typeof compactPendingMutations>[number],
     serverRecordValue: unknown,
@@ -374,11 +410,17 @@ export class SyncEngine {
     if (!recordId) return false;
     const deleting = group.mutation.operation === "delete" || group.mutation.operation === "purge";
     if (!deleting && !group.mutation.patch) return false;
+    let patch = group.mutation.patch;
+    if (!deleting && patch && Object.prototype.hasOwnProperty.call(patch, "extra_json") && group.mutation.extraPatch) {
+      // extra_json bundles independent fields. Replacing it wholesale would
+      // drop keys another device changed; re-apply only this edit's keys.
+      patch = { ...patch, extra_json: applyExtraPatch(serverRecord.extra_json, group.mutation.extraPatch) };
+    }
     const optimistic = deleting
       ? group.mutation.data
       : {
           ...serverRecord,
-          ...group.mutation.patch,
+          ...patch,
           id: recordId,
           updated_at: this.io.now(),
           version: serverVersion + 1
@@ -387,6 +429,7 @@ export class SyncEngine {
       ...group.mutation,
       baseVersion: serverVersion,
       data: optimistic,
+      ...(patch ? { patch } : {}),
       createdAt: this.io.now()
     };
 
@@ -570,8 +613,7 @@ export class SyncEngine {
     signal.throwIfAborted();
     let shouldUploadCloudExcel = false;
     let retryUnresolvedMutations = false;
-    let sentBatchFullyResolved = true;
-    let pendingIdsResolvedWithBootstrap: string[] = [];
+    const pendingIdsResolvedWithBootstrap: string[] = [];
     if (!this.stateRef.current.session) {
       const session = await abortable(this.io.getSession(signal), signal);
       signal.throwIfAborted();
@@ -582,11 +624,16 @@ export class SyncEngine {
 
     await abortable(this.settlePendingWrites(), signal);
     signal.throwIfAborted();
-    const pending = await this.refreshPendingFromStorage(true, new Set(), signal);
-    const pendingGroups = compactPendingMutations(pending);
-    const sentGroups = pendingGroups.slice(0, MAX_MUTATIONS_PER_REQUEST);
-    trace("cycle outbox", `${pending.length} pending, sending ${sentGroups.length}`);
-    if (sentGroups.length > 0) {
+    let pending = await this.refreshPendingFromStorage(true, new Set(), signal);
+    const seenPendingIds = new Set(pending.map((mutation) => mutation.id));
+    for (let batch = 0; ; batch += 1) {
+      const pendingGroups = compactPendingMutations(pending);
+      const sentGroups = pendingGroups.slice(0, MAX_MUTATIONS_PER_REQUEST);
+      trace("cycle outbox", `${pending.length} pending, sending ${sentGroups.length}${batch > 0 ? ` (batch ${batch + 1})` : ""}`);
+      if (sentGroups.length === 0) {
+        if (batch === 0 && (this.stateRef.current.conflicts ?? []).length > 0) this.setConflictDetails([]);
+        break;
+      }
       const result = await abortable(this.io.sendMutations(
         this.clientId,
         sentGroups.map((group) => group.mutation), signal
@@ -602,16 +649,17 @@ export class SyncEngine {
         const group = groupById.get(conflict.id);
         if (group && (await this.rebaseConflict(group, conflict.serverRecord, signal))) resolvedIds.add(conflict.id);
       }
-      sentBatchFullyResolved = sentGroups.every((group) => resolvedIds.has(group.mutation.id));
-      retryUnresolvedMutations = !sentBatchFullyResolved;
+      const sentBatchFullyResolved = sentGroups.every((group) => resolvedIds.has(group.mutation.id));
       const sourceIdsToRemove = sentGroups.flatMap((group) => (appliedIds.has(group.mutation.id) ? group.sourceIds : []));
-      pendingIdsResolvedWithBootstrap = sentGroups.flatMap((group) =>
+      const permanentSourceIds = sentGroups.flatMap((group) =>
         permanentIds.has(group.mutation.id) ? group.sourceIds : []
       );
+      pendingIdsResolvedWithBootstrap.push(...permanentSourceIds);
       await this.io.removePendingMutations(sourceIdsToRemove);
       signal.throwIfAborted();
-      this.forgetPendingMutations([...sourceIdsToRemove, ...pendingIdsResolvedWithBootstrap]);
-      if (pendingIdsResolvedWithBootstrap.length > 0) {
+      this.forgetPendingMutations([...sourceIdsToRemove, ...permanentSourceIds]);
+      await this.applyVersionCorrections(versionCorrections(sentGroups, result.applied), signal);
+      if (permanentSourceIds.length > 0) {
         // The rejected optimistic row may not appear in an incremental delta
         // because the server did not change during this request. A full pull
         // restores stale deletes and removes invalid local-only creates.
@@ -621,8 +669,18 @@ export class SyncEngine {
       // from an earlier batch remain visible while subsequent independent
       // batches drain, rather than disappearing in the next zero-delay cycle.
       this.reconcileConflictDetails(result.conflicts, result.applied);
-      if (pendingGroups.length > sentGroups.length && sentBatchFullyResolved) this.syncAgainAfterCurrent = true;
-    } else if ((this.stateRef.current.conflicts ?? []).length > 0) this.setConflictDetails([]);
+      if (!sentBatchFullyResolved) {
+        retryUnresolvedMutations = true;
+        break;
+      }
+      if (pendingGroups.length <= sentGroups.length) break;
+      if (batch + 1 >= MAX_BATCHES_PER_CYCLE) {
+        this.syncAgainAfterCurrent = true;
+        break;
+      }
+      pending = await this.refreshPendingFromStorage(false, new Set(pendingIdsResolvedWithBootstrap), signal);
+      for (const mutation of pending) seenPendingIds.add(mutation.id);
+    }
 
     const requestedEpoch = this.forceNextBootstrapFull ? null : this.stateRef.current.syncEpoch;
     const requestedCursor = this.forceNextBootstrapFull ? null : this.stateRef.current.syncCursor;
@@ -648,8 +706,7 @@ export class SyncEngine {
     // A cross-tab write can race the IndexedDB snapshot transaction. Replay the
     // durable outbox once more and schedule another pass if anything remains.
     const remaining = await this.refreshPendingFromStorage(true, new Set(), signal);
-    const originalIds = new Set(pending.map((mutation) => mutation.id));
-    if (remaining.some((mutation) => !originalIds.has(mutation.id))) this.syncAgainAfterCurrent = true;
+    if (remaining.some((mutation) => !seenPendingIds.has(mutation.id))) this.syncAgainAfterCurrent = true;
     const dirtyToken = excelDirtyAt(this.stateRef.current.settings);
     shouldUploadCloudExcel = Boolean(dirtyToken);
     this.dispatch({ type: "setAuthRequired", payload: false });
@@ -681,6 +738,7 @@ export class SyncEngine {
     }
 
     this.syncInFlight = true;
+    this.cycleStartedAt = Date.now();
     const controller = new AbortController();
     this.cycleController = controller;
     const signal = controller.signal;
@@ -701,6 +759,7 @@ export class SyncEngine {
     let authenticated = true;
     try {
       await completion;
+      this.lastCycleSucceededAt = Date.now();
     } catch (error) {
       retry = !this.suspended && (!signal.aborted || signal.reason?.name === "TimeoutError");
       if (!signal.aborted) {
@@ -738,6 +797,40 @@ export class SyncEngine {
       if (rawDone) cleanup();
       else void settled.then(cleanup);
     }
+  };
+
+  /**
+   * Heuristic triggers (foreground, focus, online, fallback poll). Returning to
+   * the app fires several of them within milliseconds; each used to queue one
+   * more full cycle behind the first.
+   */
+  syncOnTrigger = async (): Promise<void> => {
+    const now = Date.now();
+    if (this.syncInFlight && now - this.cycleStartedAt < TRIGGER_COALESCE_MS) {
+      trace("trigger coalesced", "joined the cycle in flight");
+      await this.syncCompletion?.catch(() => undefined);
+      return;
+    }
+    if (!this.syncInFlight && !this.syncTimer && now - this.lastCycleSucceededAt < TRIGGER_COALESCE_MS) {
+      trace("trigger coalesced", "a cycle just succeeded");
+      return;
+    }
+    await this.syncNow();
+  };
+
+  /**
+   * The change watcher saw the cloud at (epoch, cursor). A cycle already in
+   * flight (typically the foreground trigger) usually reaches that cursor, so
+   * wait for it before deciding whether another pull is needed.
+   */
+  syncToCursor = async (epoch: string, cursor: number): Promise<void> => {
+    if (this.syncInFlight) await this.syncCompletion?.catch(() => undefined);
+    const { syncEpoch, syncCursor } = this.stateRef.current;
+    if (syncEpoch === epoch && syncCursor !== null && syncCursor >= cursor) {
+      trace("changes: already adopted", `cursor ${syncCursor}`);
+      return;
+    }
+    await this.syncNow();
   };
 
   forceFullResync = async (): Promise<void> => {

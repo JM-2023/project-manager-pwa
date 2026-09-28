@@ -25,6 +25,7 @@ import { useI18n } from "./lib/i18n";
 import { switchPageAnimated } from "./lib/pageTransition";
 import {
   commitLocalMutation,
+  correctLocalVersions,
   getPendingMutations,
   isCachedSessionUsable,
   loadLocalSnapshot,
@@ -38,7 +39,7 @@ import {
 } from "./lib/localDb";
 import { isProjectCacheTask, parseTaskExtra, stringifyTaskExtra, summarizeWorklogOverview } from "./lib/progress";
 import { visibleProjects, visibleTasks } from "./lib/sync";
-import { compactPendingMutations, mutationRecordKey, replayPendingMutations } from "./lib/syncMerge";
+import { compactPendingMutations, extraPatchBetween, mutationRecordKey, replayPendingMutations } from "./lib/syncMerge";
 import { SyncEngine, type SyncIO } from "./lib/syncEngine";
 import {
   beginLogoutBarrier,
@@ -59,7 +60,7 @@ import {
 import { trace } from "./lib/syncTrace";
 import { SnapshotRefresh } from "./lib/snapshotRefresh";
 import { ChangeWatcher, CHANGES_WAIT_SECONDS } from "./lib/changeWatcher";
-import type { ImportRow, NextIdea, NextProject, Project, SessionResponse, Task } from "./lib/types";
+import type { ExtraPatch, ImportRow, NextIdea, NextProject, Project, SessionResponse, Task } from "./lib/types";
 import { CalendarPage } from "./pages/CalendarPage";
 import { LoginPage } from "./pages/LoginPage";
 import { NextPage } from "./pages/NextPage";
@@ -100,6 +101,12 @@ function pickMutationPatch(changes: Record<string, unknown>, allowed: readonly s
     if (Object.prototype.hasOwnProperty.call(changes, key)) patch[key] = changes[key];
   }
   return patch;
+}
+
+/** Record which extra_json keys an edit changed, so a conflict rebase can merge them by key. */
+function extraPatchFor(patch: Record<string, unknown>, previousExtraJson: string | null | undefined): { extraPatch?: ExtraPatch } {
+  if (!Object.prototype.hasOwnProperty.call(patch, "extra_json")) return {};
+  return { extraPatch: extraPatchBetween(previousExtraJson, patch.extra_json as string | null | undefined) };
 }
 
 function putLocal(store: LocalEntityWrite["store"], record: SavableEntity): LocalEntityWrite {
@@ -153,6 +160,11 @@ const baseSyncIO: Omit<SyncIO, "publishSyncHint"> = {
       if (isLogoutBarrierActive()) throw new Error("Signing out in another tab");
       await removePendingMutations(ids);
     }),
+  correctLocalVersions: (corrections) =>
+    withLocalDataLease(async () => {
+      if (isLogoutBarrierActive()) throw new Error("Signing out in another tab");
+      await correctLocalVersions(corrections);
+    }),
   saveBootstrapSnapshot: (snapshot, replaceMode, removeIds) =>
     withLocalDataLease(async () => {
       if (isLogoutBarrierActive()) throw new Error("Signing out in another tab");
@@ -169,6 +181,7 @@ const baseSyncIO: Omit<SyncIO, "publishSyncHint"> = {
       await setLastSync(value);
     }),
   isOnline: () => navigator.onLine,
+  isPageHidden: () => document.visibilityState === "hidden",
   now: nowIso,
   withSyncLease,
   sendBeacon: (url, body) => navigator.sendBeacon?.(url, body) ?? false
@@ -222,7 +235,7 @@ export function App() {
     engineRef.current = new SyncEngine({ stateRef, dispatch, clientId, io: engineIO });
   }
   const engine = engineRef.current;
-  const { syncNow, forceFullResync, flushPendingWithKeepalive } = engine;
+  const { syncNow, syncOnTrigger, forceFullResync, flushPendingWithKeepalive } = engine;
   // One visible signed-in tab owns the long-poll. Other tabs consume its
   // health and snapshot notifications and take over when it releases the lock.
   const watchHealthyAt = useRef(0);
@@ -237,7 +250,7 @@ export function App() {
         !stateRef.current.authRequired &&
         stateRef.current.session !== null &&
         !isLogoutBarrierActive(),
-      onChanged: () => syncNow(),
+      onChanged: (result) => engine.syncToCursor(result.epoch, result.cursor),
       withLeadership: withChangeLeadership,
       onHealthy: () => { watchHealthyAt.current = Date.now(); publishWatchHealthy(tabId); },
       onAuthRequired: () => { void syncNow(); }
@@ -364,17 +377,17 @@ export function App() {
       commit({ type: "setOnline", payload: navigator.onLine });
       if (!navigator.onLine) return;
       if (stateRef.current.authRequired) void recoverAuthenticatedSession();
-      else void syncNow();
+      else void syncOnTrigger();
     }
     function handleFocus() {
       trace("trigger focus");
-      if (navigator.onLine && !stateRef.current.authRequired) void syncNow();
+      if (navigator.onLine && !stateRef.current.authRequired) void syncOnTrigger();
     }
     function handleVisibilityChange() {
       trace("trigger visibility", document.visibilityState);
       snapshots.refresh();
       if (document.visibilityState === "hidden") engine.cancelCurrentSync();
-      if (document.visibilityState === "visible" && navigator.onLine && !stateRef.current.authRequired) void syncNow();
+      if (document.visibilityState === "visible" && navigator.onLine && !stateRef.current.authRequired) void syncOnTrigger();
     }
     const unsubscribe = subscribeToSyncEvents(tabId, {
       onSyncHint: () => {
@@ -414,7 +427,7 @@ export function App() {
       try {
         const claimed = eligible && fallback && (await claimBackgroundPoll(tabId));
         trace("trigger poll", !eligible ? "not eligible" : !fallback ? "change watcher healthy" : claimed ? "claimed" : "another tab polled recently");
-        if (claimed) void syncNow();
+        if (claimed) void syncOnTrigger();
       } catch (error) {
         trace("fallback poll failed", String(error));
       }
@@ -433,7 +446,7 @@ export function App() {
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [engine, syncNow, tabId, changeWatcher]);
+  }, [engine, syncNow, syncOnTrigger, tabId, changeWatcher]);
 
   useEffect(() => () => engine.dispose(), [engine]);
 
@@ -479,6 +492,7 @@ export function App() {
   function updateTask(task: Task, changes: Partial<Task>) {
     const next: Task = { ...task, ...changes, updated_at: nowIso(), version: task.version + 1 };
     commit({ type: "upsertTask", payload: next });
+    const patch = pickMutationPatch(changes as Record<string, unknown>, TASK_PATCH_FIELDS);
     persistMutation(
       {
         id: newMutationId(),
@@ -486,7 +500,8 @@ export function App() {
         operation: "upsert",
         baseVersion: task.version,
         data: next,
-        patch: pickMutationPatch(changes as Record<string, unknown>, TASK_PATCH_FIELDS)
+        patch,
+        ...extraPatchFor(patch, task.extra_json)
       },
       { writes: [putLocal("tasks", next)] }
     );
@@ -599,7 +614,8 @@ export function App() {
           operation: "upsert",
           baseVersion: task.version,
           data: nextTask,
-          patch: { archived, extra_json: nextTask.extra_json }
+          patch: { archived, extra_json: nextTask.extra_json },
+          extraPatch: extraPatchBetween(task.extra_json, nextTask.extra_json)
         },
         { writes: [putLocal("tasks", nextTask)] }
       );
@@ -803,6 +819,7 @@ export function App() {
       version: idea.version + 1
     };
     commit({ type: "upsertNextIdea", payload: next });
+    const patch = pickMutationPatch(changes as Record<string, unknown>, NEXT_IDEA_PATCH_FIELDS);
     persistMutation(
       {
         id: newMutationId(),
@@ -810,7 +827,8 @@ export function App() {
         operation: "upsert",
         baseVersion: idea.version,
         data: next,
-        patch: pickMutationPatch(changes as Record<string, unknown>, NEXT_IDEA_PATCH_FIELDS)
+        patch,
+        ...extraPatchFor(patch, idea.extra_json)
       },
       { writes: [putLocal("nextIdeas", next)] }
     );

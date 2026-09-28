@@ -19,6 +19,25 @@ export function ensureSyncStateStatement(env: AppEnv, userId: string): D1Prepare
   ).bind(userId);
 }
 
+interface SyncStateRow {
+  epoch: string;
+  seq: number;
+}
+
+/**
+ * Read the per-user sync state, creating it only when absent. Hot read paths
+ * (the long-poll re-reads every few seconds) must not issue a write each time.
+ */
+export async function readSyncState(env: AppEnv, userId: string): Promise<SyncStateRow> {
+  const select = () => env.DB.prepare("SELECT epoch, seq FROM sync_state WHERE user_id = ?").bind(userId).first<SyncStateRow>();
+  const existing = await select();
+  if (existing) return existing;
+  await ensureSyncStateStatement(env, userId).run();
+  const created = await select();
+  if (!created) throw new Error("Synchronization state is missing");
+  return created;
+}
+
 export function advanceSyncSequenceStatement(env: AppEnv, userId: string): D1PreparedStatement {
   return env.DB.prepare("UPDATE sync_state SET seq = seq + 1, last_operation_id = NULL WHERE user_id = ?").bind(userId);
 }

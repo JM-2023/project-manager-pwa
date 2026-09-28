@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AppEnv } from "./types";
-import { getOrCreateUser, INTERNAL_SETTING_KEYS, readSettings } from "./db";
+import { getOrCreateUser, INTERNAL_SETTING_KEYS, readSettings, readSyncState } from "./db";
 
 interface CapturedStatement {
   sql: string;
@@ -63,5 +63,35 @@ describe("database sync helpers", () => {
     expect(captured.some((item) => item.sql.startsWith("INSERT OR IGNORE INTO users"))).toBe(true);
     const syncInsert = captured.find((item) => item.sql.startsWith("INSERT OR IGNORE INTO sync_state"));
     expect(syncInsert?.args).toEqual([canonical.id]);
+  });
+
+  it("reads an existing sync state without issuing a write", async () => {
+    const captured: string[] = [];
+    let state: { epoch: string; seq: number } | null = null;
+    const DB = {
+      prepare(sql: string) {
+        captured.push(sql);
+        return {
+          bind() {
+            return {
+              first: async () => state,
+              run: async () => {
+                state = { epoch: "fresh", seq: 0 };
+                return { success: true, meta: { changes: 1 } };
+              }
+            };
+          }
+        };
+      }
+    } as unknown as D1Database;
+
+    state = { epoch: "e1", seq: 4 };
+    await expect(readSyncState({ DB } as AppEnv, "user-1")).resolves.toEqual({ epoch: "e1", seq: 4 });
+    expect(captured.some((sql) => sql.startsWith("INSERT"))).toBe(false);
+
+    captured.length = 0;
+    state = null;
+    await expect(readSyncState({ DB } as AppEnv, "user-1")).resolves.toEqual({ epoch: "fresh", seq: 0 });
+    expect(captured.filter((sql) => sql.startsWith("INSERT OR IGNORE INTO sync_state"))).toHaveLength(1);
   });
 });

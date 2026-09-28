@@ -9,8 +9,16 @@ import { NO_PROJECT_FILTER } from "../state/appStore";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
 import { usePresence } from "../lib/usePresence";
 import { handleMenuKeyDown } from "../lib/menuKeys";
+import { boxOf, buildSlideKeyframes, currentBox, place, px, SLIDE_FRAME_MS, type Box } from "../lib/navIndicator";
 
 const EMPTY_WORKLOG_OVERVIEW = summarizeWorklogOverview([]);
+
+// The chips are wide and stacked, so the pill's stretch is capped (long jumps
+// would smear it down the list) and its cross-axis squash kept faint.
+const SLAB_SLIDE = { maxStretch: 36, crossScale: 0.25 };
+
+const sameBox = (a: Box, b: Box) =>
+  Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.w - b.w) < 0.5 && Math.abs(a.h - b.h) < 0.5;
 
 function ProgressMeter({ value }: { value: number }) {
   return (
@@ -420,50 +428,77 @@ export function ProjectList({
     };
   }, [tasks]);
 
-  // Selection ring: ONE absolutely-positioned element that glides from the
-  // previously active chip to the newly selected one on a crisp in-out curve,
-  // instead of each chip flashing its own border on/off. First placement
-  // lands without a transition so the ring doesn't fly in from the top.
+  // Selection slab: ONE solid accent block laid UNDER the glass chips. The
+  // selected chip clears its own glass so the slab reads as that chip's fill;
+  // on a change the slab springs to the new chip with the navigation pill's
+  // elastic motion (lib/navIndicator), seen blurred through every chip it
+  // passes beneath. Layout shifts re-seat it without motion.
   const listRef = useRef<HTMLDivElement | null>(null);
-  const ringRef = useRef<HTMLDivElement | null>(null);
-  const ringArmedRef = useRef(false);
+  const slabRef = useRef<HTMLDivElement | null>(null);
+  const slideRef = useRef<Animation | null>(null);
+  const selectedRef = useRef(selectedProjectId);
+  selectedRef.current = selectedProjectId;
 
-  const positionRing = useCallback(() => {
-    const list = listRef.current;
-    const ring = ringRef.current;
-    if (!list || !ring) return;
-    const target = list.querySelector<HTMLElement>(`[data-chip-id="${CSS.escape(selectedProjectId)}"]`);
-    if (!target || target.classList.contains("is-removing")) {
-      ring.style.opacity = "0";
+  const slabTarget = useCallback(() => {
+    const target = listRef.current?.querySelector<HTMLElement>(`[data-chip-id="${CSS.escape(selectedRef.current)}"]`);
+    return target && !target.classList.contains("is-removing") ? target : null;
+  }, []);
+
+  // Seat without motion. Mid-slide the inline box already holds the target,
+  // so a re-render or resize that doesn't move the chip leaves the spring be.
+  const seatSlab = useCallback(() => {
+    const slab = slabRef.current;
+    if (!slab) return;
+    const target = slabTarget();
+    if (!target) {
+      slab.classList.remove("is-shown");
       return;
     }
-    ring.style.opacity = "1";
-    // Frame the chip's border box exactly: offsetLeft/offsetWidth matter on
-    // desktop, where the scrolling list adds an 8px padding inset that a
-    // left/right-stretched ring would overhang. Width applies instantly
-    // (it only changes with the viewport); the glide lives on transform.
-    ring.style.transform = `translate(${target.offsetLeft}px, ${target.offsetTop}px)`;
-    ring.style.width = `${target.offsetWidth}px`;
-    ring.style.height = `${target.offsetHeight}px`;
-    if (!ringArmedRef.current) {
-      ring.style.transition = "none";
-      void ring.offsetHeight;
-      ring.style.transition = "";
-      ringArmedRef.current = true;
+    const to = boxOf(target);
+    // The inline box, not offset*: those report the spring's animated frame.
+    const s = slab.style;
+    const placed = { x: parseFloat(s.left) || 0, y: parseFloat(s.top) || 0, w: parseFloat(s.width) || 0, h: parseFloat(s.height) || 0 };
+    if (!sameBox(placed, to)) {
+      slideRef.current?.cancel();
+      place(slab, to);
     }
-  }, [selectedProjectId]);
+    if (!slab.classList.contains("is-shown")) {
+      // Enter with the selected chip's own cascade beat.
+      slab.style.setProperty("--chip-i", target.style.getPropertyValue("--chip-i") || "0");
+      slab.classList.add("is-shown");
+    }
+  }, [slabTarget]);
 
-  useLayoutEffect(positionRing, [positionRing, projects, archivedProjects, tasks]);
+  // Spring to the newly selected chip. Declared before the re-seat effects so
+  // it reads the old position before anything could snap the slab over.
+  useLayoutEffect(() => {
+    const slab = slabRef.current;
+    const target = slabTarget();
+    if (!slab || !target || !slab.classList.contains("is-shown")) {
+      seatSlab();
+      return;
+    }
+    const from = currentBox(slab);
+    const to = boxOf(target);
+    slideRef.current?.cancel();
+    place(slab, to);
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (sameBox(from, to) || reduced || typeof slab.animate !== "function") return;
+    const frames = buildSlideKeyframes(from, to, SLAB_SLIDE);
+    slideRef.current = slab.animate(frames.map(px), { duration: (frames.length - 1) * SLIDE_FRAME_MS, easing: "linear" });
+  }, [selectedProjectId, slabTarget, seatSlab]);
 
-  // Rows collapse (delete/archive) and the viewport resizes under the ring;
+  useLayoutEffect(seatSlab, [seatSlab, projects, archivedProjects, tasks]);
+
+  // Rows collapse (delete/archive) and the viewport resizes under the slab;
   // watching the list's own box re-seats it whenever layout shifts.
   useEffect(() => {
     const list = listRef.current;
     if (!list || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => positionRing());
+    const observer = new ResizeObserver(seatSlab);
     observer.observe(list);
     return () => observer.disconnect();
-  }, [positionRing]);
+  }, [seatSlab]);
 
   function createProject() {
     const clean = name.trim();
@@ -526,7 +561,7 @@ export function ProjectList({
             onKeyDown={showScrollbar}
           >
             <div className="project-list" ref={listRef}>
-              <div ref={ringRef} className="project-active-ring" aria-hidden="true" />
+              <div ref={slabRef} className="project-active-slab" aria-hidden="true" />
               <button
                 type="button"
                 className={!selectedProjectId ? "project-row active" : "project-row"}

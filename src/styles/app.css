@@ -170,6 +170,10 @@
   --chip-accent: var(--primary);
   --chip-accent-dark: var(--primary-dark);
   --chip-ring: var(--ring);
+  /* Selection slab — the solid block under the selected chip, and the ink
+     its label turns. References, so every theme's accent flows through. */
+  --chip-slab: var(--primary);
+  --chip-slab-ink: var(--primary-ink);
 
   /* Meter material (the liquid-glass mode of the progress bars / heat tiles;
      see the Meter material section) */
@@ -674,6 +678,13 @@
   border-bottom-color: var(--block);
 }
 :root[data-bg="prussian"] .task-table-header span { border-right-color: color-mix(in srgb, var(--block-ink) 14%, var(--block)); }
+
+/* The selected project chip is a Prussian block too (apricot type on top),
+   the same statement the segmented controls make. */
+:root[data-bg="prussian"] {
+  --chip-slab: var(--block);
+  --chip-slab-ink: var(--block-ink);
+}
 
 /* Segmented controls: the selected cell is a small Prussian block. */
 :root[data-bg="prussian"] .cal-seg__thumb {
@@ -2159,34 +2170,48 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 .project-list { position: relative; display: grid; align-content: start; gap: 8px; }
 
-/* Selection ring — a single element that glides from the previously active
-   chip to the new one on a crisp in-out curve (position + height set inline by
-   ProjectList), so selecting reads as the highlight travelling, not two
-   borders flashing. Sits above the glass, never intercepts the pointer. */
-.project-active-ring {
+/* Selection slab — ONE solid block of the accent laid UNDER the glass chips
+   (first child, so every chip paints over it). The selected chip clears its
+   own glass and the slab becomes its fill; on a change it springs to the new
+   chip (left/top/width/height animated by ProjectList with the nav pill's
+   elastic keyframes), and every chip it passes beneath samples it through
+   its frost. Never intercepts the pointer. */
+.project-active-slab {
   position: absolute;
   top: 0; left: 0;
-  /* Geometry (translate/width/height) is set inline from the active chip's
-     offset box — the list's own padding (the desktop scroll inset) must not
-     leak into the ring, so no right: 0 stretch here. */
   width: 0;
   height: 0;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
-  /* The accent at full strength, the way the design states a selected chip.
-     Mixing it 55% toward the rim dropped it to rgb(191,144,141) once composited
-     — a dusty pink rather than the accent. */
-  border: 1.25px solid var(--primary);
+  background: var(--chip-slab);
   border-radius: var(--r-md);
+  /* A block laid on the page: top-lit edge, contact line, tight ambient —
+     the chip's own elevation stops, cast in the palette's neutral. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(var(--shade), 0.12),
+    0 1px 2px rgba(var(--shade), 0.12),
+    0 6px 14px -6px rgba(var(--shade), 0.3);
   opacity: 0;
   transition:
-    transform 0.22s var(--ease-in-out),
-    height 0.22s var(--ease-in-out),
-    border-radius 0.22s var(--ease-in-out),
-    opacity 0.2s var(--ease);
+    opacity 0.2s var(--ease),
+    border-radius 0.2s var(--ease-in-out),
+    scale 0.16s var(--ease-out);
 }
-/* Corners follow the active chip's hover swell so ring and chip stay concentric. */
-.project-list:has(> .project-row.active:hover) .project-active-ring { border-radius: var(--r-lg); }
+.project-active-slab.is-shown {
+  opacity: 1;
+  animation: fade-up var(--t-slow) var(--ease) both;
+  animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
+}
+/* The slab IS the selected chip's body, so it follows the chip's hover
+   swell and press dip. */
+@media (hover: hover) {
+  .project-list:has(> .project-row.active:hover) > .project-active-slab { border-radius: var(--r-lg); }
+}
+.project-list:has(> .project-row.active:active) > .project-active-slab {
+  scale: 0.97;
+  transition: opacity 0.2s var(--ease), border-radius 0.2s var(--ease-in-out), scale 0.12s var(--ease-out);
+}
 
 /* `auto` rather than a fixed 76px track: the button sizes itself, so its
    hover swell widens the track instead of straining against it. */
@@ -2330,10 +2355,59 @@ button.project-row > span { flex: 1; min-width: 0; }
 .project-row span:not(.project-color), button.project-row span:not(.project-color) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-color { width: 10px; height: 10px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.12); }
 
-/* The active border/inset lives on the gliding .project-active-ring; the
-   chip itself only warms its text so the ring has nothing to fight. */
-button.project-row.active { color: var(--chip-accent-dark); }
-.project-row.active > button:first-child { color: var(--chip-accent-dark); }
+/* The selected chip: its glass clears so the slab underneath is its body,
+   and everything on it — label, figure, dot rim, meter — turns to the
+   slab's ink. The `.project-list >` prefix outranks hover, focus-within and
+   focus-visible, which would otherwise paint the glass back over the slab.
+   The ink lands a beat late (the slab's lead edge needs ~110ms to arrive);
+   leaving, it reverts at once as the slab pulls away. */
+.project-list > .project-row.active,
+.project-list > button.project-row.active {
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-color: transparent;
+  box-shadow: none;
+}
+.project-row strong,
+.project-row .project-color,
+.row-progress { transition: color var(--t) var(--ease), background-color var(--t) var(--ease), box-shadow var(--t) var(--ease); }
+.row-progress::after { transition: width 0.18s var(--ease), background-color var(--t) var(--ease); }
+.project-list > .project-row.active > button:first-child,
+.project-list > button.project-row.active,
+.project-list > .project-row.active strong,
+.project-list > button.project-row.active strong {
+  color: var(--chip-slab-ink);
+  transition: color 0.2s var(--ease) 0.06s;
+}
+.project-list > .project-row.active .project-color {
+  box-shadow: 0 0 0 1.5px var(--chip-slab-ink);
+  transition: box-shadow 0.2s var(--ease) 0.06s;
+}
+.project-list > .project-row.active .row-progress {
+  background: color-mix(in srgb, var(--chip-slab-ink) 22%, transparent);
+  box-shadow: none;
+}
+.project-list > .project-row.active .row-progress::after {
+  background-color: var(--chip-slab-ink);
+  background-image: none;
+  box-shadow: none;
+  transition: width 0.18s var(--ease), background-color 0.2s var(--ease) 0.06s;
+}
+.project-list > .project-row.active .task-menu-trigger { color: color-mix(in srgb, var(--chip-slab-ink) 72%, transparent); }
+@media (hover: hover) {
+  .project-list > .project-row.active .task-menu-trigger:hover {
+    color: var(--chip-slab-ink);
+    background: color-mix(in srgb, var(--chip-slab-ink) 14%, transparent);
+  }
+}
+/* Keyboard focus on the selected chip: the glass wash can't show on the
+   slab, so it gets an outline in the slab's colour instead. */
+.project-list > button.project-row.active:focus-visible,
+.project-list > .project-row.active:has(> button:first-child:focus-visible) {
+  outline: 2px solid var(--chip-slab);
+  outline-offset: 2px;
+}
 
 /* =========================================================================
    Next / cache board

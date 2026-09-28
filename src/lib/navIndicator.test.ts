@@ -27,6 +27,14 @@ describe("nav selection pill spring", () => {
     expect(frames.some((f) => f.y + f.h > target.y + target.h + 1)).toBe(true);
   });
 
+  it("caps the stretch and cross squash for the project list's wide chips", () => {
+    const chip = (index: number): Box => ({ x: 8, y: 8 + index * 64, w: 272, h: 56 });
+    const frames = buildSlideKeyframes(chip(0), chip(9), { maxStretch: 36, crossScale: 0.25 });
+    expect(Math.max(...frames.map((f) => f.h))).toBeLessThanOrEqual(56 + 36 + 0.01);
+    expect(Math.min(...frames.map((f) => f.w))).toBeGreaterThan(272 * 0.93);
+    expect(frames[frames.length - 1]).toEqual(chip(9));
+  });
+
   it("travels horizontally on the phone dock, leading with the left edge when moving left", () => {
     const frames = buildSlideKeyframes(dock(4), dock(1));
     expect(frames.every((f) => f.y >= dock(1).y - 8 && f.y <= dock(1).y + 8)).toBe(true);

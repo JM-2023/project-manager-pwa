@@ -43,12 +43,21 @@ function stepEdge(edge: Edge, t: number): void {
 
 const settled = (edge: Edge) => Math.abs(edge.target - edge.x) < 0.25 && Math.abs(edge.v) < 2;
 
+export interface SlideOptions {
+  /** Longest the travelling box may grow past its rest length (px). Long
+      jumps otherwise let the lead edge run hundreds of px ahead. */
+  maxStretch?: number;
+  /** Scales the cross-axis thin/bulge — wide boxes read it much larger. */
+  crossScale?: number;
+}
+
 /**
  * Keyframes (in px) for the pill travelling from `from` to `to`. The travel
  * axis is whichever the move is mostly along — the rail is vertical on wide
  * screens and the dock horizontal on phones.
  */
-export function buildSlideKeyframes(from: Box, to: Box): Box[] {
+export function buildSlideKeyframes(from: Box, to: Box, options: SlideOptions = {}): Box[] {
+  const { maxStretch = Infinity, crossScale = 1 } = options;
   const vertical = Math.abs(to.y - from.y) > Math.abs(to.x - from.x);
   const pos = vertical ? "y" : "x";
   const size = vertical ? "h" : "w";
@@ -70,9 +79,6 @@ export function buildSlideKeyframes(from: Box, to: Box): Box[] {
     stepEdge(lead, t);
     stepEdge(trail, t);
 
-    const lo = Math.min(lead.x, trail.x);
-    const hi = Math.max(lead.x, trail.x);
-    const length = hi - lo;
     // Rest length eases from the old box's to the new one's with progress.
     const travel = Math.abs(leadOf(to) - leadOf(from)) || 1;
     const progress = Math.min(1, Math.max(0, 1 - Math.abs(lead.target - lead.x) / travel));
@@ -80,11 +86,22 @@ export function buildSlideKeyframes(from: Box, to: Box): Box[] {
     const restCross = from[crossSize] + (to[crossSize] - from[crossSize]) * progress;
     const restCrossPos = from[crossPos] + (to[crossPos] - from[crossPos]) * progress;
 
+    // Past the cap the trailing edge is towed by the lead instead of lagging.
+    const maxLength = restLength + maxStretch;
+    if (Math.abs(lead.x - trail.x) > maxLength) {
+      trail.x = lead.x + (forward ? -maxLength : maxLength);
+      trail.v = lead.v;
+    }
+
+    const lo = Math.min(lead.x, trail.x);
+    const hi = Math.max(lead.x, trail.x);
+    const length = hi - lo;
+
     const ratio = length / Math.max(1, restLength);
     const cross =
       ratio >= 1
-        ? restCross * (1 - Math.min(MAX_THIN, (ratio - 1) * 0.3))
-        : restCross * (1 + Math.min(MAX_BULGE, (1 - ratio) * 0.6));
+        ? restCross * (1 - Math.min(MAX_THIN, (ratio - 1) * 0.3) * crossScale)
+        : restCross * (1 + Math.min(MAX_BULGE, (1 - ratio) * 0.6) * crossScale);
 
     const frame = { ...to };
     frame[pos] = lo;
@@ -101,11 +118,12 @@ export function buildSlideKeyframes(from: Box, to: Box): Box[] {
 
 export const SLIDE_FRAME_MS = STEP * 1000;
 
-function boxOf(el: HTMLElement): Box {
+export function boxOf(el: HTMLElement): Box {
   return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
 }
 
-function currentBox(el: HTMLElement): Box {
+/** Where the element is drawn right now — mid-animation included. */
+export function currentBox(el: HTMLElement): Box {
   const style = getComputedStyle(el);
   return {
     x: parseFloat(style.left) || 0,
@@ -115,14 +133,14 @@ function currentBox(el: HTMLElement): Box {
   };
 }
 
-function place(el: HTMLElement, box: Box): void {
+export function place(el: HTMLElement, box: Box): void {
   el.style.left = `${box.x}px`;
   el.style.top = `${box.y}px`;
   el.style.width = `${box.w}px`;
   el.style.height = `${box.h}px`;
 }
 
-const px = (box: Box) => ({ left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px` });
+export const px =(box: Box) => ({ left: `${box.x}px`, top: `${box.y}px`, width: `${box.w}px`, height: `${box.h}px` });
 
 /**
  * Keep `indicatorRef` sitting on the container's `[aria-current="page"]`

@@ -2384,15 +2384,11 @@ button.project-row > span { flex: 1; min-width: 0; }
   box-shadow: 0 0 0 1.5px var(--chip-slab-ink);
   transition: box-shadow 0.2s var(--ease) 0.06s;
 }
+/* The meter keeps its tone fill — only the track lightens, since the ink
+   track would vanish into the slab. */
 .project-list > .project-row.active .row-progress {
   background: color-mix(in srgb, var(--chip-slab-ink) 22%, transparent);
   box-shadow: none;
-}
-.project-list > .project-row.active .row-progress::after {
-  background-color: var(--chip-slab-ink);
-  background-image: none;
-  box-shadow: none;
-  transition: width 0.18s var(--ease), background-color 0.2s var(--ease) 0.06s;
 }
 .project-list > .project-row.active .task-menu-trigger { color: color-mix(in srgb, var(--chip-slab-ink) 72%, transparent); }
 @media (hover: hover) {

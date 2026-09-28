@@ -902,11 +902,22 @@ select {
 }
 .bottom-nav button:active { transform: scale(0.97); }
 
-/* Selected nav: exactly one cue — the current tab's icon and label take the
-   accent and the label thickens. The icon does not move or grow; a nudge here
-   reads as the rail twitching every time you change tabs. */
+/* Selected nav: the current tab's icon and label take the accent, the label
+   thickens, and the canvas icon (NavIcon.tsx) fills its outline in place. The
+   icon does not move or grow; a nudge here reads as the rail twitching every
+   time you change tabs. */
 .bottom-nav button.active {
   color: var(--primary-dark);
+}
+
+/* The canvas bleeds 5px on every side so hover motion never clips; the
+   negative margin keeps its layout box at the old 20px icon size. */
+.nav-icon {
+  display: block;
+  width: 30px;
+  height: 30px;
+  margin: -5px;
+  pointer-events: none;
 }
 
 .bottom-nav button span {
@@ -3148,8 +3159,8 @@ button.project-row.active { color: var(--chip-accent-dark); }
     color: var(--muted);
   }
   .bottom-nav button.active { color: var(--ink-soft); }
-  .bottom-nav button svg { transition: color var(--t) var(--ease); }
-  .bottom-nav button.active svg { color: var(--primary-dark); }
+  .bottom-nav button .nav-icon { transition: color var(--t) var(--ease); }
+  .bottom-nav button.active .nav-icon { color: var(--primary-dark); }
   .bottom-nav button:hover:not(:focus-visible) { background: transparent; }
 
   .mapping-panel { padding: 18px; }

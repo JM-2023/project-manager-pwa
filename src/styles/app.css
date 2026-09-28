@@ -712,7 +712,7 @@
   background: var(--block);
   border-color: var(--block);
 }
-:root[data-bg="prussian"] .cal-seg button.active { color: var(--block-ink); }
+:root[data-bg="prussian"] .cal-seg__ink { color: var(--block-ink); }
 
 * { box-sizing: border-box; }
 
@@ -2955,10 +2955,19 @@ button.project-row > span { flex: 1; min-width: 0; }
   border: 1px solid var(--line);
   border-radius: var(--r-md);
 }
+/* The thumb rides ABOVE the buttons (clicks pass through it) and is a window
+   onto .cal-seg__ink — a full-width copy of the label row in the selected
+   ink. The window slides right while the copy slides left by the same amount
+   on the same curve, so the copy's labels hold still over their buttons and
+   the colour flips exactly at the thumb's edge. The thumb is opaque, so the
+   buttons' own (unselected-ink) labels never show through it. */
 .cal-seg__thumb {
   position: absolute;
+  z-index: 2;
   top: 2px; bottom: 2px; left: 2px;
   width: calc((100% - 4px) / var(--seg-count, 2));
+  overflow: hidden;
+  pointer-events: none;
   background: var(--seg-thumb);
   border: 1px solid var(--line-strong);
   /* Concentric with the 2px-padded track. */
@@ -2966,6 +2975,32 @@ button.project-row > span { flex: 1; min-width: 0; }
   box-shadow: var(--shadow-xs);
   transform: translateX(calc(var(--seg-i, 0) * 100%));
   transition: transform 0.2s var(--ease-in-out);
+}
+/* Positioned against the thumb's padding box: -1px undoes its border, and
+   count × (padding box + 2px) is count × the column, i.e. the button row. */
+.cal-seg__ink {
+  position: absolute;
+  top: -1px; bottom: -1px; left: -1px;
+  width: calc(var(--seg-count, 2) * (100% + 2px));
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  color: var(--ink);
+  transform: translateX(calc(var(--seg-i, 0) * -100% / var(--seg-count, 2)));
+  transition: transform 0.2s var(--ease-in-out);
+}
+/* Type box identical to .cal-seg button's, so each copy lands on its label. */
+.cal-seg__ink > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 7px 20px;
+  font-size: 0.8125rem;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0;
+  white-space: nowrap;
 }
 .cal-seg button {
   position: relative;
@@ -2997,7 +3032,11 @@ button.project-row > span { flex: 1; min-width: 0; }
 }
 @media (hover: hover) { .cal-seg button:hover:not(.active) { color: var(--ink-soft); } }
 .cal-seg button:active { transform: scale(0.97); }
-.cal-seg button.active { color: var(--ink); }
+/* The selected button's own label sits under the thumb; the thumb's ink copy
+   is what shows. Keyboard focus on it surfaces as a ring on the thumb. */
+.cal-seg:has(> button.active:focus-visible) > .cal-seg__thumb {
+  box-shadow: var(--shadow-xs), 0 0 0 2px var(--wash-strong);
+}
 
 /* All calendar views share a centred max width */
 /* The page width is the measure; sections fill it. */
@@ -3584,17 +3623,38 @@ button.project-row > span { flex: 1; min-width: 0; }
   animation-timing-function: var(--ease);
 }
 
-/* Named seg-control thumbs ride every View Transition as their own groups.
-   The freeze class above kills their CSS transition while a VT runs, so the
-   group's box morph IS the slide — matched here to the thumb's normal
-   0.2s in-out curve so a meter/theme/language switch shows the same motion. */
-::view-transition-group(seg-theme),
-::view-transition-group(seg-hero),
-::view-transition-group(seg-meters),
-::view-transition-group(seg-language),
-::view-transition-group(seg-bg),
-::view-transition-group(seg-cal-view),
-::view-transition-group(seg-cal-metric) {
+/* The switcher that was pressed (SegControl marks it .cal-seg--live) leaves
+   the snapshots as one live layer: its old image is dropped and its new one
+   shown as-is, so the thumb slides — and the control fades to the new
+   palette — with its own transitions, on top of whatever the root does.
+   Every other switcher stays inside the root snapshot and changes with the
+   page (under the ground pour: crisply, at the circle's edge).
+   Don't name the thumbs or labels individually: each named part cross-fades
+   on its own timeline, and where a palette inverts figure and ground (the
+   Prussian thumb goes white → blue while its label goes ink → apricot) the
+   two meet at the same mid-tone and the label blinks out mid-fade. */
+:root:is(.theme-switching, .bg-switching, .lang-switching) .cal-seg--live {
+  view-transition-name: seg-live;
+}
+:root:is(.theme-switching, .bg-switching, .lang-switching) .cal-seg--live,
+:root:is(.theme-switching, .bg-switching, .lang-switching) .cal-seg--live * {
+  transition:
+    background-color 0.22s var(--ease),
+    border-color 0.22s var(--ease),
+    box-shadow 0.22s var(--ease),
+    color 0.22s var(--ease) !important;
+}
+:root:is(.theme-switching, .bg-switching, .lang-switching) .cal-seg--live :is(.cal-seg__thumb, .cal-seg__ink) {
+  transition:
+    transform 0.2s var(--ease-in-out),
+    background-color 0.22s var(--ease),
+    border-color 0.22s var(--ease),
+    box-shadow 0.22s var(--ease),
+    color 0.22s var(--ease) !important;
+}
+::view-transition-old(seg-live) { animation: none; opacity: 0; }
+::view-transition-new(seg-live) { animation: none; }
+::view-transition-group(seg-live) {
   animation-duration: 0.2s;
   animation-timing-function: var(--ease-in-out);
 }

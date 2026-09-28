@@ -208,14 +208,12 @@ export function CalendarPage({ tasks, projects, archivedProjects, onOpenDay, ini
             ariaLabel={m.calendar.viewAria}
             value={granularity}
             onChange={changeGranularity}
-            vtName="seg-cal-view"
             options={GRANULARITIES.map((id) => ({ id, label: m.calendar[id] }))}
           />
           <SegControl
             ariaLabel={m.calendar.metricAria}
             value={metric}
             onChange={setMetric}
-            vtName="seg-cal-metric"
             options={METRICS.map((id) => ({ id, label: id === "weighted" ? m.calendar.weighted : m.calendar.doneRate }))}
           />
         </div>

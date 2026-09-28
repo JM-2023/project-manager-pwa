@@ -15,7 +15,6 @@ export function BackgroundToggle() {
       ariaLabel={m.settings.background}
       value={background}
       onChange={setBackground}
-      vtName="seg-bg"
       options={BACKGROUND_STYLES.map((option) => ({ id: option, label: labels[option] }))}
     />
   );

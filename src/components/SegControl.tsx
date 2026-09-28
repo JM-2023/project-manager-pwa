@@ -14,24 +14,34 @@ interface SegControlProps<T extends string> {
       (the ground toggle's radial reveal starts from this element). */
   onChange: (id: T, origin?: HTMLButtonElement) => void;
   ariaLabel: string;
-  /**
-   * Unique view-transition-name for the thumb. Controls whose change runs
-   * inside a View Transition (theme / meter / language) freeze per-element
-   * transitions under the snapshot, which would swallow the thumb slide —
-   * naming the thumb lifts it into its own VT group so the browser morphs it
-   * from the old cell to the new one and the slide stays visible.
-   */
-  vtName?: string;
+}
+
+/* The control most recently pressed. Theme / ground / meter / language
+   changes run inside a View Transition, which would otherwise paint this
+   control as two frozen snapshots; while one runs, .cal-seg--live lifts the
+   pressed control out as a single live layer (app.css, "Theme switch") so its
+   thumb keeps sliding. Only one control carries the class, keeping the
+   view-transition-name it maps to unique. */
+let liveSeg: HTMLElement | null = null;
+
+function markLive(el: HTMLElement | null) {
+  if (liveSeg === el) return;
+  liveSeg?.classList.remove("cal-seg--live");
+  el?.classList.add("cal-seg--live");
+  liveSeg = el;
 }
 
 /**
  * Segmented control with a real sliding thumb. The thumb is one absolutely
  * positioned element translated to the active column (transform-only, so the
- * crisp in-out motion stays compositor-smooth); buttons above it stay
- * transparent and only swap text colour. --seg-count sizes the thumb,
- * --seg-i places it.
+ * crisp in-out motion stays compositor-smooth). It sits above the buttons and
+ * carries its own copy of the labels in the selected ink, counter-translated
+ * so each sits exactly over its button: the label colour flips precisely at
+ * the thumb's edge as it slides, instead of on a separate colour timeline
+ * that leaves a light label on the light track (or a muted one on a dark
+ * thumb) mid-slide. --seg-count sizes the thumb, --seg-i places it.
  */
-export function SegControl<T extends string>({ options, value, onChange, ariaLabel, vtName }: SegControlProps<T>) {
+export function SegControl<T extends string>({ options, value, onChange, ariaLabel }: SegControlProps<T>) {
   const index = Math.max(0, options.findIndex((option) => option.id === value));
   return (
     <div
@@ -40,28 +50,30 @@ export function SegControl<T extends string>({ options, value, onChange, ariaLab
       aria-label={ariaLabel}
       style={{ "--seg-count": options.length, "--seg-i": index } as CSSProperties}
     >
-      <span
-        className="cal-seg__thumb"
-        aria-hidden="true"
-        style={vtName ? ({ viewTransitionName: vtName } as CSSProperties) : undefined}
-      />
-      {options.map((option, index) => (
+      {options.map((option) => (
         <button
           key={option.id}
           type="button"
           lang={option.lang}
           className={value === option.id ? "active" : ""}
           aria-pressed={value === option.id}
-          onClick={(event) => onChange(option.id, event.currentTarget)}
-          /* Named too, so each label is captured as its own (static) VT group
-             painted after the thumb's — otherwise the thumb group renders on
-             top of the root snapshot and covers the text until the morph
-             finishes. */
-          style={vtName ? ({ viewTransitionName: `${vtName}-o${index}` } as CSSProperties) : undefined}
+          onClick={(event) => {
+            markLive(event.currentTarget.parentElement);
+            onChange(option.id, event.currentTarget);
+          }}
         >
           {option.label}
         </button>
       ))}
+      <span className="cal-seg__thumb" aria-hidden="true">
+        <span className="cal-seg__ink">
+          {options.map((option) => (
+            <span key={option.id} lang={option.lang}>
+              {option.label}
+            </span>
+          ))}
+        </span>
+      </span>
     </div>
   );
 }

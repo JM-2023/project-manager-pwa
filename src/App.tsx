@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
-import { BottomNav, NAV_TAB_ORDER } from "./components/BottomNav";
+import { BottomNav } from "./components/BottomNav";
 import { OfflineBanner } from "./components/OfflineBanner";
 import {
   AuthRequiredError,
@@ -195,8 +195,7 @@ export function App() {
   // Every tab change goes through here so it cross-fades (lib/pageTransition).
   // `prepare` runs inside the swap, so its state lands in the same new frame.
   const switchTab = useCallback((tab: TabId, prepare?: () => void) => {
-    const dir = Math.sign(NAV_TAB_ORDER.indexOf(tab) - NAV_TAB_ORDER.indexOf(stateRef.current.currentTab));
-    switchPageAnimated(dir, () => {
+    switchPageAnimated(tab !== stateRef.current.currentTab, () => {
       prepare?.();
       commit({ type: "setTab", payload: tab });
     });

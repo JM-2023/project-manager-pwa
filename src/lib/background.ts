@@ -3,11 +3,11 @@ import { flushSync } from "react-dom";
 import { syncChromeColor } from "./chromeColor";
 
 /**
- * Ground colour under the whole app. "default" is the bone paper the app
- * ships with; "gray" turns the ground a near-white neutral gray (see the
+ * Ground colour under the whole app. "default" is the bone paper (no
+ * [data-bg] on the root); "gray" turns the ground a near-white neutral gray (see the
  * Ground section in app.css) beneath the same cards; "prussian" is a whole
- * palette — milk-apricot paper, Prussian-blue ink, wine-red accent. A
- * device-local display preference stored like the theme; theme-init.js
+ * palette — milk-apricot paper, Prussian-blue ink, wine-red accent, and
+ * the ground a fresh device starts on. A device-local display preference stored like the theme; theme-init.js
  * applies it before first paint and the CSS keys off html[data-bg].
  */
 export type BackgroundStyle = "default" | "gray" | "prussian";
@@ -15,6 +15,8 @@ export type BackgroundStyle = "default" | "gray" | "prussian";
 export const BACKGROUND_STYLES: readonly BackgroundStyle[] = ["default", "gray", "prussian"];
 
 const STORAGE_KEY = "pm:bg";
+/** What an unset key means; only other choices are written to storage. */
+const DEFAULT_BACKGROUND: BackgroundStyle = "prussian";
 
 function isBackgroundStyle(value: unknown): value is BackgroundStyle {
   return BACKGROUND_STYLES.includes(value as BackgroundStyle);
@@ -23,9 +25,9 @@ function isBackgroundStyle(value: unknown): value is BackgroundStyle {
 export function getStoredBackground(): BackgroundStyle {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return isBackgroundStyle(raw) ? raw : "default";
+    return isBackgroundStyle(raw) ? raw : DEFAULT_BACKGROUND;
   } catch {
-    return "default";
+    return DEFAULT_BACKGROUND;
   }
 }
 
@@ -42,7 +44,7 @@ export function applyBackground(style: BackgroundStyle): void {
 
 export function setStoredBackground(style: BackgroundStyle): void {
   try {
-    if (style === "default") {
+    if (style === DEFAULT_BACKGROUND) {
       localStorage.removeItem(STORAGE_KEY);
     } else {
       localStorage.setItem(STORAGE_KEY, style);

@@ -12,10 +12,11 @@
       prussian: { light: "#f6f0e7", dark: "#0e1720" }
     };
 
-    // Ground colour: bone paper unless another ground is pinned.
-    // Applied pre-paint so a pinned ground never flashes bone first.
+    // Ground colour: Prussian unless another ground is pinned ("default" is
+    // the bone paper, which carries no attribute). Applied pre-paint so the
+    // ground never flashes a different one first.
     var storedBg = localStorage.getItem("pm:bg");
-    var bg = storedBg && storedBg !== "default" && COLORS.hasOwnProperty(storedBg) ? storedBg : "default";
+    var bg = storedBg && COLORS.hasOwnProperty(storedBg) ? storedBg : "prussian";
     if (bg !== "default") {
       document.documentElement.setAttribute("data-bg", bg);
     }
@@ -25,10 +26,10 @@
     if (t === "light" || t === "dark") {
       document.documentElement.setAttribute("data-theme", t);
     }
-    // A pinned theme overrides both media-scoped metas; a non-default ground
+    // A pinned theme overrides both media-scoped metas; any other ground
     // retints each meta within its own scheme. (The static HTML already
-    // carries the default ground's colors.)
-    if (pinned || bg !== "default") {
+    // carries the Prussian ground's colors.)
+    if (pinned || bg !== "prussian") {
       var metas = document.querySelectorAll('meta[name="theme-color"]');
       for (var i = 0; i < metas.length; i += 1) {
         var scheme = pinned ? t : ((metas[i].getAttribute("media") || "").indexOf("dark") >= 0 ? "dark" : "light");
@@ -38,9 +39,9 @@
     if (localStorage.getItem("pm:lang") === "zh") {
       document.documentElement.lang = "zh-CN";
     }
-    // Meter material (progress bars / heat tiles): glass unless flat is
-    // pinned. Applied pre-paint so the bars never flash the other skin.
+    // Meter material (progress bars / heat tiles): flat ("Minimal") unless
+    // glass is pinned. Applied pre-paint so the bars never flash the other skin.
     var meters = localStorage.getItem("pm:meterStyle");
-    document.documentElement.setAttribute("data-meters", meters === "flat" ? "flat" : "glass");
+    document.documentElement.setAttribute("data-meters", meters === "glass" ? "glass" : "flat");
   } catch (e) {}
 })();

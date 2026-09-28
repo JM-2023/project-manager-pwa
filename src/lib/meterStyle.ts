@@ -4,7 +4,7 @@ import { flushSync } from "react-dom";
 /**
  * Material for the app's completion meters (Today core bar, project chip
  * meters, calendar bars/series, heatmap tiles). "glass" is the v2 liquid
- * treatment; "flat" the solid de-slop one. A device-local display preference
+ * treatment; "flat" the solid de-slop one ("Minimal", the default). A device-local display preference
  * stored like the theme; theme-init.js applies it before first paint and the
  * CSS keys off html[data-meters].
  */
@@ -19,9 +19,9 @@ function isMeterStyle(value: unknown): value is MeterStyle {
 export function getStoredMeterStyle(): MeterStyle {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return isMeterStyle(raw) ? raw : "glass";
+    return isMeterStyle(raw) ? raw : "flat";
   } catch {
-    return "glass";
+    return "flat";
   }
 }
 
@@ -31,7 +31,7 @@ export function applyMeterStyle(style: MeterStyle): void {
 
 export function setStoredMeterStyle(style: MeterStyle): void {
   try {
-    if (style === "glass") {
+    if (style === "flat") {
       localStorage.removeItem(STORAGE_KEY);
     } else {
       localStorage.setItem(STORAGE_KEY, style);

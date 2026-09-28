@@ -39,9 +39,11 @@ afterEach(() => {
 });
 
 describe("background preference", () => {
-  it("defaults to paper and ignores unknown stored values", () => {
+  it("defaults to prussian and ignores unknown stored values", () => {
     stubStorage({ "pm:bg": "tartan" });
-    expect(getStoredBackground()).toBe("default");
+    expect(getStoredBackground()).toBe("prussian");
+    stubStorage();
+    expect(getStoredBackground()).toBe("prussian");
   });
 
   it("stores gray, pins the root attribute and retints both chrome metas", () => {
@@ -59,8 +61,8 @@ describe("background preference", () => {
     expect(dark.content).toBe("#17181a");
   });
 
-  it("stores prussian and retints both chrome metas to its own grounds", () => {
-    const storage = stubStorage();
+  it("returning to prussian clears the key and retints both chrome metas to its own grounds", () => {
+    const storage = stubStorage({ "pm:bg": "gray" });
     const attributes = new Map<string, string>();
     const light = makeMeta("(prefers-color-scheme: light)");
     const dark = makeMeta("(prefers-color-scheme: dark)");
@@ -68,14 +70,14 @@ describe("background preference", () => {
 
     setStoredBackground("prussian");
 
-    expect(storage.get("pm:bg")).toBe("prussian");
+    expect(storage.has("pm:bg")).toBe(false);
     expect(getStoredBackground()).toBe("prussian");
     expect(attributes.get("data-bg")).toBe("prussian");
     expect(light.content).toBe("#f6f0e7");
     expect(dark.content).toBe("#0e1720");
   });
 
-  it("returning to paper clears the key, the attribute and the retint", () => {
+  it("paper is stored explicitly and clears the attribute and the retint", () => {
     const storage = stubStorage({ "pm:bg": "gray" });
     const attributes = new Map<string, string>([["data-bg", "gray"]]);
     const light = makeMeta("(prefers-color-scheme: light)");
@@ -84,7 +86,8 @@ describe("background preference", () => {
 
     setStoredBackground("default");
 
-    expect(storage.has("pm:bg")).toBe(false);
+    expect(storage.get("pm:bg")).toBe("default");
+    expect(getStoredBackground()).toBe("default");
     expect(attributes.has("data-bg")).toBe(false);
     expect(light.content).toBe("#f5f3ee");
     expect(dark.content).toBe("#131211");

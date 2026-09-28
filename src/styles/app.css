@@ -2225,7 +2225,8 @@ input:focus, select:focus, textarea:focus { outline: none; }
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
 }
 /* The slab IS the selected chip's body, so it follows the chip's press dip. */
-.project-list:has(> .project-row.active:active) > .project-active-slab {
+.project-list:has(> .project-row.active > button:first-child:active) > .project-active-slab,
+.project-list:has(> button.project-row.active:active) > .project-active-slab {
   scale: 0.97;
   transition: opacity 0.2s var(--ease), border-radius 0.2s var(--ease-in-out), scale 0.12s var(--ease-out);
 }
@@ -2258,12 +2259,16 @@ input:focus, select:focus, textarea:focus { outline: none; }
      (--chip-i set inline), capped so long lists don't drag the tail. */
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.16s var(--ease-out);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), scale 0.16s var(--ease-out);
 }
-/* Press dips fast and releases without overshoot. */
-.project-row:active {
-  transform: scale(0.97);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.12s var(--ease-out);
+/* Press dips fast and releases without overshoot. It rides `scale`, not
+   `transform`: the fade-up entrance fills `both`, so its end frame keeps
+   holding `transform` and would silently cancel a transform press. Only the
+   chip's own button counts — pressing the ··· menu (or a row in it) leaves
+   the chip still. */
+.project-row:has(> button:first-child:active) {
+  scale: 0.97;
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), scale 0.12s var(--ease-out);
 }
 .project-row .icon-button { min-width: 36px; min-height: 36px; justify-self: center; }
 .project-row.editing { grid-template-columns: minmax(0, 1fr) 44px; padding: 6px; }
@@ -2348,12 +2353,12 @@ button.project-row {
   box-shadow: var(--chip-shadow);
   animation: fade-up var(--t-slow) var(--ease) both;
   animation-delay: min(calc(var(--chip-i, 0) * 26ms), 320ms);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.16s var(--ease-out);
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), scale 0.16s var(--ease-out);
 }
 button.project-row .row-progress { right: 11px; left: 11px; bottom: 10px; }
 button.project-row:active {
-  transform: scale(0.97);
-  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), transform 0.12s var(--ease-out);
+  scale: 0.97;
+  transition: background var(--t) var(--ease), box-shadow var(--t) var(--ease), border-color var(--t) var(--ease), border-radius 0.2s var(--ease-in-out), scale 0.12s var(--ease-out);
 }
 
 .project-row > button:first-child > span:not(.project-color),

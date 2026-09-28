@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
-import { BottomNav } from "./components/BottomNav";
+import { BottomNav, NAV_TAB_ORDER } from "./components/BottomNav";
 import { OfflineBanner } from "./components/OfflineBanner";
 import {
   AuthRequiredError,
@@ -22,6 +22,7 @@ import {
   WorkbookWorkerUnavailableError
 } from "./lib/excelWorkbookClient";
 import { useI18n } from "./lib/i18n";
+import { switchPageAnimated } from "./lib/pageTransition";
 import {
   commitLocalMutation,
   getPendingMutations,
@@ -68,7 +69,7 @@ import { SearchPage } from "./pages/SearchPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { TodayPage } from "./pages/TodayPage";
 import { PROJECT_COLORS } from "./lib/projectColor";
-import { appReducer, initialState, sortedProjects, sortedTasks, type AppAction } from "./state/appStore";
+import { appReducer, initialState, sortedProjects, sortedTasks, type AppAction, type TabId } from "./state/appStore";
 
 const PROJECT_ARCHIVE_MARKER_KEY = "archived_with_project_id";
 const TASK_PATCH_FIELDS = [
@@ -190,6 +191,15 @@ export function App() {
   }, []);
   const selectDate = useCallback((date: string) => {
     commit({ type: "setSelectedDate", payload: date === todayDate() ? null : date });
+  }, [commit]);
+  // Every tab change goes through here so it cross-fades (lib/pageTransition).
+  // `prepare` runs inside the swap, so its state lands in the same new frame.
+  const switchTab = useCallback((tab: TabId, prepare?: () => void) => {
+    const dir = Math.sign(NAV_TAB_ORDER.indexOf(tab) - NAV_TAB_ORDER.indexOf(stateRef.current.currentTab));
+    switchPageAnimated(dir, () => {
+      prepare?.();
+      commit({ type: "setTab", payload: tab });
+    });
   }, [commit]);
 
   // Reset before paint when a page changes. Search jumps in Next schedule
@@ -1017,15 +1027,12 @@ export function App() {
         <CalendarPage
           {...pageProps}
           initialDate={state.selectedDate}
-          onOpenDay={(date) => {
-            selectDate(date);
-            commit({ type: "setTab", payload: "today" });
-          }}
+          onOpenDay={(date) => switchTab("today", () => selectDate(date))}
         />
       ) : null}
       {state.currentTab === "projects" ? <ProjectsPage {...pageProps} projectTaskCounts={projectTaskCounts} /> : null}
       {state.currentTab === "next" ? <NextPage {...pageProps} initialIdeaId={focusedNextIdea.current} /> : null}
-      {state.currentTab === "search" ? <SearchPage {...pageProps} onOpenIdea={(id) => { focusedNextIdea.current = id; commit({ type: "setTab", payload: "next" }); }} /> : null}
+      {state.currentTab === "search" ? <SearchPage {...pageProps} onOpenIdea={(id) => switchTab("next", () => { focusedNextIdea.current = id; })} /> : null}
       {state.currentTab === "settings" ? (
         <SettingsPage
           taskCount={visibleTasks(state.tasks).length}
@@ -1048,13 +1055,14 @@ export function App() {
       ) : null}
       <BottomNav
         current={state.currentTab}
-        onChange={(tab) => {
-          focusedNextIdea.current = null;
-          if (tab === "today") {
-            commit({ type: "setSelectedDate", payload: null });
-          }
-          commit({ type: "setTab", payload: tab });
-        }}
+        onChange={(tab) =>
+          switchTab(tab, () => {
+            focusedNextIdea.current = null;
+            if (tab === "today") {
+              commit({ type: "setSelectedDate", payload: null });
+            }
+          })
+        }
       />
     </div>
   );

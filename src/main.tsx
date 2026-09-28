@@ -4,6 +4,7 @@ import { App } from "./App";
 import { initBackground } from "./lib/background";
 import { I18nProvider } from "./lib/i18n";
 import { initMeterStyle } from "./lib/meterStyle";
+import { initPageTransitions } from "./lib/pageTransition";
 import { installGlobalTrace } from "./lib/syncTrace";
 import "./styles/app.css";
 
@@ -35,6 +36,7 @@ window.addEventListener("vite:preloadError", (event) => {
 // skipped (e.g. a stale service-worker HTML without it).
 initMeterStyle();
 initBackground();
+initPageTransitions();
 installGlobalTrace();
 
 // The ink reveal is a one-time welcome, not a reload animation. Persist the

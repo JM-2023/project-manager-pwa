@@ -848,10 +848,14 @@ select {
 .reveal-complete .login-screen,
 .reveal-complete .offline-banner,
 .reveal-complete .bottom-nav { animation: none; }
-/* After the first reveal, each tab switch remounts its page — a short soft
-   rise keeps the swap from feeling like a hard cut. */
-.reveal-complete .page-content { animation: page-in 0.18s var(--ease-out); }
-@keyframes page-in { from { opacity: 0; transform: translateY(5px); } }
+/* After the first reveal, each tab switch remounts its page. Where View
+   Transitions run (html[data-page-vt]) the swap is a cross-fade from the old
+   frame ("Tab switch" below) and the page itself enters as-is — fading it in
+   from 0 on top would bring the bare-ground blink back. Elsewhere a short
+   rise softens the cut; it starts part-visible so the screen never empties. */
+.reveal-complete .page-content { animation: page-in 0.22s var(--ease-out); }
+:root[data-page-vt].reveal-complete .page-content { animation: none; }
+@keyframes page-in { from { opacity: 0.35; transform: translateY(4px); } }
 
 /* Collapse-and-fade for items being removed (delete / archive / unarchive),
    driven by useRemoveTransition. JS locks the element's height then drops it to
@@ -3737,6 +3741,49 @@ button.project-row > span { flex: 1; min-width: 0; }
     filter: blur(0);
     transform: none;
   }
+}
+
+/* =========================================================================
+   Tab switch — View Transition cross-fade with a drift
+   --------------------------------------------------------------------------
+   pageTransition.ts runs every tab change inside startViewTransition and
+   sets html[data-page-switch] to fwd/back by navigation order. The old frame
+   and the new page share one cross-fade (the UA's plus-lighter pair, same
+   duration and curve, so the two opacities always sum to one — no dim
+   mid-fade) while both drift a few px along the navigation's axis: sideways
+   under the dock, vertically beside the rail. The overlay's own ground is
+   the page ground, so the strip a drifting frame uncovers stays invisible.
+   The dock and the sync pill are named out of the root: the dock stays one
+   live layer (its pill springs and its icons fill in real time), and
+   neither rides the drift.
+   ========================================================================= */
+:root[data-page-switch] { --page-vt-dx: 12px; --page-vt-dy: 0px; }
+:root[data-page-switch="back"] { --page-vt-dx: -12px; }
+@media (min-width: 900px) {
+  :root[data-page-switch] { --page-vt-dx: 0px; --page-vt-dy: 10px; }
+  :root[data-page-switch="back"] { --page-vt-dy: -10px; }
+}
+
+:root[data-page-switch] .bottom-nav { view-transition-name: app-nav; }
+:root[data-page-switch] .offline-banner { view-transition-name: sync-pill; }
+
+:root[data-page-switch]::view-transition { background: var(--bg); }
+:root[data-page-switch]::view-transition-old(root) {
+  animation: page-drift-out 0.26s var(--ease-out) both;
+}
+:root[data-page-switch]::view-transition-new(root) {
+  animation: page-drift-in 0.26s var(--ease-out) both;
+}
+:root[data-page-switch]::view-transition-group(app-nav) { animation: none; }
+:root[data-page-switch]::view-transition-old(app-nav) { animation: none; opacity: 0; }
+:root[data-page-switch]::view-transition-new(app-nav) { animation: none; }
+
+@keyframes page-drift-out {
+  to { opacity: 0; transform: translate(calc(var(--page-vt-dx) * -1), calc(var(--page-vt-dy) * -1)); }
+}
+@keyframes page-drift-in {
+  from { opacity: 0; transform: translate(var(--page-vt-dx), var(--page-vt-dy)); }
+  to { opacity: 1; transform: none; }
 }
 
 /* =========================================================================

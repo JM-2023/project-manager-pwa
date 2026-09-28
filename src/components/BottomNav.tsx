@@ -18,6 +18,9 @@ const items: Array<{ id: TabId; label: keyof Messages["nav"] }> = [
   { id: "settings", label: "settings" }
 ];
 
+/** Tabs in navigation order — page transitions drift along it. */
+export const NAV_TAB_ORDER: TabId[] = items.map((item) => item.id);
+
 export function BottomNav({ current, onChange }: BottomNavProps) {
   const { m } = useI18n();
   const navRef = useRef<HTMLElement>(null);

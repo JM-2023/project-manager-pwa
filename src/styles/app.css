@@ -1762,15 +1762,29 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 .table-more { margin: 10px 2px 0; color: var(--muted); font-size: 0.82rem; font-weight: 600; text-align: center; }
 .task-table-sentinel { width: 100%; height: 1px; pointer-events: none; }
-/* Rows are spaced by their own margin, not the grid's gap: a collapsing row
-   (useRemoveTransition) can transition its margin to 0 along with its height,
-   so it exits owning zero space — a gap would stay 12px tall until the row
+/* Rows are spaced by their own margin, not the grid's gap: a row folding out
+   (lib/listMotion) animates its margin to 0 along with its height, so it
+   exits owning zero space — a gap would stay 12px tall until the row
    unmounted and then snap shut. */
 /* A zero-minimum track keeps offscreen, content-visibility rows from holding
    the table at a previously measured width when the viewport shrinks. */
 .task-table { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; width: 100%; }
 .task-table > .task-table-row { margin-bottom: 12px; }
 .task-table-header { display: none; }
+/* Rows arriving, leaving and re-sorting are animated by lib/listMotion, not
+   by mount keyframes. A folding row (or the whole table, when its last rows
+   leave) clips its content while its box shrinks; an empty table keeps no
+   chrome in wide mode. */
+.task-table-row.is-exiting,
+.task-table.is-folding { overflow: hidden !important; min-height: 0 !important; pointer-events: none; }
+.task-table-wrap.is-empty .task-table { display: none; }
+/* A row gliding past its neighbours is solid for the trip — the same tint
+   laid on the ground it covers, so it looks unchanged but hides the rows it
+   crosses instead of showing through them. */
+.task-table-row.is-moving { z-index: 2; background: color-mix(in srgb, var(--importance-color) 4%, var(--bg)); }
+@container tasktable (min-width: 881px) {
+  .task-table-row.is-moving { background: color-mix(in srgb, var(--importance-color) 4%, var(--surface)); }
+}
 
 /* Card layout (narrow). Importance is encoded as a flat tint — the SAME 4%
    wash the wide table uses, laid straight on the page so a row reads
@@ -1789,27 +1803,25 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-xs);
-  animation: fade-up var(--t-slow) var(--ease) both;
   transition: box-shadow var(--t) var(--ease), transform var(--t) var(--ease), border-color var(--t) var(--ease);
 }
-/* Once incremental loading has mounted a long result set, let the browser
-   skip paint/layout work for rows far outside the viewport. The remembered
-   intrinsic size minimizes scroll jumps after a row has been measured, and
-   unsupported browsers simply ignore this guarded optimization. */
+/* Wide-table rows carry every field, so once incremental loading has
+   mounted a long result set, let the browser skip paint/layout for rows far
+   off screen. The remembered intrinsic size minimizes scroll jumps after a
+   row has been measured. Card rows are just a summary until opened and don't
+   need it. No :focus-within exception: focused content is never skipped, and
+   flipping the property on blur leaves WebKit hit-testing the row instead
+   of its contents for a beat, which swallowed the next tap. */
 @supports (content-visibility: auto) {
-  .task-table-row {
-    content-visibility: auto;
-    contain-intrinsic-block-size: auto var(--task-row-intrinsic-block-size, 620px);
+  @container tasktable (min-width: 881px) {
+    .task-table-row {
+      content-visibility: auto;
+      contain-intrinsic-block-size: auto var(--task-row-intrinsic-block-size, 160px);
+    }
+    .task-table-row.is-exiting { content-visibility: visible; }
   }
-  .task-table-row:focus-within,
-  .task-table-row.is-removing,
-  .task-table-row:has(.task-menu.is-open) { content-visibility: visible; }
 }
 @media (hover: hover) { .task-table-row:hover { box-shadow: var(--shadow-sm); border-color: var(--line-strong); } }
-
-/* A freshly added row arrives from the Add-task button above it. */
-.task-table-row.is-new { animation: row-in 0.42s var(--ease-out) both; }
-@keyframes row-in { from { opacity: 0; transform: translateY(-8px) scale(0.99); } }
 
 .task-table-row.importance-1 { --importance-color: var(--imp-1); }
 .task-table-row.importance-2 { --importance-color: var(--imp-2); }
@@ -1960,9 +1972,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table-note-cell .icon-button { align-self: stretch; min-width: 44px; color: var(--muted); }
 .task-table-note-cell .icon-button.danger { color: var(--danger); }
 
-/* Compact reading rows share the same editor as the wide table. Keeping the
-   fields mounted preserves drafts, slider motion and exit animations. */
-.task-table-row { gap: 0; --task-row-intrinsic-block-size: 150px; }
+/* Compact reading rows share the same editor as the wide table. In the card
+   layout it mounts only while open (TaskTable's useEditorPresence): mounted
+   shut, eased open via `.is-open`, eased shut again before it unmounts. The
+   drafts live on the row, so closing never loses text. */
+.task-table-row { gap: 0; }
 .task-summary {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px;
   width: 100%; padding: 0; text-align: left; background: transparent; border: 0;
@@ -1977,7 +1991,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: var(--r-xs); }
 .task-editor { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow); }
 .task-editor__fields { min-height: 0; overflow: hidden; display: grid; gap: 16px; }
-.is-expanded > .task-editor { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
+.task-editor.is-open { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
 .task-editor__fields > .tt-cell:first-child { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .task-editor__fields:has(.task-menu.is-open) { overflow: visible; }
 .task-editor-close { display: flex; justify-content: center; align-items: center; gap: 4px; min-height: 44px; padding: 8px; color: var(--muted); font-size: 0.8125rem; background: transparent; border: 0; border-top: 1px solid var(--line); }

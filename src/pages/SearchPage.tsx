@@ -107,7 +107,7 @@ export function SearchPage(props: TaskPageProps & { onOpenIdea: (id: string) => 
         </select>}
       </section>
       <div key={scope} className="search-results">
-      {scope === "tasks" ? <TaskTable tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} /> :
+      {scope === "tasks" ? <TaskTable key={[query, filters.projectId, filters.status, filters.priority].join("|")} tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} /> :
       <section className="search-next-results" aria-label={m.search.nextResultsAria}>
         <h2>{m.search.nextIdeas}</h2>
         {filteredNextIdeas.length > 0 ? (

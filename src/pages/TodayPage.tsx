@@ -2,7 +2,7 @@ import { ChevronsRight, Plus } from "lucide-react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DateSwitcher, type NavDirection } from "../components/DateNav";
 import { ProgressSummary } from "../components/ProgressSummary";
-import { TaskTable, type PendingRowExit } from "../components/TaskTable";
+import { TaskTable } from "../components/TaskTable";
 import { addDays, formatDayLabel, formatShortDate, toDateInput, weekdayLong, weekdayLongNames } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import { getTaskProgress, importancePriority, isProjectCacheTask, summarizeProgress } from "../lib/progress";
@@ -22,16 +22,12 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
   const viewDate = selectedDate ?? today;
   const [navDir, setNavDir] = useState<NavDirection>(1);
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
-  // Roll-over choreography: rows on this list collapse out (staggered) and
-  // each one commits its date change as its own exit lands.
-  const [pendingExit, setPendingExit] = useState<PendingRowExit | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const bodySettledRef = useRef(false);
 
   // A remembered focus target only applies to the day it was created on.
   useEffect(() => {
     setFocusTaskId(null);
-    setPendingExit(null);
   }, [viewDate]);
 
   const datedTasks = tasks.filter((task) => {
@@ -56,18 +52,12 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
     setFocusTaskId(id);
   }
 
+  // Every unfinished task moves to tomorrow at once; the table folds the
+  // rows out top to bottom.
   function rolloverUnfinished() {
-    if (unfinishedTasks.length === 0) return;
-    setPendingExit({ ids: unfinishedTasks.map((task) => task.id), date: addDays(viewDate, 1) });
+    const date = addDays(viewDate, 1);
+    for (const task of unfinishedTasks) onUpdateTask(task, { start_date: date });
   }
-
-  // Once every rolled-over row has left the day, drop the marker so a task
-  // re-dated back here doesn't get swept out again.
-  useEffect(() => {
-    if (pendingExit && !displayTasks.some((task) => pendingExit.ids.includes(task.id))) {
-      setPendingExit(null);
-    }
-  }, [pendingExit, displayTasks]);
 
   function goTo(date: string, dir: NavDirection) {
     setNavDir(dir);
@@ -130,21 +120,21 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
           <span>{m.today.rollover}</span>
         </button>
       </div>
-      {displayTasks.length > 0 ? (
-        <TaskTable
-          tasks={displayTasks}
-          projects={projects}
-          showDate={false}
-          focusTaskId={focusTaskId}
-          exitOnMove
-          pendingExit={pendingExit}
-          onCreate={onCreateTask}
-          onUpdate={onUpdateTask}
-          onDelete={onDeleteTask}
-        />
-      ) : (
+      {/* Mounted even when the day empties, so its last rows can fold out;
+          keyed by day, so switching days swaps the list without motion. */}
+      <TaskTable
+        key={viewDate}
+        tasks={displayTasks}
+        projects={projects}
+        showDate={false}
+        focusTaskId={focusTaskId}
+        onCreate={onCreateTask}
+        onUpdate={onUpdateTask}
+        onDelete={onDeleteTask}
+      />
+      {displayTasks.length === 0 ? (
         <p className="empty-state">{m.today.empty(formatShortDate(viewDate, lang))}</p>
-      )}
+      ) : null}
       </div>
     </main>
   );

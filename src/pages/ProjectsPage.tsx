@@ -54,7 +54,7 @@ export function ProjectsPage(props: TaskPageProps & { projectTaskCounts: Readonl
         onDelete={onDeleteProject}
         onRename={onRenameProject}
       />
-      <TaskTable tasks={projectTasks} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
+      <TaskTable key={selectedProjectId} tasks={projectTasks} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
     </main>
   );
 }

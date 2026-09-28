@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { TabId } from "../state/appStore";
+import { clamp01, easeOut, roundRectPath as roundRect, useCanvasLoop } from "../lib/canvasLoop";
 
 /* Canvas-drawn navigation icons. Each icon is painted in a 24-unit grid (the
    same grid lucide uses, so stroke weight matches the rest of the app) and is
@@ -14,8 +15,8 @@ import type { TabId } from "../state/appStore";
               a gear turns, rays flicker out of the bulb…)
 
    Colour comes from the canvas's computed `color`, so CSS keeps owning the
-   palette, theme switches and hover tints. The loop only runs while something
-   is moving; a settled icon costs nothing. */
+   palette, theme switches and hover tints. The loop (lib/canvasLoop) only
+   runs while something is moving; a settled icon costs nothing. */
 
 const ICON = 20; // layout size in CSS px (matches the old SVG)
 const BLEED = 5; // extra canvas on each side so rays and overshoot never clip
@@ -37,8 +38,6 @@ function stepSpring(s: Spring, dt: number, snap: boolean) {
   return true;
 }
 
-const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
-const easeOut = (t: number) => 1 - Math.pow(1 - clamp01(t), 3);
 /** Sub-range of the pulse, eased; 1 when no pulse is running. */
 const phase = (pulse: number | null, from: number, to: number) => (pulse === null ? 1 : easeOut((pulse - from) / (to - from)));
 /** A bump that rises and falls back to 0 across the pulse. */
@@ -102,17 +101,6 @@ function withTransform(ctx: CanvasRenderingContext2D, cx: number, cy: number, ro
   ctx.translate(-cx, -cy);
   draw();
   ctx.restore();
-}
-
-function roundRect(x: number, y: number, w: number, h: number, r: number) {
-  const p = new Path2D();
-  p.moveTo(x + r, y);
-  p.arcTo(x + w, y, x + w, y + h, r);
-  p.arcTo(x + w, y + h, x, y + h, r);
-  p.arcTo(x, y + h, x, y, r);
-  p.arcTo(x, y, x + w, y, r);
-  p.closePath();
-  return p;
 }
 
 function line(x1: number, y1: number, x2: number, y2: number) {
@@ -263,125 +251,86 @@ export function NavIcon({ id, active }: { id: TabId; active: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const activeRef = useRef<((on: boolean) => void) | null>(null);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    const button = canvas?.closest("button");
-    if (!canvas || !ctx || !button) return;
+  useCanvasLoop(
+    canvasRef,
+    (loop, canvas) => {
+      const button = canvas.closest("button");
+      const hover = spring(260, 19);
+      const press = spring(900, 42);
+      const fill = spring(210, 29, active ? 1 : 0);
+      let pulseStart: number | null = null;
 
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const hover = spring(260, 19);
-    const press = spring(900, 42);
-    const fill = spring(210, 29, active ? 1 : 0);
-    let pulseStart: number | null = null;
-    let keepAliveUntil = 0;
-    let frame = 0;
-    let last = 0;
+      const setHover = (on: boolean) => {
+        if ((hover.target === 1) === on) return;
+        hover.target = on ? 1 : 0;
+        if (on && !loop.reducedMotion) pulseStart = performance.now();
+        loop.kick(260);
+      };
+      const setPress = (on: boolean) => { press.target = on ? 1 : 0; loop.kick(); };
+      activeRef.current = (on) => { fill.target = on ? 1 : 0; loop.kick(260); };
 
-    const draw = (now: number) => {
-      const dpr = window.devicePixelRatio || 1;
-      const px = Math.round(CANVAS * dpr);
-      if (canvas.width !== px) { canvas.width = px; canvas.height = px; }
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, px, px);
-      ctx.setTransform(dpr * UNIT, 0, 0, dpr * UNIT, dpr * BLEED, dpr * BLEED);
-      const color = getComputedStyle(canvas).color;
-      ctx.strokeStyle = color;
-      ctx.fillStyle = color;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
+      const onEnter = (e: PointerEvent) => { if (e.pointerType !== "touch") setHover(true); };
+      const onLeave = () => { setHover(false); setPress(false); };
+      const onDown = () => setPress(true);
+      const onUp = () => setPress(false);
+      const onFocus = () => { if (button?.matches(":focus-visible")) setHover(true); };
+      const onBlur = () => setHover(false);
+      const onKeyDown = (e: KeyboardEvent) => { if (!e.repeat && (e.key === " " || e.key === "Enter")) setPress(true); };
+      const onKeyUp = () => setPress(false);
+      // Settle on the final CSS colour even if the loop stopped mid-transition
+      // (the rail transitions the canvas colour, the phone bar the button's).
+      const onColorDone = (e: TransitionEvent) => { if (e.propertyName === "color") loop.kick(); };
 
-      const pulse = pulseStart === null ? null : (now - pulseStart) / PULSE_MS;
-      const state: DrawState = { hover: hover.x, press: press.x, active: fill.x, pulse };
-      withTransform(ctx, 12, 12, 0, 1 - 0.14 * press.x, () => {
-        painters[id](makePen(ctx, Math.max(0, fill.x) * 17.5), state);
-      });
-    };
+      const listeners: Array<[string, EventListener]> = [
+        ["pointerenter", onEnter as EventListener],
+        ["pointerleave", onLeave],
+        ["pointerdown", onDown],
+        ["pointerup", onUp],
+        ["pointercancel", onUp],
+        ["focus", onFocus],
+        ["blur", onBlur],
+        ["keydown", onKeyDown as EventListener],
+        ["keyup", onKeyUp],
+        ["transitionend", onColorDone as EventListener]
+      ];
+      listeners.forEach(([type, fn]) => button?.addEventListener(type, fn));
+      loop.kick(260);
 
-    const tick = (now: number) => {
-      const dt = Math.min(1 / 30, last ? (now - last) / 1000 : 1 / 60);
-      last = now;
-      const snap = reduced.matches;
-      let moving = stepSpring(hover, dt, snap);
-      moving = stepSpring(press, dt, snap) || moving;
-      moving = stepSpring(fill, dt, snap) || moving;
-      if (pulseStart !== null && now - pulseStart >= PULSE_MS) pulseStart = null;
-      draw(now);
-      if (moving || pulseStart !== null || now < keepAliveUntil) {
-        frame = requestAnimationFrame(tick);
-      } else {
-        frame = 0;
-        last = 0;
-      }
-    };
+      return {
+        draw({ ctx, now, dt }) {
+          const snap = loop.reducedMotion;
+          let moving = stepSpring(hover, dt, snap);
+          moving = stepSpring(press, dt, snap) || moving;
+          moving = stepSpring(fill, dt, snap) || moving;
+          if (pulseStart !== null && now - pulseStart >= PULSE_MS) pulseStart = null;
 
-    // Also follows CSS colour transitions (hover tint, theme swap) for `ms`.
-    const kick = (ms = 0) => {
-      keepAliveUntil = Math.max(keepAliveUntil, performance.now() + ms);
-      if (!frame) frame = requestAnimationFrame(tick);
-    };
+          // Colour comes from CSS every frame, so hover tints and theme
+          // transitions are followed rather than snapped.
+          const color = getComputedStyle(canvas).color;
+          ctx.strokeStyle = color;
+          ctx.fillStyle = color;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.translate(BLEED, BLEED);
+          ctx.scale(UNIT, UNIT);
 
-    const setHover = (on: boolean) => {
-      if ((hover.target === 1) === on) return;
-      hover.target = on ? 1 : 0;
-      if (on && !reduced.matches) pulseStart = performance.now();
-      kick(260);
-    };
-    const setPress = (on: boolean) => { press.target = on ? 1 : 0; kick(); };
-    activeRef.current = (on) => { fill.target = on ? 1 : 0; kick(260); };
-
-    const onEnter = (e: PointerEvent) => { if (e.pointerType !== "touch") setHover(true); };
-    const onLeave = () => { setHover(false); setPress(false); };
-    const onDown = () => setPress(true);
-    const onUp = () => setPress(false);
-    const onFocus = () => { if (button.matches(":focus-visible")) setHover(true); };
-    const onBlur = () => setHover(false);
-    const onKeyDown = (e: KeyboardEvent) => { if (!e.repeat && (e.key === " " || e.key === "Enter")) setPress(true); };
-    const onKeyUp = () => setPress(false);
-    // Settle on the final CSS colour even if the loop stopped mid-transition
-    // (the rail transitions the canvas colour, the phone bar the button's).
-    const onColorDone = (e: TransitionEvent) => { if (e.propertyName === "color") kick(); };
-
-    button.addEventListener("pointerenter", onEnter);
-    button.addEventListener("pointerleave", onLeave);
-    button.addEventListener("pointerdown", onDown);
-    button.addEventListener("pointerup", onUp);
-    button.addEventListener("pointercancel", onUp);
-    button.addEventListener("focus", onFocus);
-    button.addEventListener("blur", onBlur);
-    button.addEventListener("keydown", onKeyDown);
-    button.addEventListener("keyup", onKeyUp);
-    button.addEventListener("transitionend", onColorDone);
-
-    // Redraw when the palette or pixel density changes underneath us.
-    const observer = new MutationObserver(() => kick(600));
-    observer.observe(document.documentElement, { attributes: true });
-    const scheme = window.matchMedia("(prefers-color-scheme: dark)");
-    const onScheme = () => kick(600);
-    scheme.addEventListener("change", onScheme);
-    window.addEventListener("resize", onScheme);
-
-    kick(260);
-    return () => {
-      cancelAnimationFrame(frame);
-      activeRef.current = null;
-      observer.disconnect();
-      scheme.removeEventListener("change", onScheme);
-      window.removeEventListener("resize", onScheme);
-      button.removeEventListener("pointerenter", onEnter);
-      button.removeEventListener("pointerleave", onLeave);
-      button.removeEventListener("pointerdown", onDown);
-      button.removeEventListener("pointerup", onUp);
-      button.removeEventListener("pointercancel", onUp);
-      button.removeEventListener("focus", onFocus);
-      button.removeEventListener("blur", onBlur);
-      button.removeEventListener("keydown", onKeyDown);
-      button.removeEventListener("keyup", onKeyUp);
-      button.removeEventListener("transitionend", onColorDone);
-    };
+          const pulse = pulseStart === null ? null : (now - pulseStart) / PULSE_MS;
+          const state: DrawState = { hover: hover.x, press: press.x, active: fill.x, pulse };
+          withTransform(ctx, 12, 12, 0, 1 - 0.14 * press.x, () => {
+            painters[id](makePen(ctx, Math.max(0, fill.x) * 17.5), state);
+          });
+          return moving || pulseStart !== null;
+        },
+        dispose() {
+          activeRef.current = null;
+          listeners.forEach(([type, fn]) => button?.removeEventListener(type, fn));
+        }
+      };
+    },
     // `active` is read once for the initial fill; later changes go through activeRef.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+    [id],
+    { size: { width: CANVAS, height: CANVAS }, followPaletteMs: 600 }
+  );
 
   useEffect(() => { activeRef.current?.(active); }, [active]);
 

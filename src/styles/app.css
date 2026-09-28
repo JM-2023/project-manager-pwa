@@ -1648,6 +1648,17 @@ input:focus, select:focus, textarea:focus { outline: none; }
      itself, which is what gives the drag its weight. */
   transition: background-color var(--t) var(--ease);
 }
+/* Motion texture over the fill's edge (lib/meterDither): blank and bitmap-free
+   at rest; tinted by the row's tone through `color`. */
+.progress-meter__dither {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  color: var(--prog-color, var(--prog-done));
+  pointer-events: none;
+}
 .task-table-row .progress-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -2678,7 +2689,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
    rolling on their drums. Prev/next inside one lens holds the whole frame
    below just as still: cards, grids and labels keep their ground while only
    the changing data animates in place — figures roll over their drums, bar
-   fills glide to new sizes, heat tiles cross-fade on a --reink wave, and
+   fills glide to new sizes, heat tiles re-ink on a left-to-right wave, and
    swapped-out lists (worklogs, project rows) cascade back in. Only a
    week/month/year lens switch remounts .cal-view's content and replays the
    section entrances, lead grid first, insights following. Either way
@@ -2879,7 +2890,7 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .tone-empty { --prog-color: var(--line-strong); }
 /* Hover: the tile comes forward in place with a quick scale and border tone,
    instead of the old translateY hop. */
-.cal-cell, .cal-heatmap__cell {
+.cal-cell {
   --heat-pct: calc(var(--heat, 0) * 1%);
   background: color-mix(in srgb, var(--prog-color) max(7%, var(--heat-pct)), var(--surface-2));
   border: 1px solid var(--line);
@@ -2893,9 +2904,6 @@ button.project-row.active { color: var(--chip-accent-dark); }
     border-color var(--t) var(--ease),
     background 0.18s var(--ease) var(--reink, 0s);
 }
-/* The year map is 371 tiles at ~15px. Nothing but the ink may move: no
-   box-shadow, no opacity fade — at that density any of it reads as jitter. */
-.cal-heatmap__cell { transition: background 0.18s var(--ease) var(--reink, 0s); }
 
 /* ---- Month view ---- */
 .cal-month { display: grid; gap: 6px; }
@@ -2946,24 +2954,40 @@ button.project-row.active { color: var(--chip-accent-dark); }
 .cal-stat svg.trend-up { color: var(--prog-done); }
 .cal-stat svg.trend-down { color: var(--danger); }
 
+/* The year map is one canvas (YearHeatmap.tsx): the tiles, their material,
+   the today ring and the keyboard cursor are all painted there, sized from
+   this card's content width — 53 week columns of 11–17px tiles. The canvas
+   carries a 3px bleed for the rings, so the card pads 3px less and the grid
+   still starts 14px in. Centering rides the canvas's auto margins, NOT
+   justify-content: center — a centered flex container clips both ends of
+   overflowing content and the left side can't even be scrolled to. Auto
+   margins collapse to 0 once it overflows, so narrow screens scroll edge to
+   edge. */
+/* min-width: 0 — the wrap is the grid item now, and its automatic minimum
+   would be the canvas's fixed width, propping the column open so the card
+   could never shrink (or scroll) on a phone. */
+.cal-heatmap-wrap { position: relative; min-width: 0; }
 .cal-heatmap {
-  display: flex; gap: 4px; overflow-x: auto; padding: 14px;
+  display: flex; overflow-x: auto; padding: 11px;
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-xs);
 }
-/* 53 week columns flex between 13-18px so a year fits the card wherever it
-   can; cells stay square via aspect-ratio. Centering rides the first/last
-   columns' auto margins, NOT justify-content: center — a centered flex
-   container clips both ends of overflowing content and the left side can't
-   even be scrolled to (scrollLeft can't go negative). Auto margins collapse
-   to 0 once the row overflows, so narrow screens scroll edge to edge. */
-.cal-heatmap__col { flex: 1 1 13px; min-width: 11px; max-width: 17px; display: grid; grid-auto-rows: auto; gap: 4px; }
-.cal-heatmap__col:first-child { margin-inline-start: auto; }
-.cal-heatmap__col:last-child { margin-inline-end: auto; }
-/* Heat tiles hold still under the pointer — no hover pop; the grid is too
-   dense for a scale to read as anything but jitter. Press feedback only. */
-.cal-heatmap__cell { width: 100%; aspect-ratio: 1; border-radius: var(--r-xs); padding: 0; }
-.cal-heatmap__cell.is-outside { visibility: hidden; }
-.cal-heatmap__cell.is-today { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-tint-strong); }
+.cal-heatmap__canvas { display: block; flex: none; margin-inline: auto; border-radius: var(--r-xs); }
+/* The cursor is drawn on the tile itself; a ring round the whole map would
+   only say "somewhere in here". */
+.cal-heatmap__canvas:focus-visible { outline: none; }
+/* Hover tip, in place of the tiles' old native title. */
+.cal-heatmap__tip {
+  position: absolute; z-index: 5; left: 0; top: 0;
+  padding: 4px 8px;
+  color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: var(--r-sm); box-shadow: var(--shadow-sm);
+  font-size: 0.6875rem; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, calc(-100% + 2px));
+  transition: opacity 0.12s var(--ease), transform 0.12s var(--ease-out);
+}
+.cal-heatmap__tip.is-visible { opacity: 1; transform: translate(-50%, -100%); }
 
 .cal-year__months {
   padding: 18px 18px 16px;
@@ -3000,8 +3024,9 @@ button.project-row.active { color: var(--chip-accent-dark); }
    completion meter — the Today core bar (.mini-bar everywhere), the
    calendar's series columns, the heat tiles, and the project chips' capsule:
    - "glass": the v2.1.29 liquid material. The .mini-bar recipe is v2.1.29's
-     "mini liquid tube" verbatim; the heat tiles wear the same sheen; the
-     chips' capsule keeps its default glass.
+     "mini liquid tube" verbatim; the heat tiles wear the same sheen (the
+     month grid here, the year map in YearHeatmap.tsx, which reads
+     data-meters itself); the chips' capsule keeps its default glass.
    - "flat":  the solid de-slop treatment — flat tracks and tone fills; the
      chip capsule flattens to match. Base rules above ARE the flat skin for
      everything except the chip capsule, whose default is glass.
@@ -3071,15 +3096,13 @@ button.project-row.active { color: var(--chip-accent-dark); }
    These override the base tiles' box-shadow, so the today ring is re-composed
    here with the sheen kept underneath. Hover is not re-composed: it only
    restates the border, which this block never touches. ---- */
-:root[data-meters="glass"] .cal-cell,
-:root[data-meters="glass"] .cal-heatmap__cell {
+:root[data-meters="glass"] .cal-cell {
   background:
     linear-gradient(180deg, var(--meter-sheen), var(--meter-sheen-soft) 60%),
     color-mix(in srgb, var(--prog-color) max(7%, var(--heat-pct)), var(--surface-2));
   box-shadow: inset 0 1px 0 var(--meter-sheen), inset 0 -1px 1px rgba(var(--shade), 0.05);
 }
-:root[data-meters="glass"] .cal-cell.is-today,
-:root[data-meters="glass"] .cal-heatmap__cell.is-today {
+:root[data-meters="glass"] .cal-cell.is-today {
   box-shadow: 0 0 0 2px var(--primary-tint-strong), inset 0 1px 0 var(--meter-sheen);
 }
 /* =========================================================================

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CompletionBar, MiniBarSeries } from "../components/calendar/CalendarCharts";
+import { YearHeatmap, type HeatCell } from "../components/calendar/YearHeatmap";
 import { DateSwitcher, type NavDirection } from "../components/DateNav";
 import { RollDigits } from "../components/RollDigits";
 import { SegControl } from "../components/SegControl";
@@ -959,6 +960,25 @@ function YearView({ anchor, days, today, metric, stats, buckets, projects, daySt
     return columns;
   }, [anchor]);
 
+  const heatCells = useMemo(
+    () =>
+      heatColumns.map((column) =>
+        column.map((date): HeatCell | null => {
+          if (date.slice(0, 4) !== yearKey) return null;
+          const stats = dayStats(date);
+          const value = completionValue(stats, metric);
+          return {
+            date,
+            tone: stats.taskCount > 0 ? progressTone(value) : "empty",
+            heat: stats.taskCount > 0 ? value : 0,
+            label: `${date}: ${value}%`,
+            title: `${date}: ${value}% · ${stats.doneCount}/${stats.taskCount}`
+          };
+        })
+      ),
+    [heatColumns, yearKey, dayStats, metric]
+  );
+
   const monthSeries = useMemo(
     () =>
       Array.from({ length: 12 }, (_, index) => {
@@ -1018,32 +1038,7 @@ function YearView({ anchor, days, today, metric, stats, buckets, projects, daySt
         <CoreFocusStat mix={mix} metric={metric} />
       </div>
 
-      <div className="cal-heatmap" role="img" aria-label={m.calendar.heatmapAria(yearKey)}>
-        {/* Cells are keyed by grid position, so a year flip never remounts
-            the map — every tile just re-inks to its new heat, the per-column
-            --reink delay sweeping the change across the year left to right. */}
-        {heatColumns.map((column, columnIndex) => (
-          <div key={columnIndex} className="cal-heatmap__col" style={{ "--reink": `${columnIndex * 2}ms` } as CSSProperties}>
-            {column.map((date, rowIndex) => {
-              const inYear = date.slice(0, 4) === yearKey;
-              const stats = dayStats(date);
-              const value = completionValue(stats, metric);
-              const tone = stats.taskCount > 0 ? progressTone(value) : "empty";
-              return (
-                <button
-                  key={rowIndex}
-                  type="button"
-                  className={`cal-heatmap__cell tone-${tone}${inYear ? "" : " is-outside"}${date === today ? " is-today" : ""}`}
-                  style={{ "--heat": stats.taskCount > 0 ? value : 0 } as CSSProperties}
-                  onClick={() => onOpenDay(date)}
-                  title={`${date}: ${value}% · ${stats.doneCount}/${stats.taskCount}`}
-                  aria-label={`${date}: ${value}%`}
-                />
-              );
-            })}
-          </div>
-        ))}
-      </div>
+      <YearHeatmap columns={heatCells} today={today} ariaLabel={m.calendar.heatmapAria(yearKey)} onOpenDay={onOpenDay} />
 
       <div className="cal-year__months">
         <span className="cal-year__caption">{m.calendar.completionByMonth}</span>

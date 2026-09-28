@@ -31,6 +31,7 @@ import {
 import { useRemoveTransition } from "../lib/useRemoveTransition";
 import { usePresence } from "../lib/usePresence";
 import { handleMenuKeyDown } from "../lib/menuKeys";
+import { useMeterDither } from "../lib/meterDither";
 import { RollDigits } from "./RollDigits";
 
 /** Rows to collapse out (staggered top-to-bottom); each commits its new date
@@ -183,6 +184,9 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
   const progressTargetRef = useRef<TaskProgress>(progress);
   const progressDisplayRef = useRef<number>(progress);
   const progressRafRef = useRef(0);
+  // While the fill moves, its edge breaks into pixels (lib/meterDither).
+  const progressDitherRef = useRef<HTMLCanvasElement | null>(null);
+  const progressDither = useMeterDither(progressDitherRef, progressDisplayRef);
   const progressDraggingRef = useRef(false);
   // The value most recently handed to onUpdate and not yet reflected in the
   // task prop. A release can arrive through several events at once (native
@@ -336,7 +340,8 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
     progressWrapRef.current?.style.setProperty("--pct", `${value}%`);
     if (!options?.skipInput && progressSliderRef.current) progressSliderRef.current.value = String(value);
     if (progressBadgeRef.current) progressBadgeRef.current.textContent = `${Math.round(value)}%`;
-  }, []);
+    progressDither.current?.kick();
+  }, [progressDither]);
 
   // Glide the display to a target. `1 - exp(-k·dt)` is a frame-rate-independent
   // damped approach: fast off the mark, easing to rest without overshoot.
@@ -557,6 +562,7 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, autoFoc
               </span>
               <span className="progress-meter">
                 <span className="progress-meter__fill" />
+                <canvas ref={progressDitherRef} className="progress-meter__dither" aria-hidden="true" />
                 {/* No step attribute: a stepped input quantizes programmatic writes,
                   which would snap the fill out of the damped glide. The drag is
                   free and the target snaps to the 25% detents; keys step manually. */}

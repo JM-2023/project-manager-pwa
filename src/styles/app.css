@@ -923,6 +923,9 @@ select {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
+  /* On a narrow phone a long English count wraps; balance it so the figure
+     doesn't dangle alone on the second line ("… Weighted / 0%"). */
+  text-wrap: balance;
 }
 
 /* Today's title is a two-line block, so its count hangs from the bottom edge
@@ -1741,12 +1744,14 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 
 /* Three cells need ~160px each before the uppercase labels start clipping;
-   under that they fold to two and the third wraps to its own row. */
+   under that the meter cell takes the whole first row (its bar gets the
+   width) and the two counts pair up beneath it — folding 2 + 1 left an
+   empty quadrant beside Blocked. */
 @media (max-width: 519px) {
   .summary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .summary-stat:nth-child(2) { border-right: 0; }
-  .summary-stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
-  /* Half-width cells can't hold "Core task progress" on one tracked line, and
+  .summary-stat--meter { grid-column: 1 / -1; border-right: 0; }
+  .summary-stat:not(.summary-stat--meter) { border-top: 1px solid var(--line); }
+  /* Half-width cells can't hold "Tasks with output" on one tracked line, and
      an ellipsis on a three-word label is worse than a second line. */
   .summary-stat > span:not(.mini-bar) { white-space: normal; text-overflow: clip; line-height: 1.3; }
 }

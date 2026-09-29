@@ -1,5 +1,5 @@
 import { CircleAlert, CloudOff, RefreshCcw, UploadCloud } from "lucide-react";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../lib/i18n";
 import { usePresence } from "../lib/usePresence";
 import type { SyncStatus } from "../state/appStore";
@@ -23,9 +23,29 @@ interface BannerView {
   syncing: boolean;
 }
 
+// A healthy edit queues, pushes and settles in about a second. Announcing
+// that on every commit made the pill blink in and out (with three different
+// labels) after each edit, so routine traffic only surfaces once it has run
+// this long. Offline and errors still show at once.
+const SLOW_SYNC_MS = 2000;
+
+/** True once `active` has held continuously for `ms`; false as soon as it drops. */
+function useSustained(active: boolean, ms: number): boolean {
+  const [sustained, setSustained] = useState(false);
+  useEffect(() => {
+    setSustained(false);
+    if (!active) return;
+    const timer = window.setTimeout(() => setSustained(true), ms);
+    return () => window.clearTimeout(timer);
+  }, [active, ms]);
+  return active && sustained;
+}
+
 export function OfflineBanner({ online, pendingCount, syncStatus, error, onSync }: OfflineBannerProps) {
   const { m } = useI18n();
-  const visible = Boolean(error) || !online || pendingCount > 0 || syncStatus === "syncing" || syncStatus === "error";
+  const urgent = Boolean(error) || !online || syncStatus === "error";
+  const slow = useSustained(pendingCount > 0 || syncStatus === "syncing", SLOW_SYNC_MS);
+  const visible = urgent || slow;
   const presence = usePresence(visible, 320);
   // Freeze the last visible content for the exit animation — by the time the
   // pill leaves, the live props have already gone back to "all synced".

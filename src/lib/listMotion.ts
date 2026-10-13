@@ -76,7 +76,7 @@ function onScreen(box: Box): boolean {
   return box.top + box.height > 0 && box.top < window.innerHeight;
 }
 
-function scrollParent(node: HTMLElement): Element | null {
+export function scrollParent(node: HTMLElement): Element | null {
   for (let el = node.parentElement; el; el = el.parentElement) {
     const overflow = getComputedStyle(el).overflowY;
     if ((overflow === "auto" || overflow === "scroll") && el.scrollHeight > el.clientHeight) return el;

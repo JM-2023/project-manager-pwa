@@ -1,13 +1,15 @@
-import { ChevronDown, MoreHorizontal } from "lucide-react";
+import { ArrowRight, Check, ChevronDown, ChevronUp, Copy, MoreHorizontal } from "lucide-react";
 import {
   memo,
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
   type TextareaHTMLAttributes,
@@ -30,11 +32,12 @@ import {
   type TaskImportance,
   type TaskProgress
 } from "../lib/progress";
-import { useListMotion } from "../lib/listMotion";
+import { scrollParent, useListMotion } from "../lib/listMotion";
 import { usePresence } from "../lib/usePresence";
 import { handleMenuKeyDown } from "../lib/menuKeys";
 import { useMeterDither } from "../lib/meterDither";
 import { RollDigits } from "./RollDigits";
+import { SegControl, type SegOption } from "./SegControl";
 
 interface TaskTableProps {
   tasks: Task[];
@@ -50,11 +53,13 @@ interface TaskTableProps {
 
 interface TaskRowProps {
   task: Task;
+  // Live projects, for the card's project picker.
+  projects: Project[];
   projectOptions: ReactNode;
   projectName: string;
   showDate: boolean;
-  // The table is in its wide spreadsheet layout, where the editor fields are
-  // the row's cells and always shown.
+  // The table is in its wide spreadsheet layout: the row is a line of
+  // editable cells instead of a card.
   wide: boolean;
   autoFocusTitle?: boolean;
   // The task is gone from the data and the row is folding out
@@ -66,6 +71,12 @@ interface TaskRowProps {
 }
 
 const importanceValues: TaskImportance[] = [1, 2, 3, 4];
+
+type ImportanceId = "1" | "2" | "3" | "4";
+const importanceOptions: Array<SegOption<ImportanceId>> = importanceValues.map((value) => ({
+  id: String(value) as ImportanceId,
+  label: String(value)
+}));
 
 function fitTextarea(element: HTMLTextAreaElement): void {
   element.style.height = "0px";
@@ -155,75 +166,106 @@ function AutoTextarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} ref={ref} />;
 }
 
-interface TaskMenuProps {
-  // A folding row closes its menu; the actions would act on a stale task.
-  exiting: boolean;
-  onCopy: (offset: number) => void;
-  onMove: (offset: number) => void;
-  onDelete: () => void;
+function reducedMotion(): boolean {
+  return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-function TaskMenu({ exiting, onCopy, onMove, onDelete }: TaskMenuProps) {
-  const { m } = useI18n();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menu = usePresence(menuOpen, 300);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-  const popoverRef = useRef<HTMLDivElement | null>(null);
+/* ---------- floating popovers (task actions, project picker) ----------- */
+
+type Placement = (anchor: DOMRect, popover: HTMLElement) => { left: number; top: number; up?: boolean };
+
+const VIEW_EDGE = 8;
+const clampLeft = (left: number, width: number) => Math.max(VIEW_EDGE, Math.min(left, window.innerWidth - width - VIEW_EDGE));
+const clampTop = (top: number, height: number) => Math.max(VIEW_EDGE, Math.min(top, window.innerHeight - height - VIEW_EDGE));
+
+/** Over the trigger, grown out of its bottom-right corner. */
+const coverTrigger: Placement = (anchor, popover) => ({
+  left: clampLeft(anchor.right - popover.offsetWidth, popover.offsetWidth),
+  top: clampTop(anchor.bottom - popover.offsetHeight, popover.offsetHeight)
+});
+
+/** Dropped below the trigger, left edges aligned; above it when the view
+ * has no room underneath. */
+const dropFromTrigger: Placement = (anchor, popover) => {
+  const height = popover.offsetHeight;
+  const below = anchor.bottom + 6;
+  const up = below + height > window.innerHeight - VIEW_EDGE && anchor.top - 6 - height >= VIEW_EDGE;
+  return {
+    left: clampLeft(anchor.left, popover.offsetWidth),
+    top: clampTop(up ? anchor.top - 6 - height : below, height),
+    up
+  };
+};
+
+interface FloatingPopoverOptions {
+  open: boolean;
+  close: () => void;
+  triggerRef: RefObject<HTMLButtonElement>;
+  popoverRef: RefObject<HTMLDivElement>;
+  place: Placement;
+  // Content swaps (a confirm step) that should re-place and re-focus.
+  layoutKey?: unknown;
+}
+
+/**
+ * A popover portaled to <body> so no clipped card or table can cut it off:
+ * mounted through its exit animation, closed by an outside press or Escape,
+ * and kept placed against its trigger as the page scrolls or resizes. It
+ * closes if the trigger scrolls out of view. On open, focus lands on the
+ * checked item, or the first.
+ */
+function useFloatingPopover({ open, close, triggerRef, popoverRef, place, layoutKey }: FloatingPopoverOptions) {
+  const presence = usePresence(open, 300);
+  const closeRef = useRef(close);
+  closeRef.current = close;
 
   useEffect(() => {
-    if (exiting) setMenuOpen(false);
-  }, [exiting]);
-
-  useEffect(() => {
-    if (!menuOpen) {
-      return;
+    if (!open) return;
+    // pointerdown, not mousedown: a press that cancels its compatibility
+    // mouse events (the table's meter does) must still close the popover.
+    function closeOnOutsidePress(event: PointerEvent) {
+      const target = event.target as Node;
+      if (!triggerRef.current?.contains(target) && !popoverRef.current?.contains(target)) closeRef.current();
     }
-
-    function closeOnOutsideClick(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node) && !popoverRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
-    }
-
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setMenuOpen(false);
-        menuRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
-      }
+      if (event.key !== "Escape") return;
+      closeRef.current();
+      triggerRef.current?.focus({ preventScroll: true });
     }
-
-    document.addEventListener("mousedown", closeOnOutsideClick);
+    document.addEventListener("pointerdown", closeOnOutsidePress);
     document.addEventListener("keydown", closeOnEscape);
     return () => {
-      document.removeEventListener("mousedown", closeOnOutsideClick);
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
       document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [menuOpen]);
+  }, [open, triggerRef, popoverRef]);
 
-  // Keep the menu in the viewport even when its row is near the top or
-  // inside a clipped card. Reposition as the user scrolls or resizes.
   useLayoutEffect(() => {
-    if (!menu.mounted || menu.closing) return;
-    const anchor = menuRef.current;
+    if (!presence.mounted || presence.closing) return;
+    const trigger = triggerRef.current;
     const popover = popoverRef.current;
-    if (!anchor || !popover) return;
+    if (!trigger || !popover) return;
     function position() {
-      if (!anchor || !popover) return;
-      const rect = anchor.getBoundingClientRect();
+      if (!trigger || !popover) return;
+      const rect = trigger.getBoundingClientRect();
       if (rect.bottom <= 0 || rect.top >= window.innerHeight) {
-        setMenuOpen(false);
+        closeRef.current();
         return;
       }
-      popover.style.left = `${Math.max(8, Math.min(rect.right - popover.offsetWidth, window.innerWidth - popover.offsetWidth - 8))}px`;
-      popover.style.top = `${Math.max(8, Math.min(rect.bottom - popover.offsetHeight, window.innerHeight - popover.offsetHeight - 8))}px`;
+      const { left, top, up } = place(rect, popover);
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+      // An attribute, not a class: React rewrites className on the closing render.
+      popover.dataset.side = up ? "up" : "down";
       popover.style.visibility = "visible";
     }
     position();
-    popover.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
+    (popover.querySelector<HTMLButtonElement>('[aria-checked="true"]') ?? popover.querySelector<HTMLButtonElement>("button"))?.focus({
+      preventScroll: true
+    });
     const observer = new ResizeObserver(position);
     observer.observe(popover);
-    observer.observe(anchor);
+    observer.observe(trigger);
     window.addEventListener("scroll", position, true);
     window.addEventListener("resize", position);
     return () => {
@@ -231,7 +273,35 @@ function TaskMenu({ exiting, onCopy, onMove, onDelete }: TaskMenuProps) {
       window.removeEventListener("scroll", position, true);
       window.removeEventListener("resize", position);
     };
-  }, [menu.mounted, menu.closing, confirmingDelete]);
+    // `place` is a module-level constant per caller.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [presence.mounted, presence.closing, layoutKey, triggerRef, popoverRef]);
+
+  return presence;
+}
+
+interface TaskMenuProps {
+  // A folding row closes its menu; the actions would act on a stale task.
+  exiting: boolean;
+  // Leave out the next-day pair (the card's footer has them as buttons).
+  nextDay?: boolean;
+  onCopy: (offset: number) => void;
+  onMove: (offset: number) => void;
+  onDelete: () => void;
+}
+
+function TaskMenu({ exiting, nextDay = true, onCopy, onMove, onDelete }: TaskMenuProps) {
+  const { m } = useI18n();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const close = useCallback(() => setMenuOpen(false), []);
+  const menu = useFloatingPopover({ open: menuOpen, close, triggerRef, popoverRef, place: coverTrigger, layoutKey: confirmingDelete });
+
+  useEffect(() => {
+    if (exiting) setMenuOpen(false);
+  }, [exiting]);
 
   // Reset the delete-confirm step whenever the menu closes so it reopens on
   // the root view (same two-step pattern as ProjectList).
@@ -247,8 +317,16 @@ function TaskMenu({ exiting, onCopy, onMove, onDelete }: TaskMenuProps) {
   }
 
   return (
-    <div className={`task-menu${menuOpen ? " is-open" : ""}`} ref={menuRef}>
-      <button type="button" className="icon-button task-menu-trigger" onClick={() => setMenuOpen((open) => !open)} aria-label={m.taskTable.taskActions} aria-haspopup="menu" aria-expanded={menuOpen}>
+    <div className={`task-menu${menuOpen ? " is-open" : ""}`}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="icon-button task-menu-trigger"
+        onClick={() => setMenuOpen((open) => !open)}
+        aria-label={m.taskTable.taskActions}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+      >
         <MoreHorizontal size={17} aria-hidden="true" />
       </button>
       {menu.mounted ? createPortal(
@@ -279,15 +357,19 @@ function TaskMenu({ exiting, onCopy, onMove, onDelete }: TaskMenuProps) {
               <button type="button" role="menuitem" onClick={() => act(() => onCopy(-1))}>
                 <span>{m.taskTable.copyToPrevDay}</span>
               </button>
-              <button type="button" role="menuitem" onClick={() => act(() => onCopy(1))}>
-                <span>{m.taskTable.copyToNextDay}</span>
-              </button>
+              {nextDay ? (
+                <button type="button" role="menuitem" onClick={() => act(() => onCopy(1))}>
+                  <span>{m.taskTable.copyToNextDay}</span>
+                </button>
+              ) : null}
               <button type="button" role="menuitem" onClick={() => act(() => onMove(-1))}>
                 <span>{m.taskTable.moveToPrevDay}</span>
               </button>
-              <button type="button" role="menuitem" onClick={() => act(() => onMove(1))}>
-                <span>{m.taskTable.moveToNextDay}</span>
-              </button>
+              {nextDay ? (
+                <button type="button" role="menuitem" onClick={() => act(() => onMove(1))}>
+                  <span>{m.taskTable.moveToNextDay}</span>
+                </button>
+              ) : null}
               <button type="button" role="menuitem" className="danger" onClick={() => setConfirmingDelete(true)}>
                 <span>{m.taskTable.deleteTask}</span>
               </button>
@@ -300,26 +382,128 @@ function TaskMenu({ exiting, onCopy, onMove, onDelete }: TaskMenuProps) {
   );
 }
 
+interface ProjectPickerProps {
+  // The visible field label, so the trigger reads "Project, <name>".
+  labelId: string;
+  value: string | null;
+  projects: Project[];
+  disabled: boolean;
+  onChange: (projectId: string | null) => void;
+}
+
+/** The card's project field: a button showing the project, opening the
+ * app's own menu (the native select is a system wheel on iPhone). */
+function ProjectPicker({ labelId, value, projects, disabled, onChange }: ProjectPickerProps) {
+  const { m } = useI18n();
+  const valueId = useId();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+  const close = useCallback(() => setOpen(false), []);
+  const menu = useFloatingPopover({ open, close, triggerRef, popoverRef, place: dropFromTrigger });
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
+  const current = projects.find((project) => project.id === value) ?? null;
+  const choices = [{ id: null, name: m.common.noProject }, ...projects.map((project) => ({ id: project.id, name: project.name }))];
+
+  function choose(id: string | null) {
+    setOpen(false);
+    triggerRef.current?.focus({ preventScroll: true });
+    if (id !== (current?.id ?? null)) onChange(id);
+  }
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        className={`task-project-trigger${open ? " is-open" : ""}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-labelledby={`${labelId} ${valueId}`}
+        disabled={disabled}
+        onClick={() => setOpen((next) => !next)}
+      >
+        <span id={valueId}>{current?.name ?? m.common.noProject}</span>
+        <ChevronDown size={15} aria-hidden="true" />
+      </button>
+      {menu.mounted ? createPortal(
+        <div
+          ref={popoverRef}
+          className={`task-action-menu task-action-menu--floating task-project-menu${menu.closing ? " is-closing" : ""}`}
+          role="menu"
+          aria-label={m.common.project}
+          style={{ minWidth: triggerRef.current?.offsetWidth }}
+          onKeyDown={handleMenuKeyDown}
+          onAnimationEnd={(event) => {
+            if (event.target === event.currentTarget) menu.onExited();
+          }}
+        >
+          {choices.map((choice) => {
+            const checked = choice.id === (current?.id ?? null);
+            return (
+              <button key={choice.id ?? ""} type="button" role="menuitemradio" aria-checked={checked} onClick={() => choose(choice.id)}>
+                <span>{choice.name}</span>
+                {checked ? <Check size={15} aria-hidden="true" /> : null}
+              </button>
+            );
+          })}
+        </div>,
+        document.body
+      ) : null}
+    </>
+  );
+}
+
+/* ---------- progress meter -------------------------------------------- */
+
+const DETENT = 25;
+// The display chases its target on a frame-rate-independent damped ease
+// (`1 - exp(-k·dt)`): fast off the mark, easing to rest without overshoot.
+const SETTLE_K = 14; // onto a detent: release, keys, a synced value
+const DRAG_K = 40; // under the finger: close behind it, so a grab never jumps
+// Travel before a press counts as a drag. Below it a press is a tap; past
+// it, a mostly-vertical move is the page scrolling and the meter lets go.
+const DRAG_SLOP = 6;
+
+const snapProgress = (value: number) => (Math.round(value / DETENT) * DETENT) as TaskProgress;
+
 interface ProgressFieldProps {
   progress: TaskProgress;
   // Every detent the drag or a key passes through (drives the summary).
   onInput: (value: TaskProgress) => void;
   // The gesture ended on this detent.
   onCommit: (value: TaskProgress) => void;
+  // "cell": the wide table's labelled cell with a live % badge, where a
+  // press sets the value like any slider. "card": a bare meter on the
+  // closed card, where only a sideways drag changes the value and a tap is
+  // handed to onTap (it opens the card).
+  variant?: "cell" | "card";
+  onTap?: () => void;
 }
 
-function ProgressField({ progress, onInput, onCommit }: ProgressFieldProps) {
+function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap }: ProgressFieldProps) {
   const { m } = useI18n();
-  // Damped slider: the input is uncontrolled and the visible fill/thumb/badge
-  // chase the target on a critically-damped ease each frame, so dragging has
-  // weight instead of snapping between the 25% detents.
+  // The visible fill/badge chase the value on a damped ease each frame, so
+  // the meter has weight instead of snapping between the 25% detents. The
+  // gesture is the app's own (pointer events on a wider hit strip, with
+  // touch-action letting vertical swipes scroll the page); the range input
+  // underneath stays for keyboard and assistive tech only.
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const meterRef = useRef<HTMLSpanElement | null>(null);
   const sliderRef = useRef<HTMLInputElement | null>(null);
   const badgeRef = useRef<HTMLSpanElement | null>(null);
   const targetRef = useRef<TaskProgress>(progress);
   const displayRef = useRef<number>(progress);
+  const chaseRef = useRef({ to: progress as number, k: SETTLE_K });
   const rafRef = useRef(0);
   const draggingRef = useRef(false);
+  const gestureRef = useRef<{ id: number; x: number; y: number; live: boolean } | null>(null);
+  const onCommitRef = useRef(onCommit);
+  onCommitRef.current = onCommit;
   // While dragging, pixels break off the fill's end and fly right; on
   // release they stream back into place (lib/meterDither).
   const ditherRef = useRef<HTMLCanvasElement | null>(null);
@@ -329,33 +513,35 @@ function ProgressField({ progress, onInput, onCommit }: ProgressFieldProps) {
     dragging: draggingRef
   });
 
-  // Paint one frame of fill/badge/thumb. The input write is skippable: during
-  // a live drag the browser owns the thumb, and writing .value back each
-  // frame rips it out from under the pointer.
-  const paint = useCallback((value: number, options?: { skipInput?: boolean }) => {
+  // Paint one frame of fill/badge.
+  const paint = useCallback((value: number) => {
     displayRef.current = value;
     wrapRef.current?.style.setProperty("--pct", `${value}%`);
-    if (!options?.skipInput && sliderRef.current) sliderRef.current.value = String(value);
+    if (sliderRef.current) sliderRef.current.value = String(value);
     if (badgeRef.current) badgeRef.current.textContent = `${Math.round(value)}%`;
     dither.current?.kick();
   }, [dither]);
 
-  // Glide the display to a target. `1 - exp(-k·dt)` is a frame-rate-independent
-  // damped approach: fast off the mark, easing to rest without overshoot.
+  // One loop serves both rates; retargeting mid-flight just updates chaseRef.
   const glideTo = useCallback(
-    (target: number) => {
-      cancelAnimationFrame(rafRef.current);
-      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-        paint(target);
+    (to: number, k = SETTLE_K) => {
+      chaseRef.current = { to, k };
+      if (reducedMotion()) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = 0;
+        paint(to);
         return;
       }
+      if (rafRef.current) return;
       let last = performance.now();
       const step = (now: number) => {
         const dt = Math.min((now - last) / 1000, 0.05);
         last = now;
+        const { to: target, k: rate } = chaseRef.current;
         const current = displayRef.current;
-        const next = current + (target - current) * (1 - Math.exp(-14 * dt));
+        const next = current + (target - current) * (1 - Math.exp(-rate * dt));
         if (Math.abs(target - next) < 0.35) {
+          rafRef.current = 0;
           paint(target);
           return;
         }
@@ -367,39 +553,178 @@ function ProgressField({ progress, onInput, onCommit }: ProgressFieldProps) {
     [paint]
   );
 
-  // Keyboard steps, external updates and drag releases glide to the detent.
-  // A live drag paints directly in onChange instead: the glide's per-frame
-  // writes would fight the pointer (worst on wide card-mode bars).
+  useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  // Keyboard steps, external updates and releases glide to the detent; a
+  // live drag is chased toward the finger instead.
   useEffect(() => {
     targetRef.current = progress;
-    if (!draggingRef.current) {
-      glideTo(progress);
-    }
-    return () => cancelAnimationFrame(rafRef.current);
+    if (!draggingRef.current) glideTo(progress);
   }, [progress, glideTo]);
 
-  function release() {
-    if (draggingRef.current) {
-      draggingRef.current = false;
-      glideTo(targetRef.current);
-    }
-    onCommit(targetRef.current);
-  }
-  const releaseRef = useRef(release);
-  releaseRef.current = release;
-
-  // React's onChange is the continuous `input` event; the native `change`
-  // event fires once when the gesture ends. On iOS Safari it is the only
-  // reliable release signal for a range input: WebKit takes the touch over
-  // natively, cancels the pointer early and never delivers pointerup, which
-  // left the dragged value uncommitted until the next tap.
+  // Assistive tech adjusts the native input and ends with `change`.
   useEffect(() => {
     const slider = sliderRef.current;
     if (!slider) return;
-    const handleChange = () => releaseRef.current();
+    const handleChange = () => {
+      if (!draggingRef.current) onCommitRef.current(targetRef.current);
+    };
     slider.addEventListener("change", handleChange);
     return () => slider.removeEventListener("change", handleChange);
   }, []);
+
+  function valueAt(clientX: number): number {
+    const rect = meterRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return targetRef.current;
+    return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+  }
+
+  // Head for a detent; the summary follows every one passed.
+  function aim(value: TaskProgress) {
+    if (value === targetRef.current) return;
+    targetRef.current = value;
+    onInput(value);
+  }
+
+  function track(clientX: number) {
+    const raw = valueAt(clientX);
+    aim(snapProgress(raw));
+    glideTo(raw, DRAG_K);
+  }
+
+  function grab(event: ReactPointerEvent<HTMLElement>) {
+    const gesture = gestureRef.current;
+    if (!gesture) return;
+    gesture.live = true;
+    draggingRef.current = true;
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } catch {
+      // The pointer is already gone; the drag ends on its own events.
+    }
+    track(event.clientX);
+  }
+
+  function release() {
+    draggingRef.current = false;
+    glideTo(targetRef.current);
+    onCommit(targetRef.current);
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if (!event.isPrimary || event.button !== 0) return;
+    gestureRef.current = { id: event.pointerId, x: event.clientX, y: event.clientY, live: false };
+    // A mouse on the table cell is an ordinary slider: the press sets the
+    // value and starts the drag.
+    if (variant === "cell" && event.pointerType === "mouse") {
+      event.preventDefault();
+      sliderRef.current?.focus({ preventScroll: true });
+      grab(event);
+    }
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLElement>) {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.id !== event.pointerId) return;
+    if (gesture.live) {
+      track(event.clientX);
+      return;
+    }
+    const dx = event.clientX - gesture.x;
+    const dy = event.clientY - gesture.y;
+    if (Math.hypot(dx, dy) < DRAG_SLOP) return;
+    if (Math.abs(dy) > Math.abs(dx)) {
+      gestureRef.current = null;
+      return;
+    }
+    grab(event);
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLElement>) {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.id !== event.pointerId) return;
+    gestureRef.current = null;
+    if (gesture.live) {
+      release();
+      return;
+    }
+    if (variant === "card") {
+      onTap?.();
+      return;
+    }
+    aim(snapProgress(valueAt(event.clientX)));
+    glideTo(targetRef.current);
+    onCommit(targetRef.current);
+  }
+
+  // The browser took the touch for a scroll, or capture was lost mid-drag.
+  function handlePointerCancel(event: ReactPointerEvent<HTMLElement>) {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.id !== event.pointerId) return;
+    gestureRef.current = null;
+    if (gesture.live) release();
+  }
+
+  const meter = (
+    <span
+      className="progress-hit"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onLostPointerCapture={handlePointerCancel}
+    >
+      <span ref={meterRef} className="progress-meter">
+        <span className="progress-meter__fill" />
+        <canvas ref={ditherRef} className="progress-meter__dither" aria-hidden="true" />
+        {/* No step attribute: a stepped input quantizes programmatic writes,
+          which would snap the fill out of the damped glide. Keys step
+          manually. */}
+        <input
+          ref={sliderRef}
+          type="range"
+          className="progress-slider"
+          min={0}
+          max={100}
+          defaultValue={progress}
+          onChange={(event) => {
+            if (draggingRef.current) return;
+            aim(snapProgress(Number(event.target.value)));
+          }}
+          onKeyDown={(event) => {
+            const delta =
+              event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "PageUp"
+                ? DETENT
+                : event.key === "ArrowLeft" || event.key === "ArrowDown" || event.key === "PageDown"
+                  ? -DETENT
+                  : event.key === "Home"
+                    ? -100
+                    : event.key === "End"
+                      ? 100
+                      : 0;
+            if (delta === 0) return;
+            event.preventDefault();
+            aim(Math.max(0, Math.min(100, targetRef.current + delta)) as TaskProgress);
+          }}
+          onKeyUp={() => onCommit(targetRef.current)}
+          aria-label={m.taskTable.progressHeader}
+          aria-valuetext={`${progress}%`}
+        />
+      </span>
+    </span>
+  );
+
+  if (variant === "card") {
+    return (
+      <div
+        ref={wrapRef}
+        className={`task-card-meter tone-${progressTone(progress)}`}
+        style={{ "--pct": `${displayRef.current}%` } as CSSProperties}
+      >
+        {meter}
+      </div>
+    );
+  }
 
   return (
     <div className="tt-cell tt-progress">
@@ -412,76 +737,81 @@ function ProgressField({ progress, onInput, onCommit }: ProgressFieldProps) {
         <span ref={badgeRef} className="progress-badge">
           {Math.round(displayRef.current)}%
         </span>
-        <span className="progress-meter">
-          <span className="progress-meter__fill" />
-          <canvas ref={ditherRef} className="progress-meter__dither" aria-hidden="true" />
-          {/* No step attribute: a stepped input quantizes programmatic writes,
-            which would snap the fill out of the damped glide. The drag is
-            free and the target snaps to the 25% detents; keys step manually. */}
-          <input
-          ref={sliderRef}
-          type="range"
-          className="progress-slider"
-          min={0}
-          max={100}
-          defaultValue={progress}
-          onPointerDown={() => {
-            draggingRef.current = true;
-          }}
-          onChange={(event) => {
-            const raw = Number(event.target.value);
-            const snapped = (Math.round(raw / 25) * 25) as TaskProgress;
-            targetRef.current = snapped;
-            if (draggingRef.current) {
-              // Fill and badge track the pointer 1:1 while the finger is
-              // down; the weight moves to the release, which settles onto
-              // the detent.
-              cancelAnimationFrame(rafRef.current);
-              paint(raw, { skipInput: true });
-            }
-            onInput(snapped);
-          }}
-          onKeyDown={(event) => {
-            const delta =
-              event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "PageUp"
-                ? 25
-                : event.key === "ArrowLeft" || event.key === "ArrowDown" || event.key === "PageDown"
-                  ? -25
-                  : event.key === "Home"
-                    ? -100
-                    : event.key === "End"
-                      ? 100
-                      : 0;
-            if (delta === 0) return;
-            event.preventDefault();
-            const next = Math.max(0, Math.min(100, targetRef.current + delta)) as TaskProgress;
-            targetRef.current = next;
-            onInput(next);
-          }}
-          onPointerUp={release}
-          onPointerCancel={(event) => {
-            // iOS cancels the pointer the moment the native slider takes the
-            // touch; the drag itself continues and ends with touchend/change.
-            if (event.pointerType === "touch" || !draggingRef.current) return;
-            release();
-          }}
-          onTouchEnd={release}
-          onTouchCancel={release}
-          onKeyUp={() => onCommit(targetRef.current)}
-          aria-label={m.taskTable.progressHeader}
-          aria-valuetext={`${progress}%`}
-          />
-        </span>
+        {meter}
       </div>
     </div>
   );
 }
 
+/* ---------- card open/close ------------------------------------------- */
+
+// Matches --t-slow, the editor's open/close transition.
+const EDITOR_MS = 300;
+// Room kept between a card being opened or closed and the edges of the view.
+const VIEW_MARGIN = 12;
+const FOLLOW_K = 14;
+const FOLLOW_SETTLE_MS = 450;
+
+/** The part of a scroller the user can see; on a phone the fixed Dock
+ * covers the bottom of the window. */
+function visibleBand(scroller: Element): { top: number; bottom: number } {
+  if (scroller !== document.scrollingElement) {
+    const rect = scroller.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom };
+  }
+  const dock = document.querySelector(".bottom-nav")?.getBoundingClientRect();
+  return { top: 0, bottom: dock && dock.top > window.innerHeight / 2 ? dock.top : window.innerHeight };
+}
+
+/**
+ * While a card opens or closes, ease the page so the card stays in view: an
+ * opening card near the bottom carries the page up with it (never past its
+ * own top), and a closing card whose top has scrolled away brings the page
+ * back to it. Each frame closes part of the remaining gap, so the scroll
+ * rides the size transition instead of jumping ahead of it. Stops as soon
+ * as the user touches or wheels.
+ */
+function keepInView(node: HTMLElement): () => void {
+  const scroller = scrollParent(node);
+  if (!scroller) return () => undefined;
+  const instant = reducedMotion();
+  let raf = 0;
+  let last = performance.now();
+  const until = last + EDITOR_MS;
+  const stop = () => {
+    cancelAnimationFrame(raf);
+    window.removeEventListener("touchstart", stop, true);
+    window.removeEventListener("wheel", stop, true);
+  };
+  const tick = (now: number) => {
+    const dt = Math.min((now - last) / 1000, 0.05);
+    last = now;
+    const band = visibleBand(scroller);
+    const rect = node.getBoundingClientRect();
+    const top = band.top + VIEW_MARGIN;
+    const bottom = band.bottom - VIEW_MARGIN;
+    const gap = rect.top < top ? rect.top - top : rect.bottom > bottom ? Math.min(rect.bottom - bottom, rect.top - top) : 0;
+    if (Math.abs(gap) >= 1) {
+      const step = instant ? gap : gap * (1 - Math.exp(-FOLLOW_K * dt));
+      // Scroll offsets round to whole pixels; never step by less than one.
+      scroller.scrollTop += Math.sign(gap) * Math.max(1, Math.round(Math.abs(step)));
+    }
+    if (instant || now > until + FOLLOW_SETTLE_MS || (now > until && Math.abs(gap) < 1)) {
+      stop();
+      return;
+    }
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+  window.addEventListener("touchstart", stop, { capture: true, passive: true });
+  window.addEventListener("wheel", stop, { capture: true, passive: true });
+  return stop;
+}
+
 /**
  * The card's editor mounts only while it is open: a closed card is a summary
- * button, not five textareas, three selects and a canvas. Opening mounts the
- * fields shut and eases them open; closing eases them shut, then unmounts.
- * In the wide table the editor IS the row, so it stays mounted.
+ * and a meter, not five textareas and two pickers. Opening mounts the fields
+ * shut and eases them open; closing eases them shut, then unmounts.
  */
 function useEditorPresence(expanded: boolean, editorRef: RefObject<HTMLDivElement>) {
   const [mounted, setMounted] = useState(expanded);
@@ -524,7 +854,9 @@ function useEditorPresence(expanded: boolean, editorRef: RefObject<HTMLDivElemen
   return { mounted, open, onTransitionEnd };
 }
 
-function TaskRowComponent({ task, projectOptions, projectName, showDate, wide, autoFocusTitle, exiting, onCreate, onUpdate, onDelete }: TaskRowProps) {
+/* ---------- rows ------------------------------------------------------ */
+
+function TaskRowComponent({ task, projects, projectOptions, projectName, showDate, wide, autoFocusTitle, exiting, onCreate, onUpdate, onDelete }: TaskRowProps) {
   const { m } = useI18n();
   const [expanded, setExpanded] = useState(Boolean(autoFocusTitle || !task.title.trim()));
   const [title, setTitle] = useState(task.title);
@@ -533,15 +865,17 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, wide, a
   const [nextAction, setNextAction] = useState(task.next_action ?? "");
   const [notes, setNotes] = useState(task.notes ?? "");
   const [progress, setProgress] = useState<TaskProgress>(getTaskProgress(task));
+  const [copied, setCopied] = useState(false);
   const editorRef = useRef<HTMLDivElement | null>(null);
   const editor = useEditorPresence(expanded, editorRef);
-  const showEditor = wide || editor.mounted;
+  const projectLabelId = useId();
   // The value most recently handed to onUpdate and not yet reflected in the
-  // task prop. A release can arrive through several events at once (native
-  // change, pointerup, touchend); only the first may create a mutation.
+  // task prop. A release can arrive through several events at once (pointer
+  // up and the input's own change); only the first may create a mutation.
   const progressCommitRef = useRef<TaskProgress | null>(null);
   const previousTaskRef = useRef(task);
   const rowRef = useRef<HTMLDivElement | null>(null);
+  const followRef = useRef<() => void>(() => undefined);
   // A folding row holds a snapshot of a task that no longer exists (or has
   // moved away); a late draft commit would write it back.
   const exitingRef = useRef(exiting);
@@ -615,6 +949,15 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, wide, a
 
   useEffect(() => registerDraftFlusher(() => commitTextRef.current()), []);
 
+  useEffect(() => () => followRef.current(), []);
+
+  // The copy lands on another day, out of this view: the button confirms it.
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1400);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
   function updateImportance(value: TaskImportance) {
     const extra = parseTaskExtra(task);
     extra.importance = value;
@@ -670,131 +1013,225 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, wide, a
     onUpdate(task, { start_date: taskDateWithOffset(offset) });
   }
 
+  function follow() {
+    followRef.current();
+    const row = rowRef.current;
+    if (row) followRef.current = keepInView(row);
+  }
+
+  function toggle() {
+    commitText();
+    setExpanded((value) => !value);
+    follow();
+  }
+
+  function collapseFromFooter() {
+    commitText();
+    setExpanded(false);
+    rowRef.current?.querySelector<HTMLButtonElement>(".task-summary")?.focus({ preventScroll: true });
+    follow();
+  }
+
   const importance = getTaskImportance(task);
+  const done = progress >= 100;
+  const rowClass = `task-table-row importance-${importance}${showDate ? " with-date" : ""}${exiting ? " is-exiting" : ""}${
+    expanded ? " is-expanded" : ""
+  }${done ? " is-done" : ""}`;
 
-  return (
-    <div
-      ref={rowRef}
-      data-motion-key={task.id}
-      className={`task-table-row importance-${importance}${showDate ? " with-date" : ""}${exiting ? " is-exiting" : ""}${expanded ? " is-expanded" : ""}`}
-    >
-      <button
-        type="button"
-        className="task-summary"
-        aria-expanded={expanded}
-        aria-controls={showEditor ? `task-editor-${task.id}` : undefined}
-        onClick={() => { commitText(); setExpanded((value) => !value); }}
-      >
-        <span className="task-summary__meta">{projectName}{showDate && task.start_date ? ` · ${task.start_date}` : ""} · P{importance}</span>
-        <strong className="task-summary__title">{title || m.taskTable.newTask}</strong>
-        <span className="task-summary__progress"><RollDigits value={progress} text={`${progress}%`} /></span>
-        {(output || blocker || nextAction || notes) ? (
-          <span className="task-summary__preview">
-            {blocker ? `${m.taskTable.blocker}: ${blocker}` : output ? `${m.taskTable.output}: ${output}` : nextAction ? `${m.taskTable.nextStep}: ${nextAction}` : notes}
-          </span>
-        ) : null}
-        <span className="task-summary__action">{expanded ? m.taskTable.collapseDetails : m.taskTable.editDetails}<ChevronDown size={14} aria-hidden="true" /></span>
-      </button>
-      {showEditor ? (
-      <div
-        ref={editorRef}
-        className={`task-editor${editor.open ? " is-open" : ""}`}
-        id={`task-editor-${task.id}`}
-        onTransitionEnd={editor.onTransitionEnd}
-      >
-        <div className="task-editor__fields">
-          <label className="tt-cell tt-importance">
-            <span className="tt-label">{m.taskTable.importance}</span>
-            <select
-              className={`task-table-importance imp-${importance}`}
-              value={importance}
-              onChange={(event) => updateImportance(Number(event.target.value) as TaskImportance)}
-              aria-label={m.taskTable.importance}
-            >
-              {importanceValues.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
+  const titleField = (
+    <label className="tt-cell tt-task">
+      <span className="tt-label">{m.taskTable.task}</span>
+      <AutoTextarea
+        className="task-table-title"
+        value={title}
+        onChange={(event) => setTitle(event.target.value)}
+        onBlur={commitText}
+        rows={1}
+        autoFocus={autoFocusTitle}
+        placeholder={m.taskTable.newTask}
+        aria-label={m.taskTable.task}
+      />
+    </label>
+  );
 
-          <label className="tt-cell tt-project">
-            <span className="tt-label">{m.common.project}</span>
-            <select
-              value={task.project_id ?? ""}
-              onChange={(event) => onUpdate(task, { project_id: event.target.value || null })}
-              aria-label={m.common.project}
-            >
-              <option value="">{m.common.noProject}</option>
-              {projectOptions}
-            </select>
-          </label>
+  const dateField = showDate ? (
+    <label className="tt-cell tt-date">
+      <span className="tt-label">{m.taskTable.date}</span>
+      <input
+        type="date"
+        value={task.start_date ?? ""}
+        onChange={(event) => onUpdate(task, { start_date: event.target.value || null })}
+        aria-label={m.taskTable.date}
+      />
+    </label>
+  ) : null;
 
-          <label className="tt-cell tt-task">
-            <span className="tt-label">{m.taskTable.task}</span>
-            <AutoTextarea
-              className="task-table-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              onBlur={commitText}
-              rows={1}
-              autoFocus={autoFocusTitle}
-              placeholder={m.taskTable.newTask}
-              aria-label={m.taskTable.task}
-            />
-          </label>
+  const proseFields = (
+    <>
+      <label className="tt-cell tt-output">
+        <span className="tt-label">{m.taskTable.output}</span>
+        <AutoTextarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.output} />
+      </label>
 
-          <ProgressField progress={progress} onInput={setProgress} onCommit={commitProgress} />
+      <label className="tt-cell tt-blocker">
+        <span className="tt-label">{m.taskTable.blocker}</span>
+        <AutoTextarea
+          className={blocker ? "is-filled" : undefined}
+          value={blocker}
+          onChange={(event) => setBlocker(event.target.value)}
+          onBlur={commitText}
+          rows={1}
+          aria-label={m.taskTable.blocker}
+        />
+      </label>
 
-          {showDate ? (
-            <label className="tt-cell tt-date">
-              <span className="tt-label">{m.taskTable.date}</span>
-              <input
-                type="date"
-                value={task.start_date ?? ""}
-                onChange={(event) => onUpdate(task, { start_date: event.target.value || null })}
-                aria-label={m.taskTable.date}
-              />
-            </label>
-          ) : null}
+      <label className="tt-cell tt-next">
+        <span className="tt-label">{m.taskTable.nextStep}</span>
+        <AutoTextarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.nextStep} />
+      </label>
+    </>
+  );
 
-          <label className="tt-cell tt-output">
-            <span className="tt-label">{m.taskTable.output}</span>
-            <AutoTextarea value={output} onChange={(event) => setOutput(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.output} />
-          </label>
+  const notesField = (
+    <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} placeholder={m.common.notes} aria-label={m.taskTable.noteAria} />
+  );
 
-          <label className="tt-cell tt-blocker">
-            <span className="tt-label">{m.taskTable.blocker}</span>
-            <AutoTextarea
-              className={blocker ? "is-filled" : undefined}
-              value={blocker}
-              onChange={(event) => setBlocker(event.target.value)}
-              onBlur={commitText}
-              rows={1}
-              aria-label={m.taskTable.blocker}
-            />
-          </label>
+  // Wide spreadsheet: the row is its cells, all editable in place.
+  if (wide) {
+    return (
+      <div ref={rowRef} data-motion-key={task.id} className={rowClass}>
+        <label className="tt-cell tt-importance">
+          <span className="tt-label">{m.taskTable.importance}</span>
+          <select
+            className={`task-table-importance imp-${importance}`}
+            value={importance}
+            onChange={(event) => updateImportance(Number(event.target.value) as TaskImportance)}
+            aria-label={m.taskTable.importance}
+          >
+            {importanceValues.map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
 
-          <label className="tt-cell tt-next">
-            <span className="tt-label">{m.taskTable.nextStep}</span>
-            <AutoTextarea value={nextAction} onChange={(event) => setNextAction(event.target.value)} onBlur={commitText} rows={1} aria-label={m.taskTable.nextStep} />
-          </label>
+        <label className="tt-cell tt-project">
+          <span className="tt-label">{m.common.project}</span>
+          <select
+            value={task.project_id ?? ""}
+            onChange={(event) => onUpdate(task, { project_id: event.target.value || null })}
+            aria-label={m.common.project}
+          >
+            <option value="">{m.common.noProject}</option>
+            {projectOptions}
+          </select>
+        </label>
 
-          <div className="tt-cell tt-notes">
-            <span className="tt-label">{m.common.notes}</span>
-            <div className="task-table-note-cell">
-              <AutoTextarea value={notes} onChange={(event) => setNotes(event.target.value)} onBlur={commitText} rows={1} placeholder={m.common.notes} aria-label={m.taskTable.noteAria} />
-              <TaskMenu exiting={exiting} onCopy={copyTask} onMove={moveTask} onDelete={() => onDelete(task)} />
-            </div>
+        {titleField}
+        <ProgressField progress={progress} onInput={setProgress} onCommit={commitProgress} />
+        {dateField}
+        {proseFields}
+
+        <div className="tt-cell tt-notes">
+          <span className="tt-label">{m.common.notes}</span>
+          <div className="task-table-note-cell">
+            {notesField}
+            <TaskMenu exiting={exiting} onCopy={copyTask} onMove={moveTask} onDelete={() => onDelete(task)} />
           </div>
-          <button type="button" className="task-editor-close" onClick={() => {
-            commitText();
-            setExpanded(false);
-            rowRef.current?.querySelector<HTMLButtonElement>(".task-summary")?.focus();
-          }}>{m.taskTable.collapseDetails}<ChevronDown size={14} aria-hidden="true" /></button>
         </div>
       </div>
+    );
+  }
+
+  // Card. Closed, it is something to act on, not just a door to a form: a tap
+  // opens it, a sideways drag on its meter sets the progress. Open, it adds
+  // the fields that need typing and the actions for the task.
+  const preview = blocker ? `${m.taskTable.blocker}: ${blocker}` : output ? `${m.taskTable.output}: ${output}` : nextAction ? `${m.taskTable.nextStep}: ${nextAction}` : notes;
+  const editorId = `task-editor-${task.id}`;
+
+  return (
+    <div ref={rowRef} data-motion-key={task.id} className={rowClass}>
+      <button type="button" className="task-summary" aria-expanded={expanded} aria-controls={editor.mounted ? editorId : undefined} onClick={toggle}>
+        <span className="task-summary__meta">{projectName}{showDate && task.start_date ? ` · ${task.start_date}` : ""} · P{importance}</span>
+        <ChevronDown className="task-summary__chevron" size={16} aria-hidden="true" />
+        <strong className="task-summary__title">{title || m.taskTable.newTask}</strong>
+        {preview ? (
+          <span className="task-summary__preview">
+            <span>{preview}</span>
+          </span>
+        ) : null}
+      </button>
+
+      <div className="task-card-progress">
+        <ProgressField variant="card" progress={progress} onInput={setProgress} onCommit={commitProgress} onTap={toggle} />
+        <span className="task-card-progress__pct" aria-hidden="true">
+          <RollDigits value={progress} text={`${progress}%`} />
+        </span>
+      </div>
+
+      {editor.mounted ? (
+        <div ref={editorRef} className={`task-editor${editor.open ? " is-open" : ""}`} id={editorId} onTransitionEnd={editor.onTransitionEnd}>
+          <div className="task-editor__fields">
+            <div className="task-card-attrs">
+              <div className="tt-cell tt-importance">
+                <span className="tt-label">{m.taskTable.importance}</span>
+                <SegControl
+                  className="task-importance-seg"
+                  options={importanceOptions}
+                  value={String(importance) as ImportanceId}
+                  onChange={(id) => updateImportance(Number(id) as TaskImportance)}
+                  ariaLabel={m.taskTable.importance}
+                />
+              </div>
+              <div className="tt-cell tt-project">
+                <span className="tt-label" id={projectLabelId}>
+                  {m.common.project}
+                </span>
+                <ProjectPicker
+                  labelId={projectLabelId}
+                  value={task.project_id ?? null}
+                  projects={projects}
+                  disabled={exiting}
+                  onChange={(projectId) => onUpdate(task, { project_id: projectId })}
+                />
+              </div>
+            </div>
+
+            {titleField}
+            {dateField}
+            {proseFields}
+
+            <label className="tt-cell tt-notes">
+              <span className="tt-label">{m.common.notes}</span>
+              {notesField}
+            </label>
+
+            <div className="task-card-actions">
+              <button type="button" className="task-card-action" onClick={() => moveTask(1)}>
+                <ArrowRight size={14} aria-hidden="true" />
+                <span>{m.taskTable.quickMoveNext}</span>
+              </button>
+              <button
+                type="button"
+                className={`task-card-action${copied ? " is-confirmed" : ""}`}
+                onClick={() => {
+                  copyTask(1);
+                  setCopied(true);
+                }}
+              >
+                {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+                <span>{m.taskTable.quickCopyNext}</span>
+              </button>
+              <div className="task-card-actions__end">
+                <TaskMenu exiting={exiting} nextDay={false} onCopy={copyTask} onMove={moveTask} onDelete={() => onDelete(task)} />
+                <button type="button" className="icon-button task-card-collapse" aria-label={m.taskTable.collapseDetails} onClick={collapseFromFooter}>
+                  <ChevronUp size={17} aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   );
@@ -803,6 +1240,7 @@ function TaskRowComponent({ task, projectOptions, projectName, showDate, wide, a
 function taskRowPropsEqual(previous: Readonly<TaskRowProps>, next: Readonly<TaskRowProps>): boolean {
   return (
     previous.task === next.task &&
+    previous.projects === next.projects &&
     previous.projectOptions === next.projectOptions &&
     previous.projectName === next.projectName &&
     previous.showDate === next.showDate &&
@@ -835,8 +1273,8 @@ let lastWide = false;
 const taskKey = (task: Task) => task.id;
 
 /** Whether the table is in its wide spreadsheet layout. The switch is a CSS
- * container query on the wrap; this mirrors it so rows know whether their
- * editor cells are always on screen. */
+ * container query on the wrap; this mirrors it so rows render as cells or
+ * as cards to match. */
 function useWideLayout(wrapRef: RefObject<HTMLElement>): boolean {
   const [wide, setWide] = useState(lastWide);
   useLayoutEffect(() => {
@@ -941,6 +1379,7 @@ export function TaskTable({
           <TaskRow
             key={key}
             task={task}
+            projects={liveProjects}
             projectOptions={projectOptions}
             projectName={liveProjects.find((project) => project.id === task.project_id)?.name ?? m.common.noProject}
             showDate={showDate}

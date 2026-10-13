@@ -14,6 +14,8 @@ interface SegControlProps<T extends string> {
       (the ground toggle's radial reveal starts from this element). */
   onChange: (id: T, origin?: HTMLButtonElement) => void;
   ariaLabel: string;
+  /** Extra class for a local variant (e.g. a compact digit row). */
+  className?: string;
 }
 
 /* The control most recently pressed. Theme / ground / meter / language
@@ -41,11 +43,11 @@ function markLive(el: HTMLElement | null) {
  * that leaves a light label on the light track (or a muted one on a dark
  * thumb) mid-slide. --seg-count sizes the thumb, --seg-i places it.
  */
-export function SegControl<T extends string>({ options, value, onChange, ariaLabel }: SegControlProps<T>) {
+export function SegControl<T extends string>({ options, value, onChange, ariaLabel, className }: SegControlProps<T>) {
   const index = Math.max(0, options.findIndex((option) => option.id === value));
   return (
     <div
-      className="cal-seg"
+      className={className ? `cal-seg ${className}` : "cal-seg"}
       role="group"
       aria-label={ariaLabel}
       style={{ "--seg-count": options.length, "--seg-i": index } as CSSProperties}

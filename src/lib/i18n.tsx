@@ -143,7 +143,6 @@ const en = {
     judgementLabel: "Today's Verdict"
   },
   taskTable: {
-    editDetails: "Edit Details",
     collapseDetails: "Collapse",
     tableAria: "Task Table",
     importance: "Importance",
@@ -160,6 +159,9 @@ const en = {
     copyToNextDay: "Copy to Next Day",
     moveToPrevDay: "Move to Previous Day",
     moveToNextDay: "Move to Next Day",
+    /* The card's footer buttons: short enough for two side by side on a phone. */
+    quickMoveNext: "Move +1 Day",
+    quickCopyNext: "Copy +1 Day",
     deleteTask: "Delete Task",
     deletePrompt: "Delete This Task Permanently?",
     confirmDelete: "Confirm Delete",
@@ -548,7 +550,6 @@ const zh: Messages = {
     judgementLabel: "今日判断"
   },
   taskTable: {
-    editDetails: "展开编辑",
     collapseDetails: "收起详情",
     tableAria: "任务表格",
     importance: "重要程度",
@@ -564,6 +565,8 @@ const zh: Messages = {
     copyToNextDay: "复制到后一天",
     moveToPrevDay: "移到前一天",
     moveToNextDay: "移到后一天",
+    quickMoveNext: "移到后一天",
+    quickCopyNext: "复制到后一天",
     deleteTask: "删除任务",
     deletePrompt: "永久删除这个任务？",
     confirmDelete: "确认删除",

@@ -1892,9 +1892,9 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .tone-done { --prog-color: var(--prog-done); }
 
 /* Progress meter. The bar is a track + fill pair wearing the shared meter
-   material; the range input is a transparent hit area laid over it, taller
-   than the bar so the 9px tube is still easy to grab. No visible thumb — the
-   fill edge IS the handle. */
+   material, wrapped in a taller hit strip (.progress-hit) that takes the
+   drag, so the 8px tube is still easy to grab. No visible thumb — the fill
+   edge IS the handle. */
 .task-table-progress { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; }
 .task-table-progress .progress-badge {
   font-size: 0.8125rem;
@@ -1942,6 +1942,23 @@ input:focus, select:focus, textarea:focus { outline: none; }
   color: var(--prog-color, var(--prog-done));
   pointer-events: none;
 }
+/* The gesture strip: 12px of reach above and below the bar, taken back by
+   the negative margin so it adds no layout. Sideways drags are the meter's;
+   vertical swipes still scroll the page (touch-action), and a long press
+   doesn't select or call out. */
+.progress-hit {
+  position: relative;
+  display: block;
+  margin-block: -12px;
+  padding-block: 12px;
+  cursor: pointer;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+/* Keyboard and assistive tech only: pointers go to the strip above. */
 .task-table-row .progress-slider {
   -webkit-appearance: none;
   appearance: none;
@@ -1952,7 +1969,7 @@ input:focus, select:focus, textarea:focus { outline: none; }
   padding: 0; margin: 0; border: 0;
   background: none;
   opacity: 0;
-  cursor: pointer;
+  pointer-events: none;
 }
 /* The input paints nothing, so the focus ring has to go on the bar it drives
    — otherwise keyboard focus is invisible. */
@@ -1960,9 +1977,6 @@ input:focus, select:focus, textarea:focus { outline: none; }
   outline: 2px solid var(--primary);
   outline-offset: 3px;
 }
-.progress-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; }
-.progress-slider::-moz-range-thumb { width: 22px; height: 22px; border: 0; background: transparent; }
-.progress-slider::-moz-range-track { height: 22px; background: transparent; }
 
 .task-table-note-cell {
   display: grid;
@@ -1977,36 +1991,114 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table-note-cell .icon-button { align-self: stretch; min-width: 44px; color: var(--muted); }
 .task-table-note-cell .icon-button.danger { color: var(--danger); }
 
-/* Compact reading rows share the same editor as the wide table. In the card
-   layout it mounts only while open (TaskTable's useEditorPresence): mounted
-   shut, eased open via `.is-open`, eased shut again before it unmounts. The
-   drafts live on the row, so closing never loses text. */
+/* Card layout (narrow). A closed card is something to act on, not just a
+   door to a form: the summary opens it, and its meter takes a sideways drag
+   to set progress without opening anything. The editor mounts only while
+   open (TaskTable's useEditorPresence): mounted shut, eased open via
+   `.is-open`, eased shut again before it unmounts. The drafts live on the
+   row, so closing never loses text. The wide table renders cells instead
+   and never mounts any of this. */
 .task-table-row { gap: 0; }
 .task-summary {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 0;
   width: 100%; padding: 0; text-align: left; background: transparent; border: 0;
+  -webkit-tap-highlight-color: transparent;
 }
-.task-summary__meta { grid-column: 1 / -1; color: var(--muted); font-size: 0.8125rem; overflow-wrap: anywhere; }
-.task-summary__title { font-size: 1rem; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere; }
-.task-summary__progress { align-self: center; font-size: 0.875rem; font-weight: 650; font-variant-numeric: tabular-nums; }
-.task-summary__preview { grid-column: 1 / -1; color: var(--ink-soft); font-size: 0.875rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
-.task-summary__action { grid-column: 1 / -1; display: flex; align-items: center; gap: 4px; min-height: 24px; color: var(--muted); font-size: 0.8125rem; }
-.task-summary__action svg { transition: transform var(--t-slow) var(--ease); }
-.is-expanded > .task-summary .task-summary__action svg { transform: rotate(180deg); }
+.task-summary__meta { grid-column: 1; grid-row: 1; color: var(--muted); font-size: 0.8125rem; line-height: 1.4; overflow-wrap: anywhere; }
+.task-summary__chevron { grid-column: 2; grid-row: 1; align-self: center; color: var(--muted); transition: transform var(--t-slow) var(--ease); }
+.is-expanded > .task-summary .task-summary__chevron { transform: rotate(180deg); }
+.task-summary__title {
+  grid-column: 1 / -1; margin-top: 6px;
+  font-size: 1rem; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere;
+  transition: color 0.4s var(--ease);
+}
+/* The preview gives way to the fields it summarises: it folds shut as the
+   editor opens (same duration and curve), so nothing jumps. */
+.task-summary__preview {
+  grid-column: 1 / -1; display: grid; grid-template-rows: 1fr; margin-top: 4px;
+  transition: grid-template-rows var(--t-slow) var(--ease), margin-top var(--t-slow) var(--ease), opacity var(--t) var(--ease);
+}
+.task-summary__preview > span {
+  min-height: 0; overflow: hidden;
+  color: var(--ink-soft); font-size: 0.875rem; line-height: 1.5; overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  transition: color 0.4s var(--ease);
+}
+.is-expanded > .task-summary .task-summary__preview { grid-template-rows: 0fr; margin-top: 0; opacity: 0; }
 .task-summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: var(--r-xs); }
-.task-editor { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow); }
-.task-editor__fields { min-height: 0; overflow: hidden; display: grid; gap: 16px; }
-.task-editor.is-open { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
-.task-editor__fields > .tt-cell:first-child { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-.task-editor__fields:has(.task-menu.is-open) { overflow: visible; }
-.task-editor-close { display: flex; justify-content: center; align-items: center; gap: 4px; min-height: 44px; padding: 8px; color: var(--muted); font-size: 0.8125rem; background: transparent; border: 0; border-top: 1px solid var(--line); }
-.task-editor-close svg { transform: rotate(180deg); }
-.task-editor-close:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
-@container tasktable (min-width: 881px) {
-  .task-summary, .task-editor-close { display: none; }
-  .task-editor, .task-editor__fields { display: contents; visibility: visible; }
-  .task-editor__fields > .tt-cell:first-child { margin-top: 0; padding-top: 8px; border-top: 0; }
+
+/* The meter and its reading. The reading is a fixed column, so the bar
+   keeps its length as the digits roll. */
+.task-card-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; margin-top: 12px; }
+.task-card-meter { min-width: 0; }
+.task-card-progress__pct {
+  min-width: 4ch; text-align: right;
+  color: var(--ink-soft); font-size: 0.8125rem; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums;
+  transition: color 0.4s var(--ease);
 }
+
+/* Done: the card steps back. The fill has already turned the done tone; the
+   words recede a step so the open work reads first. */
+.task-table-row.is-done .task-summary__title,
+.task-table-row.is-done .task-summary__preview > span { color: var(--muted); }
+.task-table-row.is-done .task-card-progress__pct { color: var(--prog-done); }
+
+.task-editor { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow); }
+.task-editor.is-open { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
+/* The fields arrive a beat after the card starts to grow and settle 4px;
+   on close they clear out first, before the card has shrunk past them. */
+.task-editor__fields {
+  min-height: 0; overflow: hidden; display: grid; gap: 16px;
+  opacity: 0; translate: 0 -4px;
+  transition: opacity 0.12s var(--ease), translate var(--t-slow) var(--ease);
+}
+.task-editor.is-open > .task-editor__fields {
+  opacity: 1; translate: 0 0;
+  transition: opacity 0.22s var(--ease) 0.06s, translate var(--t-slow) var(--ease);
+}
+.task-editor__fields > :first-child { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+
+/* Importance and project share a line: the digits as a segmented control,
+   the project as a field that opens the app's own menu. */
+.task-card-attrs { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
+.task-card-attrs .cal-seg { justify-self: start; }
+/* Two classes: .cal-seg's own button rule comes later in the file. 7.2px
+   makes the control exactly 36px, the picker's height. */
+.cal-seg.task-importance-seg button,
+.cal-seg.task-importance-seg .cal-seg__ink > span { padding: 7.2px 12px; font-variant-numeric: tabular-nums; }
+.task-project-trigger {
+  display: flex; align-items: center; gap: 6px;
+  width: 100%; min-width: 0; height: 36px; padding: 0 10px 0 12px;
+  color: var(--ink); font-size: 0.875rem; font-weight: 600; line-height: 1.2; text-align: left;
+  background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--t) var(--ease), transform 0.12s var(--ease-out);
+}
+.task-project-trigger > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-project-trigger > svg { flex: none; color: var(--muted); transition: transform var(--t) var(--ease); }
+.task-project-trigger.is-open > svg { transform: rotate(180deg); }
+.task-project-trigger:active { transform: scale(0.98); }
+.task-project-trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Footer: the two everyday moves as buttons, the rarer ones behind the
+   menu, and a way to close without scrolling back up. It wraps rather than
+   overflow on the narrowest phones with longer labels; the menu and the
+   close button stay together on the right. */
+.task-card-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.task-card-action {
+  display: inline-flex; align-items: center; gap: 5px;
+  min-height: 36px; padding: 0 11px;
+  color: var(--ink-soft); font-size: 0.8125rem; font-weight: 650; line-height: 1.2; white-space: nowrap;
+  background: transparent; border: 1px solid var(--line-strong); border-radius: var(--r-md);
+  -webkit-tap-highlight-color: transparent;
+  transition: background var(--t) var(--ease), color var(--t) var(--ease), transform 0.12s var(--ease-out);
+}
+.task-card-action > svg { flex: none; color: var(--muted); transition: color var(--t) var(--ease); }
+.task-card-action:active { transform: scale(0.97); background: var(--wash); }
+.task-card-action.is-confirmed > svg { color: var(--prog-done); }
+.task-card-action:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.task-card-actions__end { display: flex; gap: 6px; margin-left: auto; }
+.task-card-actions .icon-button { width: 36px; min-width: 36px; min-height: 36px; }
 
 /* Wide spreadsheet layout. The switch is a CONTAINER query, so the same
    table is a spreadsheet on Today and a card stack inside the Projects split
@@ -2889,6 +2981,17 @@ button.project-row > span { flex: 1; min-width: 0; }
 .task-action-menu button:active { transform: scale(0.97); }
 .task-action-menu button.danger { color: var(--danger); }
 @media (hover: hover) { .task-action-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); } }
+/* The project picker drops from its field (or rises, when there's no room
+   below) and shows the current choice with a check. */
+.task-project-menu { transform-origin: top left; animation-name: task-menu-drop; }
+.task-project-menu[data-side="up"] { transform-origin: bottom left; }
+.task-project-menu.is-closing { animation-name: task-menu-drop-out; }
+.task-project-menu button { justify-content: space-between; gap: 16px; animation: none; }
+.task-project-menu button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.task-project-menu button[aria-checked="true"] { color: var(--ink); }
+.task-project-menu button > svg { flex: none; color: var(--primary); }
+@keyframes task-menu-drop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes task-menu-drop-out { to { opacity: 0; transform: scale(0.97); } }
 .task-action-menu__prompt { display: block; padding: 6px 12px 4px; color: var(--muted); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
 .task-action-menu__warning { display: block; margin-top: -2px; padding: 0 12px 6px; color: var(--danger); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 

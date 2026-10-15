@@ -7,9 +7,11 @@ import { useLayoutEffect, useReducer, useRef, type RefObject } from "react";
  * sync from another device.
  *
  * The data can drop an item immediately; the layer keeps rendering it in its
- * old slot, flagged `exiting`, until its fold lands. Rows are found by
- * `data-motion-key` inside `containerRef`, so row components need no wiring
- * beyond that attribute and honouring `exiting` (inert, no writes).
+ * old slot, flagged `exiting`, until its fold lands. Rows are the children of
+ * `containerRef` that carry `data-motion-key`, so row components need no
+ * wiring beyond that attribute and honouring `exiting` (inert, no writes).
+ * Only direct children count: a list nested inside a row (a group's items)
+ * runs its own layer.
  *
  * Positions are read during render, while the DOM still shows the previous
  * commit, and again in a layout effect after it, so every move starts from
@@ -35,6 +37,14 @@ interface Box {
   height: number;
 }
 
+export interface ListMotionOptions {
+  /** How an arriving row appears. "fade": it fades up in place and its
+   * neighbours glide aside (FLIP). "unfold": its box grows open from
+   * nothing, the mirror of the exit fold, so whatever sits below the list
+   * glides down with it instead of jumping. */
+  enter?: "fade" | "unfold";
+}
+
 const MOVE_MS = 380;
 const ENTER_MS = 360;
 const EXIT_MS = 380;
@@ -46,6 +56,7 @@ const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
 const moves = new WeakMap<HTMLElement, Animation>();
 const exits = new WeakMap<Element, Animation[]>();
+const enters = new WeakMap<HTMLElement, Animation>();
 
 function settle(node: HTMLElement): void {
   moves.delete(node);
@@ -60,11 +71,19 @@ function reducedMotion(): boolean {
 function nodesIn(container: HTMLElement | null): Map<string, HTMLElement> {
   const nodes = new Map<string, HTMLElement>();
   if (!container) return nodes;
-  for (const node of container.querySelectorAll<HTMLElement>("[data-motion-key]")) {
+  for (const node of container.children) {
+    if (!(node instanceof HTMLElement)) continue;
     const key = node.dataset.motionKey;
     if (key) nodes.set(key, node);
   }
   return nodes;
+}
+
+/** The row of `container` that holds `node`, if any. */
+function rowOf(container: HTMLElement, node: Element | null): HTMLElement | null {
+  let el: Element | null = node;
+  while (el && el.parentElement !== container) el = el.parentElement;
+  return el instanceof HTMLElement && el.dataset.motionKey ? el : null;
 }
 
 function boxOf(node: Element): Box {
@@ -84,14 +103,20 @@ export function scrollParent(node: HTMLElement): Element | null {
   return document.scrollingElement;
 }
 
-/** Fold a block shut: its box collapses to nothing while its content fades
- * ahead of it, so neighbours glide over an emptying gap rather than crush a
- * card. The stagger is baked into the keyframes (WebKit doesn't reliably draw
- * a delayed animation's backwards fill). Both animations hold their end state
- * until the caller unmounts or cancels them. */
-function fold(node: HTMLElement, delay: number): Animation[] {
+const SHUT = {
+  height: "0px",
+  paddingTop: "0px",
+  paddingBottom: "0px",
+  marginTop: "0px",
+  marginBottom: "0px",
+  borderTopWidth: "0px",
+  borderBottomWidth: "0px"
+};
+
+/** The vertical box a block occupies, as fold/unfold keyframe values. */
+function openBox(node: HTMLElement): typeof SHUT {
   const style = getComputedStyle(node);
-  const open = {
+  return {
     height: style.height,
     paddingTop: style.paddingTop,
     paddingBottom: style.paddingBottom,
@@ -100,22 +125,22 @@ function fold(node: HTMLElement, delay: number): Animation[] {
     borderTopWidth: style.borderTopWidth,
     borderBottomWidth: style.borderBottomWidth
   };
-  const shut = {
-    height: "0px",
-    paddingTop: "0px",
-    paddingBottom: "0px",
-    marginTop: "0px",
-    marginBottom: "0px",
-    borderTopWidth: "0px",
-    borderBottomWidth: "0px"
-  };
+}
+
+/** Fold a block shut: its box collapses to nothing while its content fades
+ * ahead of it, so neighbours glide over an emptying gap rather than crush a
+ * card. The stagger is baked into the keyframes (WebKit doesn't reliably draw
+ * a delayed animation's backwards fill). Both animations hold their end state
+ * until the caller unmounts or cancels them. */
+function fold(node: HTMLElement, delay: number): Animation[] {
+  const open = openBox(node);
   const total = delay + EXIT_MS;
   const start = delay / total;
   const box = node.animate(
     [
       { ...open, offset: 0 },
       { ...open, offset: start, easing: EASE_OUT },
-      { ...shut, offset: 1 }
+      { ...SHUT, offset: 1 }
     ],
     { duration: total, fill: "forwards" }
   );
@@ -129,6 +154,33 @@ function fold(node: HTMLElement, delay: number): Animation[] {
     { duration: total, fill: "forwards" }
   );
   return [box, fade];
+}
+
+/** Grow a block open from nothing: the exit fold played backwards, with the
+ * content fading in once there is room for it. It clips while it grows so
+ * nothing spills over the rows below, and lets go when the box lands. Call
+ * it before measuring the rows after this one: from its first frame the
+ * layout below already starts from the shut box. */
+function unfold(node: HTMLElement): void {
+  enters.get(node)?.cancel();
+  const open = openBox(node);
+  node.style.overflow = "hidden";
+  const box = node.animate([SHUT, open], { duration: ENTER_MS, easing: EASE_OUT });
+  node.animate(
+    [
+      { opacity: 0, scale: "0.98", offset: 0 },
+      { opacity: 0, scale: "0.98", offset: 0.2, easing: EASE },
+      { opacity: 1, scale: "1", offset: 1 }
+    ],
+    { duration: ENTER_MS }
+  );
+  enters.set(node, box);
+  const release = () => {
+    if (enters.get(node) !== box) return;
+    enters.delete(node);
+    node.style.overflow = "";
+  };
+  box.finished.then(release, release);
 }
 
 /**
@@ -184,8 +236,10 @@ export function useListMotion<T>(
   /** Every key the data still holds. A row missing from `items` but still
    * present (paged out, not deleted) drops without an exit, and a row that
    * joins `items` from here (paged in) arrives without an entrance. */
-  present: ReadonlySet<string>
+  present: ReadonlySet<string>,
+  options: ListMotionOptions = {}
 ): MotionEntry<T>[] {
+  const unfolds = options.enter === "unfold";
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const committedRef = useRef<Committed<T>>({ mounted: false, entries: [], present: new Set(), sig: "" });
   const doneRef = useRef(new Set<string>());
@@ -298,8 +352,7 @@ export function useListMotion<T>(
 
     // Keep the row being edited under the user's hand: if a re-sort would
     // carry it off screen, scroll with it and let the rest of the list move.
-    const active = document.activeElement;
-    const anchor = active && container.contains(active) ? active.closest<HTMLElement>("[data-motion-key]") : null;
+    const anchor = rowOf(container, document.activeElement);
     const anchorKey = anchor?.dataset.motionKey;
     const anchorFirst = anchorKey ? first.get(anchorKey) : undefined;
     if (anchor && anchorFirst && !anchor.inert) {
@@ -312,13 +365,18 @@ export function useListMotion<T>(
 
     const fromEmpty = previous.entries.length === 0;
     if (fromEmpty && liveCount > 0) {
-      container.animate([{ opacity: 0, translate: "0 6px" }, { opacity: 1, translate: "0 0" }], {
-        duration: ENTER_MS,
-        easing: EASE_OUT
-      });
+      if (unfolds) unfold(container);
+      else
+        container.animate([{ opacity: 0, translate: "0 6px" }, { opacity: 1, translate: "0 0" }], {
+          duration: ENTER_MS,
+          easing: EASE_OUT
+        });
       return;
     }
 
+    // Top to bottom, so an unfolding row has already collapsed to nothing
+    // when the rows under it are measured: they start where they were and
+    // ride its growth down, rather than also being offset by a FLIP.
     const moving: Array<{ node: HTMLElement; dx: number; dy: number }> = [];
     for (const entry of entries) {
       const node = nodes.get(entry.key);
@@ -328,10 +386,12 @@ export function useListMotion<T>(
       const entering = !entry.exiting && !wasRendered.has(entry.key) && !previous.present.has(entry.key);
       if (entering) {
         if (onScreen(now)) {
-          node.animate([{ opacity: 0, scale: "0.98" }, { opacity: 1, scale: "1" }], {
-            duration: ENTER_MS,
-            easing: EASE_OUT
-          });
+          if (unfolds) unfold(node);
+          else
+            node.animate([{ opacity: 0, scale: "0.98" }, { opacity: 1, scale: "1" }], {
+              duration: ENTER_MS,
+              easing: EASE_OUT
+            });
         }
         continue;
       }

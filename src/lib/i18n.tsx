@@ -216,7 +216,6 @@ const en = {
     deleteFor: (name: string) => `Delete ${name}`,
     projectLabel: "Project",
     renameAria: (name: string) => `Rename ${name}`,
-    noIdeas: "No Saved Ideas Yet.",
     noProjects: "No Next projects yet. Create one above to save future ideas.",
     boardAria: "Next Idea Board"
   },
@@ -621,7 +620,6 @@ const zh: Messages = {
     deleteFor: (name) => `删除「${name}」`,
     projectLabel: "分组",
     renameAria: (name) => `重命名「${name}」`,
-    noIdeas: "还没有想法。",
     noProjects: "还没有想法分组。先在上面创建一个，用来收集未来的想法。",
     boardAria: "想法看板"
   },

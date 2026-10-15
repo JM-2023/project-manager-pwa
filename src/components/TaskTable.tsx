@@ -12,8 +12,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
-  type TextareaHTMLAttributes,
-  type TransitionEvent
+  type TextareaHTMLAttributes
 } from "react";
 import { createPortal } from "react-dom";
 import type { Project, Task } from "../lib/types";
@@ -32,7 +31,8 @@ import {
   type TaskImportance,
   type TaskProgress
 } from "../lib/progress";
-import { scrollParent, useListMotion } from "../lib/listMotion";
+import { keepInView, useDisclosure } from "../lib/disclosure";
+import { useListMotion } from "../lib/listMotion";
 import { usePresence } from "../lib/usePresence";
 import { handleMenuKeyDown } from "../lib/menuKeys";
 import { useMeterDither } from "../lib/meterDither";
@@ -743,117 +743,6 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap }:
   );
 }
 
-/* ---------- card open/close ------------------------------------------- */
-
-// Matches --t-slow, the editor's open/close transition.
-const EDITOR_MS = 300;
-// Room kept between a card being opened or closed and the edges of the view.
-const VIEW_MARGIN = 12;
-const FOLLOW_K = 14;
-const FOLLOW_SETTLE_MS = 450;
-
-/** The part of a scroller the user can see; on a phone the fixed Dock
- * covers the bottom of the window. */
-function visibleBand(scroller: Element): { top: number; bottom: number } {
-  if (scroller !== document.scrollingElement) {
-    const rect = scroller.getBoundingClientRect();
-    return { top: rect.top, bottom: rect.bottom };
-  }
-  const dock = document.querySelector(".bottom-nav")?.getBoundingClientRect();
-  return { top: 0, bottom: dock && dock.top > window.innerHeight / 2 ? dock.top : window.innerHeight };
-}
-
-/**
- * While a card opens or closes, ease the page so the card stays in view: an
- * opening card near the bottom carries the page up with it (never past its
- * own top), and a closing card whose top has scrolled away brings the page
- * back to it. Each frame closes part of the remaining gap, so the scroll
- * rides the size transition instead of jumping ahead of it. Stops as soon
- * as the user touches or wheels.
- */
-function keepInView(node: HTMLElement): () => void {
-  const scroller = scrollParent(node);
-  if (!scroller) return () => undefined;
-  const instant = reducedMotion();
-  let raf = 0;
-  let last = performance.now();
-  const until = last + EDITOR_MS;
-  const stop = () => {
-    cancelAnimationFrame(raf);
-    window.removeEventListener("touchstart", stop, true);
-    window.removeEventListener("wheel", stop, true);
-  };
-  const tick = (now: number) => {
-    const dt = Math.min((now - last) / 1000, 0.05);
-    last = now;
-    const band = visibleBand(scroller);
-    const rect = node.getBoundingClientRect();
-    const top = band.top + VIEW_MARGIN;
-    const bottom = band.bottom - VIEW_MARGIN;
-    const gap = rect.top < top ? rect.top - top : rect.bottom > bottom ? Math.min(rect.bottom - bottom, rect.top - top) : 0;
-    if (Math.abs(gap) >= 1) {
-      const step = instant ? gap : gap * (1 - Math.exp(-FOLLOW_K * dt));
-      // Scroll offsets round to whole pixels; never step by less than one.
-      scroller.scrollTop += Math.sign(gap) * Math.max(1, Math.round(Math.abs(step)));
-    }
-    if (instant || now > until + FOLLOW_SETTLE_MS || (now > until && Math.abs(gap) < 1)) {
-      stop();
-      return;
-    }
-    raf = requestAnimationFrame(tick);
-  };
-  raf = requestAnimationFrame(tick);
-  window.addEventListener("touchstart", stop, { capture: true, passive: true });
-  window.addEventListener("wheel", stop, { capture: true, passive: true });
-  return stop;
-}
-
-/**
- * The card's editor mounts only while it is open: a closed card is a summary
- * and a meter, not five textareas and two pickers. Opening mounts the fields
- * shut and eases them open; closing eases them shut, then unmounts.
- */
-function useEditorPresence(expanded: boolean, editorRef: RefObject<HTMLDivElement>) {
-  const [mounted, setMounted] = useState(expanded);
-  const [open, setOpen] = useState(expanded);
-
-  useLayoutEffect(() => {
-    if (!expanded) {
-      setOpen(false);
-      return;
-    }
-    if (!mounted) {
-      setMounted(true);
-      return;
-    }
-    if (!open) {
-      // Commit the shut layout before opening, so the grid track transitions
-      // from 0fr instead of the fields appearing already open.
-      void editorRef.current?.offsetHeight;
-      setOpen(true);
-    }
-  }, [expanded, mounted, open, editorRef]);
-
-  // Unmount once the close lands; the timer covers a transition that never
-  // reports (reduced motion, an interrupted close).
-  useEffect(() => {
-    if (expanded || !mounted) return;
-    const timer = window.setTimeout(() => setMounted(false), 450);
-    return () => window.clearTimeout(timer);
-  }, [expanded, mounted]);
-
-  const onTransitionEnd = useCallback(
-    (event: TransitionEvent<HTMLDivElement>) => {
-      if (event.target === editorRef.current && event.propertyName === "grid-template-rows" && !expanded) {
-        setMounted(false);
-      }
-    },
-    [expanded, editorRef]
-  );
-
-  return { mounted, open, onTransitionEnd };
-}
-
 /* ---------- rows ------------------------------------------------------ */
 
 function TaskRowComponent({ task, projects, projectOptions, projectName, showDate, wide, autoFocusTitle, exiting, onCreate, onUpdate, onDelete }: TaskRowProps) {
@@ -867,7 +756,7 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
   const [progress, setProgress] = useState<TaskProgress>(getTaskProgress(task));
   const [copied, setCopied] = useState(false);
   const editorRef = useRef<HTMLDivElement | null>(null);
-  const editor = useEditorPresence(expanded, editorRef);
+  const editor = useDisclosure(expanded, editorRef);
   const projectLabelId = useId();
   // The value most recently handed to onUpdate and not yet reflected in the
   // task prop. A release can arrive through several events at once (pointer

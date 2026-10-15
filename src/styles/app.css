@@ -781,7 +781,7 @@ button.project-row:focus-visible {
 .today-title-button:focus-visible,
 .cal-seg button:focus-visible,
 .archived-toggle:focus-visible,
-.cache-section__head:focus-visible,
+.cache-section__toggle:focus-visible,
 .task-action-menu button:focus-visible { background: var(--wash-strong); }
 
 /* The chevron is a data URI, so it can't read --muted — every palette bakes
@@ -2535,23 +2535,53 @@ button.project-row > span { flex: 1; min-width: 0; }
 /* =========================================================================
    Next / cache board
    ========================================================================= */
-.cache-board { display: grid; gap: 10px; width: 100%; }
+.cache-board { display: grid; width: 100%; }
 .cache-project-add { margin: 0 0 16px; }
+/* Groups and ideas arrive, leave and re-sort through lib/listMotion (grow
+   open, fold shut, glide), not mount keyframes. Their spacing is margins,
+   which a fold can animate away, rather than gaps, which it can't. A
+   folding block (or the whole list, when its last ones leave) clips while
+   its box shrinks. */
 .cache-section {
+  margin-bottom: 10px;
   border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface);
-  box-shadow: var(--shadow-xs); overflow: hidden; animation: fade-up var(--t-slow) var(--ease) both;
+  box-shadow: var(--shadow-xs); overflow: hidden;
 }
-.cache-section__head {
-  display: flex; align-items: center; gap: 11px; padding: 15px 16px;
-  list-style: none; cursor: pointer; user-select: none; font-weight: 700;
-  transition: background var(--t) var(--ease);
+.cache-section.is-exiting,
+.cache-board.is-folding,
+.cache-item.is-exiting,
+.cache-items.is-folding { overflow: hidden; pointer-events: none; }
+/* The head is the button that opens the group, with its delete control
+   beside it rather than inside (a button can't hold another). No hover
+   fill: the chevron turning and the body opening are the response. */
+.cache-section__head { display: flex; align-items: center; gap: 11px; padding-right: 16px; }
+.cache-section__toggle {
+  /* 62px: the height the head had when the 32px delete sat inside it. */
+  flex: 1; min-width: 0; min-height: 62px; display: flex; align-items: center; gap: 11px;
+  padding: 15px 0 15px 16px; text-align: left; font-weight: 700;
+  background: transparent; border: 0; border-radius: 0; user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.cache-section__head::-webkit-details-marker { display: none; }
-.cache-section__head:hover { background: var(--surface-2); }
-.cache-chevron { flex: none; color: var(--muted); transition: transform var(--t) var(--ease), color var(--t) var(--ease); }
-.cache-section[open] > .cache-section__head .cache-chevron { transform: rotate(90deg); color: var(--primary); }
+.cache-chevron { flex: none; color: var(--muted); transition: transform var(--t-slow) var(--ease), color var(--t) var(--ease); }
+.cache-section.is-open .cache-chevron { transform: rotate(90deg); color: var(--primary); }
 .cache-section__name { flex: 1; min-width: 0; font-size: 1rem; font-weight: 650; letter-spacing: -0.01em; white-space: normal; overflow-wrap: anywhere; }
-.cache-section__body { display: grid; gap: 10px; padding: 2px 16px 16px; animation: fade-in var(--t) var(--ease) both; }
+/* The body opens like a task card's editor (lib/disclosure): mounted shut,
+   its track eased from 0fr to 1fr, the fields arriving a beat behind and
+   settling 4px; on close they clear first, then the track shuts and the
+   body unmounts. Vertical padding lives on the fields, inside the clip, so
+   the shut track really is 0. */
+.cache-section__body { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow); }
+.cache-section__body.is-open { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
+.cache-section__inner {
+  min-height: 0; overflow: hidden;
+  opacity: 0; translate: 0 -4px;
+  transition: opacity 0.12s var(--ease), translate var(--t-slow) var(--ease);
+}
+.cache-section__body.is-open > .cache-section__inner {
+  opacity: 1; translate: 0 0;
+  transition: opacity 0.22s var(--ease) 0.06s, translate var(--t-slow) var(--ease);
+}
+.cache-section__fields { display: grid; gap: 10px; padding: 2px 16px 8px; }
 .cache-count {
   flex: none; display: inline-grid; place-items: center; min-width: 26px; height: 24px; padding: 0 8px;
   /* A neutral tally, not a status: the accent here made every group look
@@ -2589,6 +2619,11 @@ button.project-row > span { flex: 1; min-width: 0; }
 .cache-item textarea { width: 100%; min-width: 0; padding: 2px 0; overflow: hidden; color: var(--ink); font-size: 0.875rem; font-weight: 600; line-height: 1.4; background: transparent; border: 0; resize: none; }
 .cache-item textarea:focus { outline: none; box-shadow: none; }
 .cache-item .icon-button { align-self: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; }
+/* Inside a group the ideas move through lib/listMotion, so they space with
+   a margin the fold can take away and drop the mount keyframe. (Search
+   results reuse .cache-item and keep both.) */
+.cache-section .cache-items { gap: 0; }
+.cache-section .cache-item { margin-bottom: 8px; animation: none; }
 .search-next-results { display: grid; gap: 16px; }
 .search-results { animation: fade-up var(--t-slow) var(--ease) both; }
 .search-filters > .cal-seg { justify-self: start; }

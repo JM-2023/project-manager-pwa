@@ -849,8 +849,8 @@ select {
 .reveal-complete .offline-banner,
 .reveal-complete .bottom-nav { animation: none; }
 /* On launch (after the first reveal) the page rises in softly. Tab switches
-   skip this: pageTransition.ts settles it and runs the focus pull instead
-   ("Tab switch" below). */
+   skip this: pageTransition.ts finishes it and lands the page row by row
+   instead. */
 .reveal-complete .page-content { animation: page-in 0.18s var(--ease-out); }
 @keyframes page-in { from { opacity: 0; transform: translateY(5px); } }
 
@@ -3900,30 +3900,6 @@ button.project-row > span { flex: 1; min-width: 0; }
     filter: blur(0);
     transform: none;
   }
-}
-
-/* =========================================================================
-   Tab switch — focus pull
-   --------------------------------------------------------------------------
-   pageTransition.ts clones the outgoing page's on-screen part into this
-   inert overlay (the "ghost") and blurs it out over the live new page, whose
-   blocks come into focus beneath it. It sits under the navigation (z 30) and
-   the sync pill (z 40), so neither blurs with the page. The clone must hold
-   still exactly as it was: its own entrances and transitions would replay
-   on the freshly inserted copy.
-   ========================================================================= */
-.page-ghost {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  overflow: hidden;
-  pointer-events: none;
-}
-.page-ghost *,
-.page-ghost *::before,
-.page-ghost *::after {
-  animation: none !important;
-  transition: none !important;
 }
 
 /* =========================================================================

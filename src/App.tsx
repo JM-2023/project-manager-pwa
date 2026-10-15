@@ -205,7 +205,7 @@ export function App() {
   const selectDate = useCallback((date: string) => {
     commit({ type: "setSelectedDate", payload: date === todayDate() ? null : date });
   }, [commit]);
-  // Every tab change goes through here so it cross-fades (lib/pageTransition).
+  // Every tab change goes through here so the new page settles in (lib/pageTransition).
   // `prepare` runs inside the swap, so its state lands in the same new frame.
   const switchTab = useCallback((tab: TabId, prepare?: () => void) => {
     switchPageAnimated(tab !== stateRef.current.currentTab, () => {

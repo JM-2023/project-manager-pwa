@@ -31,7 +31,7 @@ import {
   type TaskImportance,
   type TaskProgress
 } from "../lib/progress";
-import { keepInView, useDisclosure } from "../lib/disclosure";
+import { useSpringDisclosure } from "../lib/disclosure";
 import { useListMotion } from "../lib/listMotion";
 import { usePresence } from "../lib/usePresence";
 import { handleMenuKeyDown } from "../lib/menuKeys";
@@ -483,9 +483,11 @@ interface ProgressFieldProps {
   // handed to onTap (it opens the card).
   variant?: "cell" | "card";
   onTap?: () => void;
+  // The press has become a drag (it won't be a tap).
+  onGrab?: () => void;
 }
 
-function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap }: ProgressFieldProps) {
+function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap, onGrab }: ProgressFieldProps) {
   const { m } = useI18n();
   // The visible fill/badge chase the value on a damped ease each frame, so
   // the meter has weight instead of snapping between the 25% detents. The
@@ -597,6 +599,7 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap }:
     if (!gesture) return;
     gesture.live = true;
     draggingRef.current = true;
+    onGrab?.();
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
     } catch {
@@ -755,16 +758,19 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
   const [notes, setNotes] = useState(task.notes ?? "");
   const [progress, setProgress] = useState<TaskProgress>(getTaskProgress(task));
   const [copied, setCopied] = useState(false);
+  const rowRef = useRef<HTMLDivElement | null>(null);
   const editorRef = useRef<HTMLDivElement | null>(null);
-  const editor = useDisclosure(expanded, editorRef);
+  const previewRef = useRef<HTMLSpanElement | null>(null);
+  // Open and close run on one spring: the editor's height, the preview
+  // folding away, the chevron and fields (CSS, from --disclose) and the
+  // page's scroll, so the row stays in view (lib/disclosure).
+  const editor = useSpringDisclosure(expanded, { block: rowRef, panel: editorRef, fold: previewRef });
   const projectLabelId = useId();
   // The value most recently handed to onUpdate and not yet reflected in the
   // task prop. A release can arrive through several events at once (pointer
   // up and the input's own change); only the first may create a mutation.
   const progressCommitRef = useRef<TaskProgress | null>(null);
   const previousTaskRef = useRef(task);
-  const rowRef = useRef<HTMLDivElement | null>(null);
-  const followRef = useRef<() => void>(() => undefined);
   // A folding row holds a snapshot of a task that no longer exists (or has
   // moved away); a late draft commit would write it back.
   const exitingRef = useRef(exiting);
@@ -838,8 +844,6 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
 
   useEffect(() => registerDraftFlusher(() => commitTextRef.current()), []);
 
-  useEffect(() => () => followRef.current(), []);
-
   // The copy lands on another day, out of this view: the button confirms it.
   useEffect(() => {
     if (!copied) return;
@@ -902,23 +906,23 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
     onUpdate(task, { start_date: taskDateWithOffset(offset) });
   }
 
-  function follow() {
-    followRef.current();
-    const row = rowRef.current;
-    if (row) followRef.current = keepInView(row);
-  }
-
   function toggle() {
     commitText();
     setExpanded((value) => !value);
-    follow();
+  }
+
+  // A press on the summary or the meter mounts the editor shut, so the tap
+  // that follows only has to start the motion. A press that turns into a
+  // scroll (cancelled) or a meter drag (grabbed) lets it go again, so a
+  // drag doesn't re-render a hidden editor at every detent.
+  function warmEditor(event: ReactPointerEvent<HTMLElement>) {
+    if (event.isPrimary && event.button === 0) editor.warm();
   }
 
   function collapseFromFooter() {
     commitText();
     setExpanded(false);
     rowRef.current?.querySelector<HTMLButtonElement>(".task-summary")?.focus({ preventScroll: true });
-    follow();
   }
 
   const importance = getTaskImportance(task);
@@ -1041,26 +1045,34 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
 
   return (
     <div ref={rowRef} data-motion-key={task.id} className={rowClass}>
-      <button type="button" className="task-summary" aria-expanded={expanded} aria-controls={editor.mounted ? editorId : undefined} onClick={toggle}>
+      <button
+        type="button"
+        className="task-summary"
+        aria-expanded={expanded}
+        aria-controls={editor.mounted ? editorId : undefined}
+        onPointerDown={warmEditor}
+        onPointerCancel={editor.cool}
+        onClick={toggle}
+      >
         <span className="task-summary__meta">{projectName}{showDate && task.start_date ? ` · ${task.start_date}` : ""} · P{importance}</span>
         <ChevronDown className="task-summary__chevron" size={16} aria-hidden="true" />
         <strong className="task-summary__title">{title || m.taskTable.newTask}</strong>
         {preview ? (
-          <span className="task-summary__preview">
+          <span ref={previewRef} className="task-summary__preview">
             <span>{preview}</span>
           </span>
         ) : null}
       </button>
 
-      <div className="task-card-progress">
-        <ProgressField variant="card" progress={progress} onInput={setProgress} onCommit={commitProgress} onTap={toggle} />
+      <div className="task-card-progress" onPointerDown={warmEditor} onPointerCancel={editor.cool}>
+        <ProgressField variant="card" progress={progress} onInput={setProgress} onCommit={commitProgress} onTap={toggle} onGrab={editor.cool} />
         <span className="task-card-progress__pct" aria-hidden="true">
           <RollDigits value={progress} text={`${progress}%`} />
         </span>
       </div>
 
       {editor.mounted ? (
-        <div ref={editorRef} className={`task-editor${editor.open ? " is-open" : ""}`} id={editorId} onTransitionEnd={editor.onTransitionEnd}>
+        <div ref={editorRef} className="task-editor" id={editorId}>
           <div className="task-editor__fields">
             <div className="task-card-attrs">
               <div className="tt-cell tt-importance">

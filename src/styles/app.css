@@ -1994,37 +1994,43 @@ input:focus, select:focus, textarea:focus { outline: none; }
 /* Card layout (narrow). A closed card is something to act on, not just a
    door to a form: the summary opens it, and its meter takes a sideways drag
    to set progress without opening anything. The editor mounts only while
-   open (TaskTable's useEditorPresence): mounted shut, eased open via
-   `.is-open`, eased shut again before it unmounts. The drafts live on the
+   open or on its way (lib/disclosure's useSpringDisclosure; a press on the
+   summary or the meter mounts it shut just ahead of the tap). The drafts live on the
    row, so closing never loses text. The wide table renders cells instead
-   and never mounts any of this. */
-.task-table-row { gap: 0; }
+   and never mounts any of this.
+
+   Open and close run on one spring. While it moves it writes the editor's
+   and the preview's heights, the page's scroll, and its progress as
+   --disclose on the row (0 shut, 1 open). Everything else here is a
+   function of --disclose, and the resting states are just its two ends,
+   so the chevron and the fields can't drift from the height. Nothing in
+   the open/close carries a transition: a transition is a second clock. */
+.task-table-row { gap: 0; --disclose: 0; }
+.task-table-row.is-expanded { --disclose: 1; }
 .task-summary {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 0;
   width: 100%; padding: 0; text-align: left; background: transparent; border: 0;
   -webkit-tap-highlight-color: transparent;
 }
 .task-summary__meta { grid-column: 1; grid-row: 1; color: var(--muted); font-size: 0.8125rem; line-height: 1.4; overflow-wrap: anywhere; }
-.task-summary__chevron { grid-column: 2; grid-row: 1; align-self: center; color: var(--muted); transition: transform var(--t-slow) var(--ease); }
-.is-expanded > .task-summary .task-summary__chevron { transform: rotate(180deg); }
+.task-summary__chevron { grid-column: 2; grid-row: 1; align-self: center; color: var(--muted); transform: rotate(calc(var(--disclose) * 180deg)); }
 .task-summary__title {
   grid-column: 1 / -1; margin-top: 6px;
   font-size: 1rem; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere;
   transition: color 0.4s var(--ease);
 }
 /* The preview gives way to the fields it summarises: it folds shut as the
-   editor opens (same duration and curve), so nothing jumps. */
-.task-summary__preview {
-  grid-column: 1 / -1; display: grid; grid-template-rows: 1fr; margin-top: 4px;
-  transition: grid-template-rows var(--t-slow) var(--ease), margin-top var(--t-slow) var(--ease), opacity var(--t) var(--ease);
-}
+   editor opens (the spring writes its height) and fades out ahead of the
+   fold. Its 4px of air is padding on the text, inside the clip, so that
+   folds away too. */
+.task-summary__preview { grid-column: 1 / -1; overflow: hidden; opacity: clamp(0, 1 - var(--disclose) * 1.6, 1); }
 .task-summary__preview > span {
-  min-height: 0; overflow: hidden;
+  padding-top: 4px; overflow: hidden;
   color: var(--ink-soft); font-size: 0.875rem; line-height: 1.5; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   transition: color 0.4s var(--ease);
 }
-.is-expanded > .task-summary .task-summary__preview { grid-template-rows: 0fr; margin-top: 0; opacity: 0; }
+.is-expanded > .task-summary .task-summary__preview { height: 0; }
 .task-summary:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: var(--r-xs); }
 
 /* The meter and its reading. The reading is a fixed column, so the bar
@@ -2043,18 +2049,17 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table-row.is-done .task-summary__preview > span { color: var(--muted); }
 .task-table-row.is-done .task-card-progress__pct { color: var(--prog-done); }
 
-.task-editor { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow); }
-.task-editor.is-open { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
-/* The fields arrive a beat after the card starts to grow and settle 4px;
-   on close they clear out first, before the card has shrunk past them. */
+/* Shut (mounted for a press, or landed and about to unmount) the editor
+   takes no room and can't be reached; open, it is as tall as its fields.
+   In between, the spring writes its height and clips it. */
+.task-editor { height: 0; overflow: hidden; visibility: hidden; }
+.is-expanded > .task-editor { height: auto; overflow: visible; visibility: visible; }
+/* The fields arrive behind the growing edge and settle 4px; on the way
+   shut they clear out before the card has shrunk past them. */
 .task-editor__fields {
-  min-height: 0; overflow: hidden; display: grid; gap: 16px;
-  opacity: 0; translate: 0 -4px;
-  transition: opacity 0.12s var(--ease), translate var(--t-slow) var(--ease);
-}
-.task-editor.is-open > .task-editor__fields {
-  opacity: 1; translate: 0 0;
-  transition: opacity 0.22s var(--ease) 0.06s, translate var(--t-slow) var(--ease);
+  overflow: hidden; display: grid; gap: 16px;
+  opacity: clamp(0, (var(--disclose) - 0.2) * 1.7, 1);
+  translate: 0 calc((var(--disclose) - 1) * 4px);
 }
 .task-editor__fields > :first-child { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 

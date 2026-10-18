@@ -15,6 +15,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply project_manager --remote",
     "hash-password": "node scripts/hash-password.mjs",
     "cf:types": "wrangler types",
+    "cf": "XDG_CONFIG_HOME=\"$PWD/.wrangler-home\" wrangler",
     "test": "vitest run"
   },
   "dependencies": {

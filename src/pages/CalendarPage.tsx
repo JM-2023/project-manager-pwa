@@ -12,7 +12,7 @@ import {
   TrendingUp,
   Trophy
 } from "lucide-react";
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { CompletionBar, MiniBarSeries } from "../components/calendar/CalendarCharts";
 import { YearHeatmap, type HeatCell } from "../components/calendar/YearHeatmap";
 import { DateSwitcher, type NavDirection } from "../components/DateNav";
@@ -38,6 +38,7 @@ import {
   yearOf,
   type MonthGridDay
 } from "../lib/dates";
+import { useSpringDisclosure } from "../lib/disclosure";
 import { useToday } from "../lib/useToday";
 import {
   bucketTasksByDay,
@@ -689,10 +690,44 @@ interface WorklogCardProps {
 function WorklogCard({ kind, title, icon, entries, emptyHint, today, projectById, onOpenDay }: WorklogCardProps) {
   const { m, lang } = useI18n();
   const [expanded, setExpanded] = useState(false);
-  const visible = expanded ? entries : entries.slice(0, LOG_LIMIT);
-  const hidden = entries.length - LOG_LIMIT;
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const restRef = useRef<HTMLDivElement | null>(null);
+  const restId = useId();
+  // The entries past the first few open and close on one spring, like a
+  // task card: their height, the page's scroll, and the chevron and rows
+  // (CSS, from --disclose). A press on the toggle mounts them shut just
+  // ahead of the tap.
+  const rest = useSpringDisclosure(expanded, { block: cardRef, panel: restRef });
+  const more = entries.slice(LOG_LIMIT);
+
+  function renderRow(entry: WorklogEntry, index: number) {
+    const project = entry.task.project_id ? projectById.get(entry.task.project_id) : undefined;
+    return (
+      <button
+        key={`${entry.task.id}-${index}`}
+        type="button"
+        className="cal-log__row"
+        style={{ "--i": index } as CSSProperties}
+        onClick={() => onOpenDay(entry.date)}
+      >
+        <span className={`cal-log__chip${entry.date === today ? " is-today" : ""}`}>{dayChip(entry.date, lang)}</span>
+        <span className="cal-log__body">
+          <span className="cal-log__text">{entry.text}</span>
+          <span className="cal-log__meta">
+            {project ? `${project.name} · ` : ""}
+            {entry.task.title}
+          </span>
+        </span>
+      </button>
+    );
+  }
+
+  function warmRest(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.isPrimary && event.button === 0) rest.warm();
+  }
+
   return (
-    <div className={`cal-card cal-log-card is-${kind}`}>
+    <div ref={cardRef} className={`cal-card cal-log-card is-${kind}${expanded ? " is-expanded" : ""}`}>
       <div className="cal-card__head">
         {icon}
         <span className="cal-card__title">{title}</span>
@@ -704,30 +739,23 @@ function WorklogCard({ kind, title, icon, entries, emptyHint, today, projectById
         <p className="cal-log__empty">{emptyHint}</p>
       ) : (
         <div className="cal-log">
-          {visible.map((entry, index) => {
-            const project = entry.task.project_id ? projectById.get(entry.task.project_id) : undefined;
-            return (
-              <button
-                key={`${entry.task.id}-${index}`}
-                type="button"
-                className="cal-log__row"
-                style={{ "--i": index } as CSSProperties}
-                onClick={() => onOpenDay(entry.date)}
-              >
-                <span className={`cal-log__chip${entry.date === today ? " is-today" : ""}`}>{dayChip(entry.date, lang)}</span>
-                <span className="cal-log__body">
-                  <span className="cal-log__text">{entry.text}</span>
-                  <span className="cal-log__meta">
-                    {project ? `${project.name} · ` : ""}
-                    {entry.task.title}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-          {hidden > 0 ? (
-            <button type="button" className="cal-log__more" onClick={() => setExpanded((current) => !current)}>
-              <ChevronDown size={14} aria-hidden="true" className={expanded ? "is-open" : ""} />
+          {entries.slice(0, LOG_LIMIT).map(renderRow)}
+          {rest.mounted && more.length > 0 ? (
+            <div ref={restRef} id={restId} className="cal-log__rest">
+              <div className="cal-log__rest-rows">{more.map((entry, index) => renderRow(entry, LOG_LIMIT + index))}</div>
+            </div>
+          ) : null}
+          {more.length > 0 ? (
+            <button
+              type="button"
+              className="cal-log__more"
+              aria-expanded={expanded}
+              aria-controls={rest.mounted ? restId : undefined}
+              onPointerDown={warmRest}
+              onPointerCancel={rest.cool}
+              onClick={() => setExpanded((current) => !current)}
+            >
+              <ChevronDown size={14} aria-hidden="true" />
               {expanded ? m.calendar.showLess : m.calendar.showAll(entries.length)}
             </button>
           ) : null}

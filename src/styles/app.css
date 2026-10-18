@@ -2269,15 +2269,18 @@ input:focus, select:focus, textarea:focus { outline: none; }
 }
 .project-picker > span { color: var(--muted); font-size: 0.8125rem; }
 .project-picker > strong { flex: 1; min-width: 0; font-size: 0.875rem; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.project-picker > svg { flex: none; color: var(--muted); transition: transform var(--t-slow) var(--ease); }
-.project-sidebar.is-open .project-picker > svg { transform: rotate(180deg); }
+.project-picker > svg { flex: none; color: var(--muted); transform: rotate(calc(var(--disclose) * 180deg)); }
 .project-picker:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
-.project-sidebar__collapse {
-  display: grid; grid-template-rows: 0fr; visibility: hidden;
-  transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow);
-}
-.project-sidebar.is-open .project-sidebar__collapse { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
-.project-sidebar__panel { display: flex; flex-direction: column; min-height: 0; overflow: hidden; max-height: min(60dvh, calc(var(--project-sidebar-height) - 44px)); }
+/* On a phone the list drops open under the picker on one spring
+   (lib/disclosure's useSpringDisclosure), which writes the collapse's
+   height and --disclose on the sidebar while it moves; the chevron is a
+   function of --disclose and the resting states are CSS. No transitions:
+   a transition is a second clock. */
+.project-sidebar { --disclose: 0; }
+.project-sidebar.is-open { --disclose: 1; }
+.project-sidebar__collapse { height: 0; overflow: hidden; visibility: hidden; }
+.project-sidebar.is-open .project-sidebar__collapse { height: auto; overflow: visible; visibility: visible; }
+.project-sidebar__panel { display: flex; flex-direction: column; overflow: hidden; max-height: min(60dvh, calc(var(--project-sidebar-height) - 44px)); }
 .project-sidebar__panel::before { content: ""; flex: 0 0 16px; }
 /* Keep this gap outside the scrolling content so clipped rows never touch
    the fixed composer after the list's own top padding has scrolled away. */
@@ -2567,24 +2570,29 @@ button.project-row > span { flex: 1; min-width: 0; }
   background: transparent; border: 0; border-radius: 0; user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-.cache-chevron { flex: none; color: var(--muted); transition: transform var(--t-slow) var(--ease), color var(--t) var(--ease); }
-.cache-section.is-open .cache-chevron { transform: rotate(90deg); color: var(--primary); }
-.cache-section__name { flex: 1; min-width: 0; font-size: 1rem; font-weight: 650; letter-spacing: -0.01em; white-space: normal; overflow-wrap: anywhere; }
-/* The body opens like a task card's editor (lib/disclosure): mounted shut,
-   its track eased from 0fr to 1fr, the fields arriving a beat behind and
-   settling 4px; on close they clear first, then the track shuts and the
-   body unmounts. Vertical padding lives on the fields, inside the clip, so
-   the shut track really is 0. */
-.cache-section__body { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows var(--t-slow) var(--ease), visibility 0s var(--t-slow); }
-.cache-section__body.is-open { grid-template-rows: 1fr; visibility: visible; transition-delay: 0s; }
-.cache-section__inner {
-  min-height: 0; overflow: hidden;
-  opacity: 0; translate: 0 -4px;
-  transition: opacity 0.12s var(--ease), translate var(--t-slow) var(--ease);
+.cache-chevron {
+  flex: none;
+  color: color-mix(in srgb, var(--primary) calc(var(--disclose) * 100%), var(--muted));
+  transform: rotate(calc(var(--disclose) * 90deg));
 }
-.cache-section__body.is-open > .cache-section__inner {
-  opacity: 1; translate: 0 0;
-  transition: opacity 0.22s var(--ease) 0.06s, translate var(--t-slow) var(--ease);
+.cache-section__name { flex: 1; min-width: 0; font-size: 1rem; font-weight: 650; letter-spacing: -0.01em; white-space: normal; overflow-wrap: anywhere; }
+/* The body opens like a task card's editor, on one spring
+   (lib/disclosure's useSpringDisclosure; a press on the head mounts it
+   shut just ahead of the tap). While it moves it writes the body's height,
+   the page's scroll, and its progress as --disclose on the group (0 shut,
+   1 open); the chevron above and the fields here are functions of
+   --disclose, and the resting states are its two ends. Nothing here
+   carries a transition: a transition is a second clock. Vertical padding
+   lives on the fields, inside the clip, so shut really is 0. */
+.cache-section { --disclose: 0; }
+.cache-section.is-open { --disclose: 1; }
+.cache-section__body { height: 0; overflow: hidden; visibility: hidden; }
+.cache-section.is-open > .cache-section__body { height: auto; overflow: visible; visibility: visible; }
+/* The fields arrive behind the growing edge and settle 4px; on the way
+   shut they clear out before the body has shrunk past them. */
+.cache-section__inner {
+  opacity: clamp(0, (var(--disclose) - 0.2) * 1.7, 1);
+  translate: 0 calc((var(--disclose) - 1) * 4px);
 }
 .cache-section__fields { display: grid; gap: 10px; padding: 2px 16px 8px; }
 .cache-count {
@@ -3042,7 +3050,8 @@ button.project-row > span { flex: 1; min-width: 0; }
 /* =========================================================================
    Archived projects panel
    ========================================================================= */
-.archived-panel { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.archived-panel { --disclose: 0; margin-top: 6px; border-top: 1px solid var(--line); padding-top: 8px; }
+.archived-panel.is-open { --disclose: 1; }
 /* 16px inset keeps the label on the same left line as the project rows. */
 .archived-toggle {
   display: flex; width: 100%; align-items: center; gap: 8px; min-height: 42px; padding: 9px 16px;
@@ -3053,37 +3062,21 @@ button.project-row > span { flex: 1; min-width: 0; }
 .archived-toggle svg { color: var(--muted); }
 @media (hover: hover) { .archived-toggle:hover { background: var(--wash); color: var(--ink); } }
 .archived-toggle__count { min-width: 22px; padding: 1px 7px; color: var(--muted); font-size: 0.78rem; font-weight: 700; text-align: center; background: var(--surface-3); border-radius: var(--r-xs); }
-.archived-toggle__chevron { transition: transform 0.22s var(--ease-in-out); }
-.archived-panel.is-open .archived-toggle__chevron { transform: rotate(180deg); }
-/* The list stays mounted; the wrapper's grid row tweens 0fr <-> 1fr so the
-   panel unfolds and refolds smoothly. Visibility flips off after the fold so
-   collapsed rows can't be tabbed into; content fades slightly behind the
-   height so opening reads as unfold-then-ink. */
-.archived-collapse {
-  display: grid;
-  grid-template-rows: 0fr;
-  margin-top: 0;
-  transition: grid-template-rows 0.38s var(--ease-out), margin-top 0.38s var(--ease-out);
-}
-.archived-panel.is-open .archived-collapse { grid-template-rows: 1fr; margin-top: 6px; }
+.archived-toggle__chevron { transform: rotate(calc(var(--disclose) * 180deg)); }
+/* The list stays mounted and opens on one spring (lib/disclosure's
+   useSpringDisclosure): it writes the collapse's height, the list's scroll
+   and --disclose on the panel while it moves. The chevron and the rows are
+   functions of --disclose, the resting states are CSS, and nothing here
+   carries a transition. Shut, visibility keeps the rows out of the tab
+   order. The list's 6px of air is padding, inside the clip. */
+.archived-collapse { height: 0; overflow: hidden; visibility: hidden; }
+.archived-panel.is-open > .archived-collapse { height: auto; overflow: visible; visibility: visible; }
+/* The rows arrive behind the growing edge and settle 4px; on the way shut
+   they clear out before the panel has shrunk past them. */
 .archived-list {
-  display: grid; gap: 6px; min-height: 0; overflow: hidden;
-  opacity: 0;
-  transform: translateY(-4px);
-  visibility: hidden;
-  transition:
-    opacity 0.22s var(--ease),
-    transform 0.22s var(--ease),
-    visibility 0s 0.38s;
-}
-.archived-panel.is-open .archived-list {
-  opacity: 1;
-  transform: none;
-  visibility: visible;
-  transition:
-    opacity 0.26s var(--ease) 0.1s,
-    transform 0.3s var(--ease-out) 0.1s,
-    visibility 0s;
+  display: grid; gap: 6px; padding-top: 6px;
+  opacity: clamp(0, (var(--disclose) - 0.2) * 1.7, 1);
+  translate: 0 calc((var(--disclose) - 1) * 4px);
 }
 .archived-empty { margin: 4px 0; padding: 0 10px; color: var(--muted); font-size: 0.85rem; }
 .archived-row {
@@ -3375,7 +3368,10 @@ button.project-row > span { flex: 1; min-width: 0; }
 }
 .cal-log-card.is-output .cal-card__head svg { color: var(--prog-done); }
 .cal-log-card.is-blocker .cal-card__head svg { color: var(--danger); }
-.cal-log { display: grid; gap: 8px; }
+/* Spacing is margins, not a gap: the entries past the first few fold away
+   in a panel, and a gap beside it couldn't go with them. */
+.cal-log { display: grid; }
+.cal-log__row + .cal-log__row { margin-top: 8px; }
 .cal-log__row {
   display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; text-align: left;
   background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-md); box-shadow: none;
@@ -3397,14 +3393,30 @@ button.project-row > span { flex: 1; min-width: 0; }
 .cal-log__meta { color: var(--muted); font-size: 0.72rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cal-log__empty { margin: 2px 0 4px; color: var(--muted); font-size: 0.82rem; animation: fade-up 0.18s var(--ease-out) both; }
 .cal-log__more {
-  display: inline-flex; align-items: center; gap: 5px; justify-self: center; margin-top: 2px; padding: 7px 14px;
+  display: inline-flex; align-items: center; gap: 5px; justify-self: center; margin-top: 10px; padding: 7px 14px;
   color: var(--muted); font-size: 0.78rem; font-weight: 700;
   background: transparent; border: 0; border-radius: var(--r-sm);
   transition: color var(--t) var(--ease), background var(--t) var(--ease);
 }
 @media (hover: hover) { .cal-log__more:hover { color: var(--ink); background: var(--surface-3); } }
-.cal-log__more svg { transition: transform var(--t) var(--ease); }
-.cal-log__more svg.is-open { transform: rotate(180deg); }
+/* "Show all" opens the rest on one spring (lib/disclosure's
+   useSpringDisclosure; a press on it mounts them shut just ahead of the
+   tap). While it moves it writes the panel's height, the page's scroll and
+   --disclose on the card; the chevron and the rows are functions of
+   --disclose, the resting states are CSS, and nothing here carries a
+   transition. The rows arrive with the panel rather than on a mount
+   keyframe, and their 8px of air is padding, inside the clip. */
+.cal-log-card { --disclose: 0; }
+.cal-log-card.is-expanded { --disclose: 1; }
+.cal-log__more svg { transform: rotate(calc(var(--disclose) * 180deg)); }
+.cal-log__rest { height: 0; overflow: hidden; visibility: hidden; }
+.cal-log-card.is-expanded .cal-log__rest { height: auto; overflow: visible; visibility: visible; }
+.cal-log__rest-rows {
+  display: grid; padding-top: 8px;
+  opacity: clamp(0, (var(--disclose) - 0.2) * 1.7, 1);
+  translate: 0 calc((var(--disclose) - 1) * 4px);
+}
+.cal-log__rest .cal-log__row { animation: none; }
 
 /* ---- Heat tiles (month + year) ---- */
 .tone-empty { --prog-color: var(--line-strong); }

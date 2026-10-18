@@ -1,7 +1,7 @@
 import { Check, ChevronRight, Plus, Trash2, X } from "lucide-react";
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type TextareaHTMLAttributes } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type TextareaHTMLAttributes } from "react";
 import { RollDigits } from "../components/RollDigits";
-import { keepInView, useDisclosure } from "../lib/disclosure";
+import { useSpringDisclosure } from "../lib/disclosure";
 import { useI18n } from "../lib/i18n";
 import { useListMotion, type ListMotionOptions } from "../lib/listMotion";
 import type { NextIdea, NextProject } from "../lib/types";
@@ -168,8 +168,9 @@ function NextProjectSection({
   const [confirming, setConfirming] = useState(false);
   const sectionRef = useRef<HTMLElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
-  const body = useDisclosure(open, bodyRef);
-  const followRef = useRef<() => void>(() => undefined);
+  // Opens and closes on one spring, like a task card: the body's height,
+  // the page's scroll, and the chevron and fields (CSS, from --disclose).
+  const body = useSpringDisclosure(open, { block: sectionRef, panel: bodyRef });
   const exitingRef = useRef(exiting);
   exitingRef.current = exiting;
   // A folding group keeps showing the ideas it had: the data dropped them
@@ -178,18 +179,14 @@ function NextProjectSection({
   if (!exiting) shownIdeasRef.current = ideas;
   const shownIdeas = shownIdeasRef.current;
 
-  useEffect(() => () => followRef.current(), []);
-
   // A pending delete confirmation doesn't outlive the group closing.
   useEffect(() => {
     if (!open) setConfirming(false);
   }, [open]);
 
-  function toggle() {
-    onToggle(project);
-    followRef.current();
-    const section = sectionRef.current;
-    if (section) followRef.current = keepInView(section);
+  // A press mounts the body shut, so the tap only has to start the motion.
+  function warmBody(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.isPrimary && event.button === 0) body.warm();
   }
 
   function createIdea() {
@@ -223,7 +220,9 @@ function NextProjectSection({
           className="cache-section__toggle"
           aria-expanded={open}
           aria-controls={body.mounted ? bodyId : undefined}
-          onClick={toggle}
+          onPointerDown={warmBody}
+          onPointerCancel={body.cool}
+          onClick={() => onToggle(project)}
         >
           <ChevronRight className="cache-chevron" size={18} aria-hidden="true" />
           <span className="cache-section__name" id={nameId}>
@@ -261,7 +260,7 @@ function NextProjectSection({
         )}
       </div>
       {body.mounted ? (
-        <div ref={bodyRef} id={bodyId} className={`cache-section__body${body.open ? " is-open" : ""}`} onTransitionEnd={body.onTransitionEnd}>
+        <div ref={bodyRef} id={bodyId} className="cache-section__body">
           <div className="cache-section__inner">
             <div className="cache-section__fields">
               <label className="cache-rename">

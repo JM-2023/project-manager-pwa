@@ -62,23 +62,23 @@ describe("landingScroll", () => {
   const band = { top: 12, bottom: 560 };
 
   it("leaves the page alone when the block lands inside the band", () => {
-    expect(landingScroll({ top: 100, height: 100 }, 200, band, 300, 2000)).toBe(300);
+    expect(landingScroll({ top: 100, height: 300 }, band, 300, 2000)).toBe(300);
   });
 
   it("carries the page up with a block opening near the bottom", () => {
-    expect(landingScroll({ top: 400, height: 100 }, 200, band, 300, 2000)).toBe(440);
+    expect(landingScroll({ top: 400, height: 300 }, band, 300, 2000)).toBe(440);
   });
 
   it("never scrolls past the block's own top", () => {
-    expect(landingScroll({ top: 400, height: 100 }, 900, band, 300, 2000)).toBe(300 + 400 - 12);
+    expect(landingScroll({ top: 400, height: 1000 }, band, 300, 2000)).toBe(300 + 400 - 12);
   });
 
   it("brings back a block whose top has scrolled out of view", () => {
-    expect(landingScroll({ top: -300, height: 700 }, -500, band, 900, 2000)).toBe(900 - 312);
+    expect(landingScroll({ top: -300, height: 200 }, band, 900, 2000)).toBe(900 - 312);
   });
 
   it("stays within what the page can scroll once it lands", () => {
-    expect(landingScroll({ top: 400, height: 100 }, 200, band, 300, 400)).toBe(400);
-    expect(landingScroll({ top: 20, height: 600 }, -500, band, 900, 500)).toBe(500);
+    expect(landingScroll({ top: 400, height: 300 }, band, 300, 400)).toBe(400);
+    expect(landingScroll({ top: 20, height: 100 }, band, 900, 500)).toBe(500);
   });
 });

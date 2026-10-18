@@ -1,6 +1,7 @@
 import { ArchiveRestore, Check, ChevronDown, MoreHorizontal, Plus } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { useSpringDisclosure } from "../lib/disclosure";
 import { buildSwatchMap } from "../lib/projectColor";
 import type { Project, Task } from "../lib/types";
 import { useI18n } from "../lib/i18n";
@@ -339,7 +340,16 @@ export function ProjectList({
   const [pickerOpen, setPickerOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const pickerRef = useRef<HTMLButtonElement | null>(null);
+  const collapseRef = useRef<HTMLDivElement | null>(null);
+  const archivedRef = useRef<HTMLDivElement | null>(null);
+  const archivedCollapseRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // The picker (phones) and the archived projects open and close on one
+  // spring, like a task card: the height, the scroll that keeps them in
+  // view, and the chevrons and list (CSS, from --disclose). Both stay
+  // mounted; their shut state is CSS.
+  useSpringDisclosure(pickerOpen, { block: sidebarRef, panel: collapseRef });
+  useSpringDisclosure(showArchived, { block: archivedRef, panel: archivedCollapseRef });
   const scrollIdleTimer = useRef<number>();
   const panelId = useId();
   const selectedName = !selectedProjectId ? m.common.allProjects : selectedProjectId === NO_PROJECT_FILTER
@@ -523,7 +533,7 @@ export function ProjectList({
         <strong>{selectedName}</strong>
         <ChevronDown size={16} aria-hidden="true" />
       </button>
-      <div id={panelId} className="project-sidebar__collapse" onKeyDown={(event) => {
+      <div ref={collapseRef} id={panelId} className="project-sidebar__collapse" onKeyDown={(event) => {
         if (event.key === "Escape" && pickerOpen && !event.defaultPrevented) {
           setPickerOpen(false);
           pickerRef.current?.focus({ preventScroll: true });
@@ -603,7 +613,7 @@ export function ProjectList({
                 );
               })}
 
-              <div className={`archived-panel${showArchived ? " is-open" : ""}`}>
+              <div ref={archivedRef} className={`archived-panel${showArchived ? " is-open" : ""}`}>
                 <button
                   type="button"
                   className="archived-toggle"
@@ -614,9 +624,9 @@ export function ProjectList({
                   <span className="archived-toggle__count">{archivedProjects.length}</span>
                   <ChevronDown className="archived-toggle__chevron" size={16} aria-hidden="true" />
                 </button>
-                {/* Always mounted: the wrapper's grid-row tweens 0fr -> 1fr so the
-                    panel unfolds/refolds instead of popping; visibility gates focus. */}
-                <div className="archived-collapse">
+                {/* Always mounted: shut, it takes no room and visibility keeps
+                    its rows out of the tab order. */}
+                <div ref={archivedCollapseRef} className="archived-collapse">
                   <div className="archived-list" aria-hidden={!showArchived}>
                     {archivedProjects.length === 0 ? (
                       <p className="archived-empty">{m.projectList.noArchived}</p>

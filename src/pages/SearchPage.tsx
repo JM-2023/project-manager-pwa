@@ -1,7 +1,8 @@
 import { TaskTable } from "../components/TaskTable";
+import { settleRegion } from "../lib/pageTransition";
 import { ArrowUpRight } from "lucide-react";
 import { SegControl } from "../components/SegControl";
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "../lib/i18n";
 import { getTaskImportance, getTaskProgress, isProjectCacheTask, worklogBlocker, worklogOutput } from "../lib/progress";
 import { NO_PROJECT_FILTER, matchesProjectFilter } from "../state/appStore";
@@ -10,6 +11,16 @@ import type { TaskPageProps } from "./pageProps";
 export function SearchPage(props: TaskPageProps & { onOpenIdea: (id: string) => void }) {
   const { m } = useI18n();
   const [scope, setScope] = useState<"tasks" | "ideas">("tasks");
+  const resultsRef = useRef<HTMLDivElement | null>(null);
+  const shownScopeRef = useRef(scope);
+  // The other scope's results settle in the way a page does on a tab
+  // switch. The page's own arrival is the tab switch's, so the first run
+  // lands nothing.
+  useLayoutEffect(() => {
+    if (shownScopeRef.current === scope) return;
+    shownScopeRef.current = scope;
+    settleRegion(resultsRef.current);
+  }, [scope]);
   const [groupId, setGroupId] = useState("");
   const { projects, tasks, nextProjects, nextIdeas, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask } = props;
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
@@ -106,8 +117,10 @@ export function SearchPage(props: TaskPageProps & { onOpenIdea: (id: string) => 
           {nextProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
         </select>}
       </section>
-      <div key={scope} className="search-results">
-      {scope === "tasks" ? <TaskTable key={[query, filters.projectId, filters.status, filters.priority].join("|")} tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} /> :
+      {/* One table for every query: typing filters it in place (lib/listMotion
+          at the quick pace), so rows that still match never re-enter. */}
+      <div key={scope} ref={resultsRef} className="search-results">
+      {scope === "tasks" ? <TaskTable motionPace="quick" tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} /> :
       <section className="search-next-results" aria-label={m.search.nextResultsAria}>
         <h2>{m.search.nextIdeas}</h2>
         {filteredNextIdeas.length > 0 ? (

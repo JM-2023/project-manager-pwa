@@ -43,14 +43,25 @@ export interface ListMotionOptions {
    * nothing, the mirror of the exit fold, so whatever sits below the list
    * glides down with it instead of jumping. */
   enter?: "fade" | "unfold";
+  /** "quick" for a list that changes as fast as the user types (search
+   * results): every leg lands within 240ms and exits fold together, so the
+   * list keeps up with the keystrokes instead of trailing them. */
+  pace?: "normal" | "quick";
 }
 
-const MOVE_MS = 380;
-const ENTER_MS = 360;
-const EXIT_MS = 380;
-const FADE_MS = 220;
-const STAGGER_MS = 36;
-const MAX_STAGGER_MS = 240;
+interface Pace {
+  move: number;
+  enter: number;
+  exit: number;
+  fade: number;
+  stagger: number;
+  maxStagger: number;
+}
+
+const PACES: Record<"normal" | "quick", Pace> = {
+  normal: { move: 380, enter: 360, exit: 380, fade: 220, stagger: 36, maxStagger: 240 },
+  quick: { move: 240, enter: 220, exit: 240, fade: 140, stagger: 0, maxStagger: 0 }
+};
 const EASE = "cubic-bezier(0.22, 0.61, 0.36, 1)";
 const EASE_OUT = "cubic-bezier(0.23, 1, 0.32, 1)";
 
@@ -127,14 +138,28 @@ function openBox(node: HTMLElement): typeof SHUT {
   };
 }
 
+/** Where a block is drawn right now, mid-fold included. */
+interface Opening {
+  box: typeof SHUT;
+  opacity: string;
+  scale: string;
+}
+
+/** Read where a folding block has got to, before its fold is let go, so it
+ * can open again from there instead of snapping back to full size. */
+function openingFrom(node: HTMLElement): Opening {
+  const style = getComputedStyle(node);
+  return { box: openBox(node), opacity: style.opacity, scale: style.scale === "none" ? "1" : style.scale };
+}
+
 /** Fold a block shut: its box collapses to nothing while its content fades
  * ahead of it, so neighbours glide over an emptying gap rather than crush a
  * card. The stagger is baked into the keyframes (WebKit doesn't reliably draw
  * a delayed animation's backwards fill). Both animations hold their end state
  * until the caller unmounts or cancels them. */
-function fold(node: HTMLElement, delay: number): Animation[] {
+function fold(node: HTMLElement, delay: number, pace: Pace): Animation[] {
   const open = openBox(node);
-  const total = delay + EXIT_MS;
+  const total = delay + pace.exit;
   const start = delay / total;
   const box = node.animate(
     [
@@ -148,7 +173,7 @@ function fold(node: HTMLElement, delay: number): Animation[] {
     [
       { opacity: 1, scale: "1", offset: 0 },
       { opacity: 1, scale: "1", offset: start, easing: EASE },
-      { opacity: 0, scale: "0.98", offset: (delay + FADE_MS) / total },
+      { opacity: 0, scale: "0.98", offset: (delay + pace.fade) / total },
       { opacity: 0, scale: "0.98", offset: 1 }
     ],
     { duration: total, fill: "forwards" }
@@ -156,29 +181,37 @@ function fold(node: HTMLElement, delay: number): Animation[] {
   return [box, fade];
 }
 
-/** Grow a block open from nothing: the exit fold played backwards, with the
- * content fading in once there is room for it. It clips while it grows so
- * nothing spills over the rows below, and lets go when the box lands. Call
- * it before measuring the rows after this one: from its first frame the
- * layout below already starts from the shut box. */
-function unfold(node: HTMLElement): void {
+/** Grow a block open: from nothing (the exit fold played backwards, with
+ * the content fading in once there is room for it), or from where a fold
+ * that was let go had got to. It clips while it grows so nothing spills
+ * over the rows below, and lets go when the box lands. Call it before
+ * measuring the rows after this one: from its first frame the layout below
+ * already starts from the box it grows from. */
+function unfold(node: HTMLElement, pace: Pace, from?: Opening): void {
   enters.get(node)?.cancel();
   const open = openBox(node);
   node.style.overflow = "hidden";
-  const box = node.animate([SHUT, open], { duration: ENTER_MS, easing: EASE_OUT });
+  node.style.minHeight = "0px";
+  const box = node.animate([from?.box ?? SHUT, open], { duration: pace.enter, easing: EASE_OUT });
   node.animate(
-    [
-      { opacity: 0, scale: "0.98", offset: 0 },
-      { opacity: 0, scale: "0.98", offset: 0.2, easing: EASE },
-      { opacity: 1, scale: "1", offset: 1 }
-    ],
-    { duration: ENTER_MS }
+    from
+      ? [
+          { opacity: from.opacity, scale: from.scale, easing: EASE_OUT },
+          { opacity: 1, scale: "1" }
+        ]
+      : [
+          { opacity: 0, scale: "0.98", offset: 0 },
+          { opacity: 0, scale: "0.98", offset: 0.2, easing: EASE },
+          { opacity: 1, scale: "1", offset: 1 }
+        ],
+    { duration: pace.enter }
   );
   enters.set(node, box);
   const release = () => {
     if (enters.get(node) !== box) return;
     enters.delete(node);
     node.style.overflow = "";
+    node.style.minHeight = "";
   };
   box.finished.then(release, release);
 }
@@ -240,6 +273,7 @@ export function useListMotion<T>(
   options: ListMotionOptions = {}
 ): MotionEntry<T>[] {
   const unfolds = options.enter === "unfold";
+  const pace = PACES[options.pace ?? "normal"];
   const [, rerender] = useReducer((n: number) => n + 1, 0);
   const committedRef = useRef<Committed<T>>({ mounted: false, entries: [], present: new Set(), sig: "" });
   const doneRef = useRef(new Set<string>());
@@ -279,11 +313,14 @@ export function useListMotion<T>(
     const exitingNow = new Set(exitingKeys);
 
     // The whole table folds when its last rows leave; any other state
-    // releases it (it is hidden once empty, or back in use).
+    // releases it (it is hidden once empty, or back in use). Rows coming
+    // back before the fold lands open it again from where it has got to.
     if (tableAnimsRef.current && !(liveCount === 0 && exitingKeys.length > 0)) {
+      const from = container && liveCount > 0 && !reducedMotion() ? openingFrom(container) : null;
       for (const animation of tableAnimsRef.current) animation.cancel();
       tableAnimsRef.current = null;
       container?.classList.remove("is-folding");
+      if (container && from) unfold(container, pace, from);
     }
 
     if (sig === previous.sig || !previous.mounted) return;
@@ -291,13 +328,18 @@ export function useListMotion<T>(
     const wasExiting = new Set(previous.entries.filter((entry) => entry.exiting).map((entry) => entry.key));
     const wasRendered = new Set(previous.entries.map((entry) => entry.key));
 
-    // A row that came back mid-fold (undo, a sync reverting a delete) is the
-    // same node: unfold it where it stands.
+    // A row that came back mid-fold (undo, a sync reverting a delete, a
+    // search query taken back) is the same node: it opens again from where
+    // its fold has got to.
     for (const [key, node] of nodes) {
       if (!wasExiting.has(key) || exitingNow.has(key)) continue;
-      for (const animation of exits.get(node) ?? []) animation.cancel();
-      exits.delete(node);
       node.inert = false;
+      const anims = exits.get(node);
+      if (!anims) continue;
+      exits.delete(node);
+      const from = reducedMotion() ? null : openingFrom(node);
+      for (const animation of anims) animation.cancel();
+      if (from) unfold(node, pace, from);
     }
 
     const newExits = exitingKeys.filter((key) => !wasExiting.has(key));
@@ -321,7 +363,7 @@ export function useListMotion<T>(
     if (liveCount === 0 && exitingKeys.length > 0) {
       if (!tableAnimsRef.current) {
         container.classList.add("is-folding");
-        const anims = fold(container, 0);
+        const anims = fold(container, 0, pace);
         tableAnimsRef.current = anims;
         anims[0].finished.then(() => finish(exitingKeys), () => undefined);
       }
@@ -333,7 +375,7 @@ export function useListMotion<T>(
           finish([key]);
           continue;
         }
-        const anims = fold(node, Math.min(order * STAGGER_MS, MAX_STAGGER_MS));
+        const anims = fold(node, Math.min(order * pace.stagger, pace.maxStagger), pace);
         order += 1;
         exits.set(node, anims);
         anims[0].finished.then(() => finish([key]), () => undefined);
@@ -365,10 +407,10 @@ export function useListMotion<T>(
 
     const fromEmpty = previous.entries.length === 0;
     if (fromEmpty && liveCount > 0) {
-      if (unfolds) unfold(container);
+      if (unfolds) unfold(container, pace);
       else
         container.animate([{ opacity: 0, translate: "0 6px" }, { opacity: 1, translate: "0 0" }], {
-          duration: ENTER_MS,
+          duration: pace.enter,
           easing: EASE_OUT
         });
       return;
@@ -386,10 +428,10 @@ export function useListMotion<T>(
       const entering = !entry.exiting && !wasRendered.has(entry.key) && !previous.present.has(entry.key);
       if (entering) {
         if (onScreen(now)) {
-          if (unfolds) unfold(node);
+          if (unfolds) unfold(node, pace);
           else
             node.animate([{ opacity: 0, scale: "0.98" }, { opacity: 1, scale: "1" }], {
-              duration: ENTER_MS,
+              duration: pace.enter,
               easing: EASE_OUT
             });
         }
@@ -409,7 +451,7 @@ export function useListMotion<T>(
       node.classList.add("is-moving");
       if (index === 0) node.style.zIndex = "3";
       const move = node.animate([{ translate: `${dx}px ${dy}px` }, { translate: "0 0" }], {
-        duration: MOVE_MS,
+        duration: pace.move,
         easing: EASE_OUT
       });
       moves.set(node, move);

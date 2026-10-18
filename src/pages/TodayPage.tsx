@@ -20,10 +20,21 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
   const today = useToday();
   // A null selection follows today across midnight; explicit dates stay put.
   const viewDate = selectedDate ?? today;
+  // Which way the view moved, read from the dates themselves (ISO dates
+  // sort as text), so every way to another day (the arrows, the title, the
+  // Today tab, midnight) slides and rolls from the side it came from.
+  // Decided during render, so the title's roll and the body's slide both
+  // see it in the commit that changes the day.
+  const [shownDate, setShownDate] = useState(viewDate);
   const [navDir, setNavDir] = useState<NavDirection>(1);
+  if (shownDate !== viewDate) {
+    setShownDate(viewDate);
+    setNavDir(viewDate > shownDate ? 1 : -1);
+  }
   const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const bodySettledRef = useRef(false);
+  const bodySlideRef = useRef<Animation | null>(null);
 
   // A remembered focus target only applies to the day it was created on.
   useEffect(() => {
@@ -59,14 +70,12 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
     for (const task of unfinishedTasks) onUpdateTask(task, { start_date: date });
   }
 
-  function goTo(date: string, dir: NavDirection) {
-    setNavDir(dir);
-    onDateChange(date);
-  }
-
-  // The day's content travels with the navigation: everything under the
-  // header slides in from the direction you went. No remount — the summary
-  // canvas and table state stay live; opacity/transform only.
+  // The new day arrives as one sheet: everything under the header slides
+  // in from the direction you went, on one clock. The day's list is
+  // remounted (keyed by day) but has no entrance of its own; an empty-day
+  // note that mounts with it would fade on a clock of its own, so it is
+  // finished here and rides the slide too. A press mid-slide starts the
+  // next day's slide over.
   useLayoutEffect(() => {
     if (!bodySettledRef.current) {
       bodySettledRef.current = true;
@@ -74,7 +83,11 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
     }
     const el = bodyRef.current;
     if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    el.animate(
+    for (const note of el.querySelectorAll(".empty-state")) {
+      for (const animation of note.getAnimations()) animation.finish();
+    }
+    bodySlideRef.current?.cancel();
+    bodySlideRef.current = el.animate(
       [{ opacity: 0.22, transform: `translateX(${navDir * 18}px)` }, { opacity: 1, transform: "none" }],
       { duration: 180, easing: "cubic-bezier(0.23, 1, 0.32, 1)" }
     );
@@ -92,9 +105,9 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
           sub={formatDayLabel(viewDate, lang)}
           titleSizer={[m.today.title, ...weekdayLongNames(lang)]}
           dir={navDir}
-          onPrev={() => goTo(addDays(viewDate, -1), -1)}
-          onNext={() => goTo(addDays(viewDate, 1), 1)}
-          onHome={() => goTo(today, viewDate > today ? -1 : 1)}
+          onPrev={() => onDateChange(addDays(viewDate, -1))}
+          onNext={() => onDateChange(addDays(viewDate, 1))}
+          onHome={() => onDateChange(today)}
           isHome={viewDate === today}
           prevAria={m.today.prevDay}
           nextAria={m.today.nextDay}
@@ -120,8 +133,9 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
           <span>{m.today.rollover}</span>
         </button>
       </div>
-      {/* Mounted even when the day empties, so its last rows can fold out;
-          keyed by day, so switching days swaps the list without motion. */}
+      {/* Mounted even when the day empties, so its last rows can fold out.
+          Keyed by day: each day is its own list, so a day switch swaps it
+          whole and it rides the body's slide (it has no entrance of its own). */}
       <TaskTable
         key={viewDate}
         tasks={displayTasks}

@@ -1599,7 +1599,6 @@ input:focus, select:focus, textarea:focus { outline: none; }
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  animation: fade-up var(--t-slow) var(--ease) both;
 }
 
 .summary-hero {
@@ -1759,11 +1758,13 @@ input:focus, select:focus, textarea:focus { outline: none; }
 /* =========================================================================
    Task table
    ========================================================================= */
+/* No entrance of its own: the page's arrival (page-in, a tab switch's
+   settle) or the swap that brought it (the day slide, a project or scope
+   settle) moves it. A mount animation here replays on every keyed remount. */
 .task-table-wrap {
   width: 100%;
   container-type: inline-size;
   container-name: tasktable;
-  animation: fade-up var(--t-slow) var(--ease) both;
 }
 .table-more { margin: 10px 2px 0; color: var(--muted); font-size: 0.82rem; font-weight: 600; text-align: center; }
 .task-table-sentinel { width: 100%; height: 1px; pointer-events: none; }
@@ -2630,7 +2631,6 @@ button.project-row > span { flex: 1; min-width: 0; }
 .cache-section .cache-items { gap: 0; }
 .cache-section .cache-item { margin-bottom: 8px; animation: none; }
 .search-next-results { display: grid; gap: 16px; }
-.search-results { animation: fade-up var(--t-slow) var(--ease) both; }
 .search-filters > .cal-seg { justify-self: start; }
 .search-next-results h2 {
   margin: 0;

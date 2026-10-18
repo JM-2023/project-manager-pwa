@@ -49,6 +49,9 @@ interface TaskTableProps {
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
+  /** How fast its rows move (lib/listMotion): "quick" for a list that
+   * changes as fast as the user types. */
+  motionPace?: "normal" | "quick";
 }
 
 interface TaskRowProps {
@@ -1201,7 +1204,8 @@ export function TaskTable({
   focusTaskId,
   onCreate,
   onUpdate,
-  onDelete
+  onDelete,
+  motionPace = "normal"
 }: TaskTableProps) {
   const { m } = useI18n();
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
@@ -1240,7 +1244,7 @@ export function TaskTable({
   const wrapRef = useRef<HTMLElement | null>(null);
   const wide = useWideLayout(wrapRef);
   const present = useMemo(() => new Set(tasks.map((task) => task.id)), [tasks]);
-  const rows = useListMotion(visible, taskKey, tableRef, present);
+  const rows = useListMotion(visible, taskKey, tableRef, present, { pace: motionPace });
 
   useEffect(() => {
     if (remaining <= 0) {

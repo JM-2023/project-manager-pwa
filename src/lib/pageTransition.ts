@@ -106,14 +106,9 @@ function land(el: HTMLElement, from: Keyframe, delay: number, duration: number, 
   el.animate(frames, { duration: total }).currentTime = HEAD_START;
 }
 
-/** Land the page's on-screen blocks below its title, top to bottom. */
-function settleIn(page: Element): void {
-  // The title row is the anchor: it is in place from the first frame, and
-  // so is anything level with it (the date arrows, the settings eyebrow).
-  const anchorBottom = page.querySelector("h1")?.getBoundingClientRect().bottom ?? 0;
-  const units = collectUnits(page)
-    .filter((unit) => unit.top >= anchorBottom)
-    .sort((a, b) => a.top - b.top || a.left - b.left);
+/** Land blocks top to bottom: each row of blocks a beat after the one above. */
+function landUnits(units: Array<{ el: HTMLElement; top: number; left: number }>): void {
+  units.sort((a, b) => a.top - b.top || a.left - b.left);
   let row = -1;
   let rowTop = -Infinity;
   for (const { el, top } of units) {
@@ -126,6 +121,25 @@ function settleIn(page: Element): void {
     land(el, { opacity: 0 }, delay, FADE, FADE_EASING);
     land(el, { translate: `0 ${RISE}px` }, delay, SETTLE, SETTLE_EASING);
   }
+}
+
+/** Land the page's on-screen blocks below its title, top to bottom. */
+function settleIn(page: Element): void {
+  // The title row is the anchor: it is in place from the first frame, and
+  // so is anything level with it (the date arrows, the settings eyebrow).
+  const anchorBottom = page.querySelector("h1")?.getBoundingClientRect().bottom ?? 0;
+  landUnits(collectUnits(page).filter((unit) => unit.top >= anchorBottom));
+}
+
+/**
+ * Settle content swapped in place on the current page (another project's
+ * tasks, the other search scope) the way a tab switch lands a page. Call it
+ * once the new content is in the DOM and before the frame is painted (from a
+ * layout effect). Blocks off screen take no part.
+ */
+export function settleRegion(region: Element | null): void {
+  if (!region || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  landUnits(collectUnits(region));
 }
 
 /* ---------- the switch ------------------------------------------------ */

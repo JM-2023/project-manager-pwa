@@ -13,6 +13,9 @@ export const UNDO_MS = 5000;
 
 interface UndoToastProps {
   notice: UndoNotice | null;
+  /** A touch keyboard is up: the bar steps aside with the Dock, its clock
+   * stopped, and comes back when the field lets go. */
+  hidden: boolean;
   onUndo: () => void;
   onExpire: (id: number) => void;
 }
@@ -28,9 +31,9 @@ function isEditable(target: EventTarget | null): boolean {
  * notice replaces the text in place rather than stacking a second bar. The
  * hairline along its bottom edge is the countdown.
  */
-export function UndoToast({ notice, onUndo, onExpire }: UndoToastProps) {
+export function UndoToast({ notice, hidden, onUndo, onExpire }: UndoToastProps) {
   const { m } = useI18n();
-  const presence = usePresence(notice !== null, 320);
+  const presence = usePresence(notice !== null && !hidden, 320);
   // The last notice stays on screen through the exit animation.
   const [shown, setShown] = useState(notice);
   if (notice && notice !== shown) setShown(notice);
@@ -38,7 +41,7 @@ export function UndoToast({ notice, onUndo, onExpire }: UndoToastProps) {
   const [hovered, setHovered] = useState(false);
   const [pressed, setPressed] = useState(false);
   const [focused, setFocused] = useState(false);
-  const paused = hovered || pressed || focused;
+  const paused = hovered || pressed || focused || hidden;
 
   const expireRef = useRef(onExpire);
   expireRef.current = onExpire;

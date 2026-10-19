@@ -272,3 +272,49 @@ export function formatMonthDay(value: string, lang: Language = "en"): string {
   const [, month, day] = input.split("-").map(Number);
   return lang === "zh" ? `${month}月${day}日` : `${MONTH_ABBR[month - 1]} ${day}`;
 }
+
+/**
+ * A day group's heading in a long list (Projects, Search): the weekday and
+ * the date, with "Today" / "Yesterday" / "Tomorrow" in front when it is
+ * one of those, and the year only once it isn't this one —
+ * "Today · Mon, Oct 19", "Sat, Oct 17", "今天 · 10月19日 周一".
+ */
+export function formatGroupDay(value: string | null | undefined, today: string, lang: Language = "en"): string {
+  const input = toDateInput(value);
+  if (!input) {
+    return lang === "zh" ? "无日期" : "No Date";
+  }
+  const [year, month, day] = input.split("-").map(Number);
+  const sameYear = input.slice(0, 4) === today.slice(0, 4);
+  const weekday = weekdayShort(input, lang);
+  const base =
+    lang === "zh"
+      ? `${sameYear ? "" : `${year}年`}${month}月${day}日 ${weekday}`
+      : `${weekday}, ${MONTH_ABBR[month - 1]} ${day}${sameYear ? "" : `, ${year}`}`;
+  const relative =
+    input === today
+      ? lang === "zh" ? "今天" : "Today"
+      : input === addDays(today, -1)
+        ? lang === "zh" ? "昨天" : "Yesterday"
+        : input === addDays(today, 1)
+          ? lang === "zh" ? "明天" : "Tomorrow"
+          : null;
+  return relative ? `${relative} · ${base}` : base;
+}
+
+/**
+ * When a task was finished, for its card: the time ("4:12 PM", "16:12")
+ * when that was on the task's own day, otherwise the day it was.
+ */
+export function formatDoneMoment(completedAt: string, taskDate: string | null | undefined, lang: Language = "en"): string {
+  const at = new Date(completedAt);
+  if (Number.isNaN(at.getTime())) {
+    return "";
+  }
+  const day = formatDateInput(at);
+  const own = toDateInput(taskDate);
+  if (own && day !== own) {
+    return formatDayLabel(day, lang);
+  }
+  return at.toLocaleTimeString(lang === "zh" ? "zh-CN" : "en-US", { hour: "numeric", minute: "2-digit" });
+}

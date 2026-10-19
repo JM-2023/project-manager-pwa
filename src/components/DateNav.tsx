@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { EASE_OUT, morphTo } from "../lib/morph";
 
 export type NavDirection = 1 | -1;
 
@@ -10,44 +11,90 @@ interface RollTextProps {
   className?: string;
 }
 
+interface RollLayer {
+  key: number;
+  text: string;
+  /** Set once a newer text has pushed this one out: the way it leaves. */
+  leaving: NavDirection | null;
+}
+
+const ROLL_MS = 180;
+const ROLL_SHIFT = "0.9em";
+/** Leaving texts kept in flight at once; older ones are let go. */
+const MAX_LEAVING = 3;
+
 /**
  * Directionally rolling label. When `text` changes, the old value slides out
  * one way while the new one slides in from the other — the direction of the
  * last prev/next press — so the label physically travels with the date.
  *
+ * Each text is one element for its whole life, entering and then leaving,
+ * on WAAPI tweens that start from where it is drawn: pressed again mid-roll,
+ * the half-arrived text leaves from where it got to (instead of snapping
+ * back to fully shown first), and the text before it keeps leaving too.
+ *
  * The container's width morphs between the old and new text widths on the
  * same clock (measured in px, since auto→auto can't transition), so labels of
- * different lengths reflow the line smoothly instead of snapping it. The
- * ghost unmounts when its exit finishes; inline width clears once settled so
- * the label stays intrinsically sized between rolls.
+ * different lengths reflow the line smoothly instead of snapping it. Inline
+ * width clears once settled so the label stays intrinsically sized between
+ * rolls.
  */
 export function RollText({ text, dir, className }: RollTextProps) {
-  const [ghost, setGhost] = useState<{ text: string; key: number } | null>(null);
-  const prevRef = useRef(text);
+  const [layers, setLayers] = useState<RollLayer[]>(() => [{ key: 0, text, leaving: null }]);
   const wrapRef = useRef<HTMLSpanElement | null>(null);
-  const inRef = useRef<HTMLSpanElement | null>(null);
+  const layerEls = useRef(new Map<number, HTMLSpanElement>());
+  // Layers whose entrance or exit has been started, so a re-render doesn't
+  // restart one. The first text is simply there.
+  const startedRef = useRef(new Set<string>(["in:0"]));
   // Width the container is actually painted at, captured render-phase BEFORE
-  // the new text commits — afterwards the stacked ghost+new content already
+  // the new text commits — afterwards the stacked old+new content already
   // reports max(old, new) and the starting width is gone.
   const widthFromRef = useRef<number | null>(null);
   const settleRef = useRef(0);
 
-  if (prevRef.current !== text) {
+  const current = layers[layers.length - 1];
+  if (current.text !== text) {
     widthFromRef.current = wrapRef.current?.getBoundingClientRect().width ?? null;
-    setGhost({ text: prevRef.current, key: Date.now() });
-    prevRef.current = text;
+    const leaving = layers.map((layer) => (layer.leaving ? layer : { ...layer, leaving: dir }));
+    setLayers([...leaving.slice(-MAX_LEAVING), { key: current.key + 1, text, leaving: null }]);
   }
 
   useLayoutEffect(() => {
+    const started = startedRef.current;
+    for (const layer of layers) {
+      const el = layerEls.current.get(layer.key);
+      if (!el) continue;
+      if (layer.leaving) {
+        if (started.has(`out:${layer.key}`)) continue;
+        started.add(`out:${layer.key}`);
+        const shift = layer.leaving === 1 ? `-${ROLL_SHIFT}` : ROLL_SHIFT;
+        const key = layer.key;
+        morphTo(el, { opacity: "0", transform: `translateX(${shift})` }, { duration: ROLL_MS, easing: EASE_OUT, hold: true }).finished.then(
+          () => {
+            started.delete(`in:${key}`);
+            started.delete(`out:${key}`);
+            setLayers((all) => all.filter((each) => each.key !== key));
+          },
+          () => undefined
+        );
+      } else if (!started.has(`in:${layer.key}`)) {
+        started.add(`in:${layer.key}`);
+        const shift = dir === 1 ? ROLL_SHIFT : `-${ROLL_SHIFT}`;
+        morphTo(el, { opacity: "1", transform: "none" }, { from: { opacity: "0", transform: `translateX(${shift})` }, duration: ROLL_MS, easing: EASE_OUT });
+      }
+    }
+  }, [layers, dir]);
+
+  useLayoutEffect(() => {
     const wrap = wrapRef.current;
-    const span = inRef.current;
+    const span = layerEls.current.get(current.key);
     if (!wrap || !span) return;
     const from = widthFromRef.current;
     widthFromRef.current = null;
     if (from == null) return;
     // justify-self: start keeps the span at its content width even while the
-    // grid column is stretched by a wider ghost, so this reads the true
-    // target; the wrap's own padding is added back (border-box width).
+    // grid column is stretched by a wider leaving text, so this reads the
+    // true target; the wrap's own padding is added back (border-box width).
     const styles = getComputedStyle(wrap);
     const target = span.offsetWidth + parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
     window.clearTimeout(settleRef.current);
@@ -61,32 +108,25 @@ export function RollText({ text, dir, className }: RollTextProps) {
     settleRef.current = window.setTimeout(() => {
       wrap.style.width = "";
     }, 240);
-  }, [text]);
+  }, [current.key]);
 
   useLayoutEffect(() => () => window.clearTimeout(settleRef.current), []);
 
-  const dirClass = dir === 1 ? "roll-fwd" : "roll-back";
   return (
     <span ref={wrapRef} className={`roll-text${className ? ` ${className}` : ""}`}>
-      {ghost ? (
+      {layers.map((layer) => (
         <span
-          key={ghost.key}
-          className={`roll-text__ghost ${dirClass}`}
-          aria-hidden="true"
-          onAnimationEnd={() => setGhost(null)}
+          key={layer.key}
+          ref={(el) => {
+            if (el) layerEls.current.set(layer.key, el);
+            else layerEls.current.delete(layer.key);
+          }}
+          className={layer.leaving ? "roll-text__ghost" : "roll-text__in"}
+          aria-hidden={layer.leaving ? "true" : undefined}
         >
-          {ghost.text}
+          {layer.text}
         </span>
-      ) : null}
-      {/* The roll class rides only while a ghost is in flight, i.e. the text
-          actually changed. Worn permanently, a later dir flip renames the
-          animation and replays it on unchanged text — the calendar's fixed
-          title rolled on ‹/› reversals and on pressing the title itself.
-          Ghost-out and text-in share one 0.18s clock, so the class is only
-          removed after the entrance has finished. */}
-      <span key={text} ref={inRef} className={`roll-text__in${ghost ? ` ${dirClass}` : ""}`}>
-        {text}
-      </span>
+      ))}
     </span>
   );
 }

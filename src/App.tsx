@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, u
 import { BottomNav } from "./components/BottomNav";
 import { ConfirmHost, requestConfirm } from "./components/ConfirmSheet";
 import { OfflineBanner } from "./components/OfflineBanner";
+import { useTyping } from "./lib/typing";
 import { UndoToast, type UndoNotice } from "./components/UndoToast";
 import {
   AuthRequiredError,
@@ -205,6 +206,8 @@ export function App() {
   const pendingUndo = useRef<PendingUndo | null>(null);
   const undoSeq = useRef(0);
   const [undoNotice, setUndoNotice] = useState<UndoNotice | null>(null);
+  // A touch keyboard is up: the Dock and the notices above it step aside.
+  const typing = useTyping();
   const [hiddenTaskIds, setHiddenTaskIds] = useState<ReadonlySet<string>>(() => new Set());
   const [state, dispatch] = useReducer(appReducer, initialState);
   const stateRef = useRef(state);
@@ -221,20 +224,63 @@ export function App() {
   const selectDate = useCallback((date: string) => {
     commit({ type: "setSelectedDate", payload: date === todayDate() ? null : date });
   }, [commit]);
+  // Where each tab was left, so going back to it lands there rather than at
+  // the top. A way in that changes what the tab shows (another day on
+  // Today, an idea to jump to on Next) forgets it.
+  const scrollMemory = useRef<Partial<Record<TabId, number>>>({});
   // Every tab change goes through here so the new page settles in (lib/pageTransition).
   // `prepare` runs inside the swap, so its state lands in the same new frame.
   const switchTab = useCallback((tab: TabId, prepare?: () => void) => {
-    switchPageAnimated(tab !== stateRef.current.currentTab, () => {
+    const from = stateRef.current.currentTab;
+    if (tab !== from) scrollMemory.current[from] = window.scrollY;
+    switchPageAnimated(tab !== from, () => {
       prepare?.();
       commit({ type: "setTab", payload: tab });
     });
   }, [commit]);
 
-  // Reset before paint when a page changes. Search jumps in Next schedule
-  // their target scroll for the following frame, after this initial reset.
+  // Place the page before paint when it changes: where it was left, or the
+  // top. A long list renders in batches as the view nears its end, so a
+  // remembered spot further down may not exist yet; it is reached for over
+  // the next frames as the page grows, until the reader scrolls themselves.
+  // Search jumps in Next schedule their target scroll for the following
+  // frame, after this.
   useLayoutEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
+    const top = state.authRequired ? 0 : scrollMemory.current[state.currentTab] ?? 0;
+    window.scrollTo({ top, behavior: "instant" });
+    if (top <= 0 || window.scrollY >= top - 1) return;
+    let frame = 0;
+    let tries = 0;
+    const stop = () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("wheel", stop);
+      window.removeEventListener("touchstart", stop);
+      window.removeEventListener("keydown", stop);
+    };
+    const reach = () => {
+      window.scrollTo({ top, behavior: "instant" });
+      tries += 1;
+      if (window.scrollY >= top - 1 || tries > 40) stop();
+      else frame = window.requestAnimationFrame(reach);
+    };
+    frame = window.requestAnimationFrame(reach);
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchstart", stop, { passive: true });
+    window.addEventListener("keydown", stop);
+    return stop;
   }, [state.currentTab, state.authRequired]);
+
+  // The current tab tapped again: back to the top, smoothly; already there,
+  // back to the page's own start (Today to today, Search to its field).
+  const reselectTab = useCallback((tab: TabId) => {
+    if (window.scrollY > 2) {
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: reduced ? "instant" : "smooth" });
+      return;
+    }
+    if (tab === "today") commit({ type: "setSelectedDate", payload: null });
+    if (tab === "search") document.querySelector<HTMLInputElement>(".search-field input")?.focus({ preventScroll: true });
+  }, [commit]);
 
   const clientId = useMemo(() => getOrCreateClientId(), []);
   const tabId = useMemo(() => crypto.randomUUID(), []);
@@ -1144,18 +1190,30 @@ export function App() {
 
   return (
     <div className="app-shell">
-      <OfflineBanner online={state.online} pendingCount={state.pendingCount} syncStatus={state.syncStatus} error={state.error} onSync={syncNow} />
       {state.currentTab === "today" ? <TodayPage {...pageProps} selectedDate={state.selectedDate} onDateChange={selectDate} /> : null}
       {state.currentTab === "calendar" ? (
         <CalendarPage
           {...pageProps}
           initialDate={state.selectedDate}
-          onOpenDay={(date) => switchTab("today", () => selectDate(date))}
+          onOpenDay={(date) =>
+            switchTab("today", () => {
+              delete scrollMemory.current.today;
+              selectDate(date);
+            })
+          }
         />
       ) : null}
       {state.currentTab === "projects" ? <ProjectsPage {...pageProps} projectTaskCounts={projectTaskCounts} /> : null}
       {state.currentTab === "next" ? <NextPage {...pageProps} initialIdeaId={focusedNextIdea.current} /> : null}
-      {state.currentTab === "search" ? <SearchPage {...pageProps} onOpenIdea={(id) => switchTab("next", () => { focusedNextIdea.current = id; })} /> : null}
+      {state.currentTab === "search" ? <SearchPage
+          {...pageProps}
+          onOpenIdea={(id) =>
+            switchTab("next", () => {
+              delete scrollMemory.current.next;
+              focusedNextIdea.current = id;
+            })
+          }
+        /> : null}
       {state.currentTab === "settings" ? (
         <SettingsPage
           taskCount={visibleTasks(state.tasks).length}
@@ -1179,18 +1237,34 @@ export function App() {
           onLogout={() => void handleLogout()}
         />
       ) : null}
-      <UndoToast notice={undoNotice} onUndo={takeBackUndo} onExpire={expireUndo} />
+      <UndoToast notice={undoNotice} hidden={typing} onUndo={takeBackUndo} onExpire={expireUndo} />
+      {/* The same slot above the Dock; the undo bar has it first. */}
+      <OfflineBanner
+        online={state.online}
+        pendingCount={state.pendingCount}
+        syncStatus={state.syncStatus}
+        error={state.error}
+        held={undoNotice !== null || typing}
+        onSync={syncNow}
+        onOpenSettings={() => switchTab("settings")}
+      />
       <ConfirmHost />
       <BottomNav
         current={state.currentTab}
-        onChange={(tab) =>
+        onChange={(tab) => {
+          if (tab === stateRef.current.currentTab) {
+            reselectTab(tab);
+            return;
+          }
           switchTab(tab, () => {
             focusedNextIdea.current = null;
-            if (tab === "today") {
+            if (tab === "today" && stateRef.current.selectedDate !== null) {
+              // Today opens on today; the spot left on another day isn't there.
+              delete scrollMemory.current.today;
               commit({ type: "setSelectedDate", payload: null });
             }
-          })
-        }
+          });
+        }}
       />
     </div>
   );

@@ -8,6 +8,8 @@ import { useI18n } from "../lib/i18n";
 import { isWorklogTask, progressTone, summarizeWorklogOverview, type WorklogOverview } from "../lib/progress";
 import { NO_PROJECT_FILTER } from "../state/appStore";
 import { useRemoveTransition } from "../lib/useRemoveTransition";
+import { MORPH_MOTION } from "../lib/floatingPopover";
+import { usePresenceMorph } from "../lib/morph";
 import { usePresence } from "../lib/usePresence";
 import { handleMenuKeyDown } from "../lib/menuKeys";
 import { boxOf, buildSlideKeyframes, currentBox, place, px, SLIDE_FRAME_MS, type Box } from "../lib/navIndicator";
@@ -139,6 +141,7 @@ function ProjectRow({ project, summary, taskCount, swatch, active, index, onSele
       window.removeEventListener("resize", position);
     };
   }, [menu.mounted, menu.closing, confirm]);
+  usePresenceMorph(popoverRef, menu, MORPH_MOTION);
 
   // Reset the confirm step whenever the menu closes so it reopens on the root view.
   useEffect(() => {
@@ -240,9 +243,6 @@ function ProjectRow({ project, summary, taskCount, swatch, active, index, onSele
               } else {
                 handleMenuKeyDown(event);
               }
-            }}
-            onAnimationEnd={(event) => {
-              if (event.target === event.currentTarget) menu.onExited();
             }}
           >
             {confirm ? (

@@ -1,5 +1,6 @@
 import type { BootstrapResponse, MutationConflict, NextIdea, NextProject, Project, SessionResponse, Task } from "../lib/types";
 import { visibleProjects, visibleTasks } from "../lib/sync";
+import { toDateInput } from "../lib/dates";
 import { priorityScore } from "../lib/validation";
 
 export type TabId = "today" | "calendar" | "projects" | "next" | "search" | "settings";
@@ -204,4 +205,12 @@ export function sortedTasks(tasks: Task[]): Task[] {
     const dueB = b.due_date ?? "9999-12-31";
     return dueA.localeCompare(dueB) || priorityScore(a.priority) - priorityScore(b.priority) || a.sort_order - b.sort_order;
   });
+}
+
+/** A long list (Projects, Search) reads as a worklog: the newest day first,
+ * each day in the order Today shows it (the sort is stable), undated tasks
+ * last. */
+export function newestFirst(tasks: Task[]): Task[] {
+  const day = new Map(tasks.map((task) => [task.id, toDateInput(task.start_date)]));
+  return [...tasks].sort((a, b) => (day.get(b.id) ?? "").localeCompare(day.get(a.id) ?? ""));
 }

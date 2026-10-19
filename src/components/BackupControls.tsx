@@ -2,6 +2,7 @@ import { FileJson, HardDriveDownload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { getExportData, restoreData } from "../lib/api";
 import { useI18n } from "../lib/i18n";
+import { requestConfirm } from "./ConfirmSheet";
 
 interface BackupControlsProps {
   // Re-pulls everything from the cloud after a restore so the local cache and
@@ -93,10 +94,13 @@ export function BackupControls({ onRestored }: BackupControlsProps) {
       if (total === 0) {
         throw new Error(m.settings.restoreInvalid);
       }
-      const confirmed = window.confirm(
-        m.settings.restoreConfirm(payload.projects.length, payload.tasks.length, payload.nextProjects.length, payload.nextIdeas.length)
-      );
-      if (!confirmed) {
+      const confirmed = await requestConfirm({
+        title: m.settings.restoreTitle,
+        message: m.settings.restoreConfirm(payload.projects.length, payload.tasks.length, payload.nextProjects.length, payload.nextIdeas.length),
+        confirmLabel: m.settings.restoreAction,
+        danger: true
+      });
+      if (controller.signal.aborted || !confirmed) {
         return;
       }
       // The server ignores fields it doesn't know, so passing rows straight

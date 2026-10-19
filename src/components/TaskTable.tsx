@@ -43,12 +43,11 @@ interface TaskTableProps {
   tasks: Task[];
   projects: Project[];
   showDate?: boolean;
-  // When set, the matching row's title field focuses on mount (used by the
-  // Today page so a freshly added task is immediately typeable).
-  focusTaskId?: string | null;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
+  /** Move the task to another day (the page offers to move it back). */
+  onMove: (task: Task, date: string) => void;
   /** How fast its rows move (lib/listMotion): "quick" for a list that
    * changes as fast as the user types. */
   motionPace?: "normal" | "quick";
@@ -64,13 +63,13 @@ interface TaskRowProps {
   // The table is in its wide spreadsheet layout: the row is a line of
   // editable cells instead of a card.
   wide: boolean;
-  autoFocusTitle?: boolean;
   // The task is gone from the data and the row is folding out
   // (lib/listMotion): inert, and it must not write anything back.
   exiting: boolean;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
+  onMove: (task: Task, date: string) => void;
 }
 
 const importanceValues: TaskImportance[] = [1, 2, 3, 4];
@@ -206,8 +205,6 @@ interface FloatingPopoverOptions {
   triggerRef: RefObject<HTMLButtonElement>;
   popoverRef: RefObject<HTMLDivElement>;
   place: Placement;
-  // Content swaps (a confirm step) that should re-place and re-focus.
-  layoutKey?: unknown;
 }
 
 /**
@@ -217,7 +214,7 @@ interface FloatingPopoverOptions {
  * closes if the trigger scrolls out of view. On open, focus lands on the
  * checked item, or the first.
  */
-function useFloatingPopover({ open, close, triggerRef, popoverRef, place, layoutKey }: FloatingPopoverOptions) {
+function useFloatingPopover({ open, close, triggerRef, popoverRef, place }: FloatingPopoverOptions) {
   const presence = usePresence(open, 300);
   const closeRef = useRef(close);
   closeRef.current = close;
@@ -278,7 +275,7 @@ function useFloatingPopover({ open, close, triggerRef, popoverRef, place, layout
     };
     // `place` is a module-level constant per caller.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presence.mounted, presence.closing, layoutKey, triggerRef, popoverRef]);
+  }, [presence.mounted, presence.closing, triggerRef, popoverRef]);
 
   return presence;
 }
@@ -296,23 +293,14 @@ interface TaskMenuProps {
 function TaskMenu({ exiting, nextDay = true, onCopy, onMove, onDelete }: TaskMenuProps) {
   const { m } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const close = useCallback(() => setMenuOpen(false), []);
-  const menu = useFloatingPopover({ open: menuOpen, close, triggerRef, popoverRef, place: coverTrigger, layoutKey: confirmingDelete });
+  const menu = useFloatingPopover({ open: menuOpen, close, triggerRef, popoverRef, place: coverTrigger });
 
   useEffect(() => {
     if (exiting) setMenuOpen(false);
   }, [exiting]);
-
-  // Reset the delete-confirm step whenever the menu closes so it reopens on
-  // the root view (same two-step pattern as ProjectList).
-  useEffect(() => {
-    if (!menuOpen) {
-      setConfirmingDelete(false);
-    }
-  }, [menuOpen]);
 
   function act(action: () => void) {
     setMenuOpen(false);
@@ -343,41 +331,27 @@ function TaskMenu({ exiting, nextDay = true, onCopy, onMove, onDelete }: TaskMen
             if (event.target === event.currentTarget) menu.onExited();
           }}
         >
-          {confirmingDelete ? (
-            <>
-              <span className="task-action-menu__prompt" role="presentation">
-                {m.taskTable.deletePrompt}
-              </span>
-              <button type="button" role="menuitem" className="danger" onClick={() => act(onDelete)}>
-                <span>{m.taskTable.confirmDelete}</span>
-              </button>
-              <button type="button" role="menuitem" onClick={() => setConfirmingDelete(false)}>
-                <span>{m.common.cancel}</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" role="menuitem" onClick={() => act(() => onCopy(-1))}>
-                <span>{m.taskTable.copyToPrevDay}</span>
-              </button>
-              {nextDay ? (
-                <button type="button" role="menuitem" onClick={() => act(() => onCopy(1))}>
-                  <span>{m.taskTable.copyToNextDay}</span>
-                </button>
-              ) : null}
-              <button type="button" role="menuitem" onClick={() => act(() => onMove(-1))}>
-                <span>{m.taskTable.moveToPrevDay}</span>
-              </button>
-              {nextDay ? (
-                <button type="button" role="menuitem" onClick={() => act(() => onMove(1))}>
-                  <span>{m.taskTable.moveToNextDay}</span>
-                </button>
-              ) : null}
-              <button type="button" role="menuitem" className="danger" onClick={() => setConfirmingDelete(true)}>
-                <span>{m.taskTable.deleteTask}</span>
-              </button>
-            </>
-          )}
+          <button type="button" role="menuitem" onClick={() => act(() => onCopy(-1))}>
+            <span>{m.taskTable.copyToPrevDay}</span>
+          </button>
+          {nextDay ? (
+            <button type="button" role="menuitem" onClick={() => act(() => onCopy(1))}>
+              <span>{m.taskTable.copyToNextDay}</span>
+            </button>
+          ) : null}
+          <button type="button" role="menuitem" onClick={() => act(() => onMove(-1))}>
+            <span>{m.taskTable.moveToPrevDay}</span>
+          </button>
+          {nextDay ? (
+            <button type="button" role="menuitem" onClick={() => act(() => onMove(1))}>
+              <span>{m.taskTable.moveToNextDay}</span>
+            </button>
+          ) : null}
+          {/* No confirm step: the page holds the delete back behind an
+              undo, which is safer than asking and one tap shorter. */}
+          <button type="button" role="menuitem" className="danger" onClick={() => act(onDelete)}>
+            <span>{m.taskTable.deleteTask}</span>
+          </button>
         </div>,
         document.body
       ) : null}
@@ -751,9 +725,9 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap, o
 
 /* ---------- rows ------------------------------------------------------ */
 
-function TaskRowComponent({ task, projects, projectOptions, projectName, showDate, wide, autoFocusTitle, exiting, onCreate, onUpdate, onDelete }: TaskRowProps) {
+function TaskRowComponent({ task, projects, projectOptions, projectName, showDate, wide, exiting, onCreate, onUpdate, onDelete, onMove }: TaskRowProps) {
   const { m } = useI18n();
-  const [expanded, setExpanded] = useState(Boolean(autoFocusTitle || !task.title.trim()));
+  const [expanded, setExpanded] = useState(!task.title.trim());
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
   const [blocker, setBlocker] = useState(worklogBlocker(task));
@@ -906,10 +880,21 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
 
   // On a day-scoped list the moved row leaves the view; the list folds it out.
   function moveTask(offset: number) {
-    onUpdate(task, { start_date: taskDateWithOffset(offset) });
+    onMove(task, taskDateWithOffset(offset));
   }
 
+  // Nothing typed into it anywhere: a leftover of an add that was walked
+  // away from (lib/progress isBlankTask, but on the unsaved draft).
+  const draftIsBlank =
+    !title.trim() && !output.trim() && !blocker.trim() && !nextAction.trim() && !notes.trim() && progress === 0;
+
+  // Closing a card nobody wrote in takes it away, with the usual undo, so
+  // an abandoned add doesn't stay behind as a "New Task…" row.
   function toggle() {
+    if (expanded && draftIsBlank) {
+      onDelete(task);
+      return;
+    }
     commitText();
     setExpanded((value) => !value);
   }
@@ -923,6 +908,10 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
   }
 
   function collapseFromFooter() {
+    if (draftIsBlank) {
+      onDelete(task);
+      return;
+    }
     commitText();
     setExpanded(false);
     rowRef.current?.querySelector<HTMLButtonElement>(".task-summary")?.focus({ preventScroll: true });
@@ -943,7 +932,6 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
         onChange={(event) => setTitle(event.target.value)}
         onBlur={commitText}
         rows={1}
-        autoFocus={autoFocusTitle}
         placeholder={m.taskTable.newTask}
         aria-label={m.taskTable.task}
       />
@@ -1149,7 +1137,6 @@ function taskRowPropsEqual(previous: Readonly<TaskRowProps>, next: Readonly<Task
     previous.projectName === next.projectName &&
     previous.showDate === next.showDate &&
     previous.wide === next.wide &&
-    previous.autoFocusTitle === next.autoFocusTitle &&
     previous.exiting === next.exiting
   );
 }
@@ -1201,10 +1188,10 @@ export function TaskTable({
   tasks,
   projects,
   showDate = true,
-  focusTaskId,
   onCreate,
   onUpdate,
   onDelete,
+  onMove,
   motionPace = "normal"
 }: TaskTableProps) {
   const { m } = useI18n();
@@ -1218,16 +1205,17 @@ export function TaskTable({
       )),
     [liveProjects]
   );
-  const handlersRef = useRef({ onCreate, onUpdate, onDelete });
+  const handlersRef = useRef({ onCreate, onUpdate, onDelete, onMove });
   useLayoutEffect(() => {
-    handlersRef.current = { onCreate, onUpdate, onDelete };
-  }, [onCreate, onDelete, onUpdate]);
+    handlersRef.current = { onCreate, onUpdate, onDelete, onMove };
+  }, [onCreate, onDelete, onMove, onUpdate]);
   const createFromRow = useCallback<TaskTableProps["onCreate"]>((input) => handlersRef.current.onCreate(input), []);
   const updateFromRow = useCallback<TaskTableProps["onUpdate"]>(
     (task, changes) => handlersRef.current.onUpdate(task, changes),
     []
   );
   const deleteFromRow = useCallback<TaskTableProps["onDelete"]>((task) => handlersRef.current.onDelete(task), []);
+  const moveFromRow = useCallback<TaskTableProps["onMove"]>((task, date) => handlersRef.current.onMove(task, date), []);
 
   // Reset back to the first batch whenever the underlying result set changes
   // (e.g. a new search query or project filter), so the user sees the top.
@@ -1289,11 +1277,11 @@ export function TaskTable({
             projectName={liveProjects.find((project) => project.id === task.project_id)?.name ?? m.common.noProject}
             showDate={showDate}
             wide={wide}
-            autoFocusTitle={task.id === focusTaskId}
             exiting={exiting}
             onCreate={createFromRow}
             onUpdate={updateFromRow}
             onDelete={deleteFromRow}
+            onMove={moveFromRow}
           />
         ))}
       </div>

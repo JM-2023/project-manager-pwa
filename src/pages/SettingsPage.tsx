@@ -4,6 +4,7 @@ import { SyncDiagnostics } from "../components/SyncDiagnostics";
 import { BackgroundToggle } from "../components/BackgroundToggle";
 import { BackupControls } from "../components/BackupControls";
 import { ChangePasscode } from "../components/ChangePasscode";
+import { requestConfirm } from "../components/ConfirmSheet";
 import { ExportButton } from "../components/ExportButton";
 import { ImportWizard } from "../components/ImportWizard";
 import { SegControl } from "../components/SegControl";
@@ -133,8 +134,13 @@ export function SettingsPage({
     { label: m.settings.projects, value: String(projectCount) }
   ];
 
-  function handleForceResync() {
-    const confirmed = window.confirm(m.settings.forceResyncConfirm);
+  async function handleForceResync() {
+    const confirmed = await requestConfirm({
+      title: m.settings.forceResyncTitle,
+      message: m.settings.forceResyncConfirm,
+      confirmLabel: m.settings.forceResync,
+      danger: true
+    });
     if (confirmed) {
       onForceResync();
     }
@@ -274,7 +280,7 @@ export function SettingsPage({
             <span className="settings-item__label">{m.settings.forceResync}</span>
             <p className="settings-hint">{m.settings.forceResyncHint}</p>
             <div className="export-actions">
-              <button type="button" className="ghost-button" onClick={handleForceResync}>
+              <button type="button" className="ghost-button" onClick={() => void handleForceResync()}>
                 <RotateCcw size={16} aria-hidden="true" />
                 <span>{m.settings.forceResync}</span>
               </button>

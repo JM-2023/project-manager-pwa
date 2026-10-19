@@ -22,7 +22,7 @@ export function SearchPage(props: TaskPageProps & { onOpenIdea: (id: string) => 
     settleRegion(resultsRef.current);
   }, [scope]);
   const [groupId, setGroupId] = useState("");
-  const { projects, tasks, nextProjects, nextIdeas, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask } = props;
+  const { projects, tasks, nextProjects, nextIdeas, filters, onFiltersChange, onCreateTask, onUpdateTask, onDeleteTask, onMoveTasks } = props;
   const projectMap = useMemo(() => new Map(projects.map((project) => [project.id, project.name])), [projects]);
   const nextProjectMap = useMemo(() => new Map(nextProjects.map((project) => [project.id, project.name])), [nextProjects]);
   const query = filters.search.trim().toLowerCase();
@@ -120,7 +120,7 @@ export function SearchPage(props: TaskPageProps & { onOpenIdea: (id: string) => 
       {/* One table for every query: typing filters it in place (lib/listMotion
           at the quick pace), so rows that still match never re-enter. */}
       <div key={scope} ref={resultsRef} className="search-results">
-      {scope === "tasks" ? <TaskTable motionPace="quick" tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} /> :
+      {scope === "tasks" ? <TaskTable motionPace="quick" tasks={filtered} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} onMove={(task, date) => onMoveTasks([task], date)} /> :
       <section className="search-next-results" aria-label={m.search.nextResultsAria}>
         <h2>{m.search.nextIdeas}</h2>
         {filteredNextIdeas.length > 0 ? (

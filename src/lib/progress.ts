@@ -176,20 +176,6 @@ export function worklogBlocker(task: Task): string {
   return String(extra.blocker ?? extra.blocked ?? extra["卡住的地方"] ?? "").trim();
 }
 
-/** A task nobody has written anything into: no title, no worklog fields, no
- * progress. It is a leftover of an abandoned "add", not a piece of work, so
- * it counts toward nothing. */
-export function isBlankTask(task: Task): boolean {
-  return (
-    !task.title.trim() &&
-    getTaskProgress(task) === 0 &&
-    !worklogOutput(task) &&
-    !worklogBlocker(task) &&
-    !(task.next_action ?? "").trim() &&
-    !(task.notes ?? "").trim()
-  );
-}
-
 export function progressLabel(progress: number): string {
   return `${Math.round(progress)}%`;
 }
@@ -217,9 +203,7 @@ export function judgementExportLabel(judgement: DailyJudgement): string {
 }
 
 export function summarizeProgress(tasks: Task[]): ProgressSummary {
-  const activeTasks = tasks.filter(
-    (task) => !task.deleted_at && task.archived === 0 && task.status !== "cancelled" && !isBlankTask(task)
-  );
+  const activeTasks = tasks.filter((task) => !task.deleted_at && task.archived === 0 && task.status !== "cancelled");
   const totalWeight = activeTasks.reduce((total, task) => total + taskWeight(task), 0);
   const weightedPoints = activeTasks.reduce((total, task) => total + taskWeight(task) * getTaskProgress(task), 0);
   const simplePoints = activeTasks.reduce((total, task) => total + getTaskProgress(task), 0);

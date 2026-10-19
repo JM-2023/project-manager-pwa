@@ -766,8 +766,7 @@ button:focus-visible,
 .file-picker:focus-within,
 .ghost-button:focus-visible,
 .cache-add button:focus-visible,
-.project-create button:focus-visible,
-.task-composer > button:focus-visible {
+.project-create button:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
@@ -1367,7 +1366,6 @@ select {
 .add-row-button,
 .cache-add button,
 .project-create button,
-.task-composer > button,
 .icon-button {
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: antialiased;
@@ -1398,8 +1396,7 @@ select {
 .file-picker,
 .ghost-button,
 .cache-add button,
-.project-create button,
-.task-composer > button {
+.project-create button {
   --py: 12px; --px: 22px;
   --py-h: 14px; --px-h: 25px;
   --rad: 20px; --rad-h: 24px;
@@ -1440,8 +1437,7 @@ select {
 .file-picker::before,
 .ghost-button::before,
 .cache-add button::before,
-.project-create button::before,
-.task-composer > button::before {
+.project-create button::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -1461,8 +1457,7 @@ select {
 .file-picker > *:not(input),
 .ghost-button > *:not(input),
 .cache-add button > *:not(input),
-.project-create button > *:not(input),
-.task-composer > button > *:not(input) {
+.project-create button > *:not(input) {
   position: relative;
   z-index: 2;
 }
@@ -1496,8 +1491,7 @@ select {
    physical. Swell is 10/13 → 12/16 with the radius following, matching the
    proportion the full-size chip uses. */
 .cache-add button,
-.project-create button,
-.task-composer > button {
+.project-create button {
   --py: 10px; --px: 13px;
   --py-h: 12px; --px-h: 16px;
   --rad: 18px; --rad-h: 22px;
@@ -1510,8 +1504,7 @@ select {
    double up here. */
 @media (hover: hover) {
   .cache-add button:hover,
-  .project-create button:hover,
-  .task-composer > button:hover { margin-left: 0; }
+  .project-create button:hover { margin-left: 0; }
 }
 
 /* Icon: a 20px outline glyph, easing down on the same spring as the body. */
@@ -1519,7 +1512,6 @@ select {
 .primary-button svg,
 .cache-add button svg,
 .project-create button svg,
-.task-composer > button svg,
 .secondary-button svg,
 .file-picker svg,
 .ghost-button svg {
@@ -1531,8 +1523,7 @@ select {
 /* Compact composer chips take an 18px glyph. Ordered after the rule above so
    it wins on source order rather than needing extra specificity. */
 .cache-add button svg,
-.project-create button svg,
-.task-composer > button svg { width: 1.125rem; height: 1.125rem; }
+.project-create button svg { width: 1.125rem; height: 1.125rem; }
 
 @media (hover: hover) {
   .add-row-button:hover,
@@ -1541,8 +1532,7 @@ select {
   .file-picker:hover,
   .ghost-button:hover,
   .cache-add button:hover,
-  .project-create button:hover,
-  .task-composer > button:hover {
+  .project-create button:hover {
     margin-left: -3px;
     padding: var(--py-h) var(--px-h);
     border-radius: var(--rad-h);
@@ -1554,8 +1544,7 @@ select {
   .file-picker:hover svg,
   .ghost-button:hover svg,
   .cache-add button:hover svg,
-  .project-create button:hover svg,
-  .task-composer > button:hover svg { transform: scale(0.95); }
+  .project-create button:hover svg { transform: scale(0.95); }
 }
 
 /* Press: the shadow tightens and the glass settles — no scale, the padding
@@ -1566,16 +1555,14 @@ select {
 .file-picker:active,
 .ghost-button:active,
 .cache-add button:active,
-.project-create button:active,
-.task-composer > button:active { box-shadow: var(--lgb-active-shadow); }
+.project-create button:active { box-shadow: var(--lgb-active-shadow); }
 
 .add-row-button:disabled,
 .primary-button:disabled,
 .secondary-button:disabled,
 .ghost-button:disabled,
 .cache-add button:disabled,
-.project-create button:disabled,
-.task-composer > button:disabled {
+.project-create button:disabled {
   opacity: 0.6;
   filter: grayscale(8%);
   cursor: default;
@@ -2715,29 +2702,6 @@ button.project-row > span { flex: 1; min-width: 0; }
 }
 .cache-add input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
 
-/* Today's add row (TaskComposer): the Next page's add field and compact
-   glass "+", with the importance chip set into the field's right end. */
-.task-composer { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; margin: 0 0 16px; overflow: visible; }
-.task-composer__field { position: relative; min-width: 0; }
-.task-composer input {
-  width: 100%; min-width: 0; min-height: 44px; padding: 10px 58px 10px 12px;
-  color: var(--ink); background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-md);
-  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
-}
-.task-composer input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
-.task-composer__importance {
-  position: absolute; top: 50%; right: 7px;
-  display: inline-grid; place-items: center; min-width: 38px; height: 30px; padding: 0 8px;
-  color: var(--ink-soft); background: var(--surface-3); border: 0; border-radius: calc(var(--r-md) - 2px);
-  font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: 0.02em;
-  transform: translateY(-50%);
-  transition: background var(--t) var(--ease), color var(--t) var(--ease), transform 0.14s var(--ease-out);
-}
-@media (hover: hover) { .task-composer__importance:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 9%, var(--surface-3)); } }
-.task-composer__importance:active { transform: translateY(-50%) scale(0.96); }
-.task-composer__importance:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
-/* Roll over ends the day's list: what you do after going through it. */
-.today-rollover { margin: 4px 0 0; }
 .cache-items { display: grid; gap: 8px; }
 .cache-item {
   display: grid; grid-template-columns: minmax(0, 1fr) 32px; gap: 8px; align-items: center;

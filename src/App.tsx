@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { BottomNav } from "./components/BottomNav";
+import { ConfirmHost, requestConfirm } from "./components/ConfirmSheet";
 import { OfflineBanner } from "./components/OfflineBanner";
+import { UndoToast, type UndoNotice } from "./components/UndoToast";
 import {
   AuthRequiredError,
   bootstrap,
@@ -14,7 +16,7 @@ import {
   uploadCloudExcel,
   waitForChanges
 } from "./lib/api";
-import { nowIso, todayDate } from "./lib/dates";
+import { formatDayLabel, nowIso, todayDate } from "./lib/dates";
 import { getOrCreateClientId, newId, newMutationId } from "./lib/ids";
 import {
   buildWorkbookBlobInWorker,
@@ -187,9 +189,23 @@ const baseSyncIO: Omit<SyncIO, "publishSyncHint"> = {
   sendBeacon: (url, body) => navigator.sendBeacon?.(url, body) ?? false
 };
 
+interface PendingUndo {
+  id: number;
+  /** Put things back the way they were. */
+  undo: () => void;
+  /** The undo lapsed: make the action final (a held-back delete lands here). */
+  settle: () => void;
+}
+
 export function App() {
-  const { m } = useI18n();
+  const { m, lang } = useI18n();
   const focusedNextIdea = useRef<string | null>(null);
+  // At most one action is on offer to take back; offering a new one settles
+  // the old. Deleted tasks only leave the view until their undo lapses.
+  const pendingUndo = useRef<PendingUndo | null>(null);
+  const undoSeq = useRef(0);
+  const [undoNotice, setUndoNotice] = useState<UndoNotice | null>(null);
+  const [hiddenTaskIds, setHiddenTaskIds] = useState<ReadonlySet<string>>(() => new Set());
   const [state, dispatch] = useReducer(appReducer, initialState);
   const stateRef = useRef(state);
   // The app's single state write path: apply the action to the synchronous
@@ -467,8 +483,19 @@ export function App() {
     };
   }, [changeWatcher, signedIn]);
 
+  // Make whatever is still on offer final: the undo bar's clock stops
+  // counting the moment the page goes away.
+  const settleUndo = useCallback(() => {
+    const pending = pendingUndo.current;
+    if (!pending) return;
+    pendingUndo.current = null;
+    setUndoNotice(null);
+    pending.settle();
+  }, []);
+
   useEffect(() => {
     function flushAfterCurrentEvent() {
+      settleUndo();
       queueMicrotask(() => flushPendingWithKeepalive());
     }
     function handleVisibilityChange() {
@@ -485,7 +512,7 @@ export function App() {
       window.removeEventListener("pagehide", flushAfterCurrentEvent);
       window.removeEventListener("beforeunload", flushAfterCurrentEvent);
     };
-  }, [flushPendingWithKeepalive]);
+  }, [flushPendingWithKeepalive, settleUndo]);
 
   const persistMutation = engine.persistMutation.bind(engine);
 
@@ -540,7 +567,67 @@ export function App() {
     return task.id;
   }
 
+  function offerUndo(message: string, undo: () => void, settle: () => void = () => undefined) {
+    settleUndo();
+    const id = ++undoSeq.current;
+    pendingUndo.current = { id, undo, settle };
+    setUndoNotice({ id, message });
+  }
+
+  function takeBackUndo() {
+    const pending = pendingUndo.current;
+    if (!pending) return;
+    pendingUndo.current = null;
+    setUndoNotice(null);
+    pending.undo();
+  }
+
+  function expireUndo(id: number) {
+    if (pendingUndo.current?.id === id) settleUndo();
+  }
+
+  function setTasksHidden(ids: string[], hidden: boolean) {
+    setHiddenTaskIds((current) => {
+      const next = new Set(current);
+      for (const id of ids) {
+        if (hidden) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  }
+
+  // The server refuses to bring back a record it has deleted, so a delete
+  // is held back instead: the task leaves the view now (its row folds out)
+  // and the delete itself is only written once the undo lapses, against
+  // whatever version the task has by then.
   function deleteTask(task: Task) {
+    setTasksHidden([task.id], true);
+    offerUndo(
+      m.undo.deleted(task.title.trim()),
+      () => setTasksHidden([task.id], false),
+      () => {
+        const live = stateRef.current.tasks.find((candidate) => candidate.id === task.id);
+        if (live && !live.deleted_at) purgeTask(live);
+        setTasksHidden([task.id], false);
+      }
+    );
+  }
+
+  // A move is an ordinary edit, so taking it back is one more edit.
+  function moveTasks(tasks: Task[], date: string) {
+    if (tasks.length === 0) return;
+    const origins = tasks.map((task) => [task.id, task.start_date] as const);
+    for (const task of tasks) updateTask(task, { start_date: date });
+    offerUndo(m.undo.moved(tasks.length, formatDayLabel(date, lang)), () => {
+      for (const [id, startDate] of origins) {
+        const live = stateRef.current.tasks.find((candidate) => candidate.id === id);
+        if (live && !live.deleted_at && live.start_date !== startDate) updateTask(live, { start_date: startDate });
+      }
+    });
+  }
+
+  function purgeTask(task: Task) {
     commit({ type: "purgeTask", payload: task.id });
     persistMutation(
       {
@@ -895,6 +982,8 @@ export function App() {
   // device afterwards. Pending edits are flushed first; if any still can't
   // sync (offline), the user must explicitly accept losing them.
   async function handleLogout() {
+    // A delete still on offer is part of what gets flushed below.
+    settleUndo();
     const previousSession = stateRef.current.session;
     let remoteLoggedOut = false;
     let pending: Awaited<ReturnType<typeof engine.suspend>>;
@@ -919,7 +1008,16 @@ export function App() {
       return;
     }
     const pendingCount = compactPendingMutations(pending).length;
-    if (pendingCount > 0 && !window.confirm(m.settings.signOutPendingConfirm(pendingCount))) {
+    if (
+      pendingCount > 0 &&
+      !(await requestConfirm({
+        title: m.settings.signOutPendingTitle(pendingCount),
+        message: m.settings.signOutPendingConfirm,
+        confirmLabel: m.settings.signOutDiscard,
+        cancelLabel: m.settings.stayIn,
+        danger: true
+      }))
+    ) {
       finishLogoutBarrier(tabId, false);
       engine.resume();
       if (navigator.onLine) engine.scheduleSync();
@@ -957,6 +1055,10 @@ export function App() {
   }
 
   function applyLoggedOutState() {
+    // Nothing is left to take back once the local data is gone.
+    pendingUndo.current = null;
+    setUndoNotice(null);
+    setHiddenTaskIds(new Set());
     engine.hydratePending([]);
     const empty = {
       projects: [],
@@ -983,7 +1085,10 @@ export function App() {
         .sort((a, b) => a.sort_order - b.sort_order || a.name.localeCompare(b.name)),
     [state.projects]
   );
-  const tasks = useMemo(() => sortedTasks(state.tasks), [state.tasks]);
+  const tasks = useMemo(
+    () => sortedTasks(hiddenTaskIds.size > 0 ? state.tasks.filter((task) => !hiddenTaskIds.has(task.id)) : state.tasks),
+    [state.tasks, hiddenTaskIds]
+  );
   // What deleting each project would purge, archived tasks included, so the
   // confirm step can say it. Internal project-cache rows aren't user tasks.
   const projectTaskCounts = useMemo(() => {
@@ -1019,6 +1124,7 @@ export function App() {
     onCreateTask: createTask,
     onUpdateTask: updateTask,
     onDeleteTask: deleteTask,
+    onMoveTasks: moveTasks,
     onCreateProject: createProject,
     onArchiveProject: archiveProject,
     onUnarchiveProject: unarchiveProject,
@@ -1066,10 +1172,15 @@ export function App() {
           onImport={handleImport}
           onExported={(timestamp) => commit({ type: "setLastExport", payload: timestamp })}
           onSync={syncNow}
-          onForceResync={() => void forceFullResync()}
+          onForceResync={() => {
+            settleUndo();
+            void forceFullResync();
+          }}
           onLogout={() => void handleLogout()}
         />
       ) : null}
+      <UndoToast notice={undoNotice} onUndo={takeBackUndo} onExpire={expireUndo} />
+      <ConfirmHost />
       <BottomNav
         current={state.currentTab}
         onChange={(tab) =>

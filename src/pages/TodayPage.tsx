@@ -1,11 +1,19 @@
-import { ChevronsRight, Plus } from "lucide-react";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ChevronsRight } from "lucide-react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { DateSwitcher, type NavDirection } from "../components/DateNav";
 import { ProgressSummary } from "../components/ProgressSummary";
+import { TaskComposer } from "../components/TaskComposer";
 import { TaskTable } from "../components/TaskTable";
 import { addDays, formatDayLabel, formatShortDate, toDateInput, weekdayLong, weekdayLongNames } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
-import { getTaskProgress, importancePriority, isProjectCacheTask, summarizeProgress } from "../lib/progress";
+import {
+  getTaskProgress,
+  importancePriority,
+  isBlankTask,
+  isProjectCacheTask,
+  summarizeProgress,
+  type TaskImportance
+} from "../lib/progress";
 import { useToday } from "../lib/useToday";
 import type { Task } from "../lib/types";
 import type { TaskPageProps } from "./pageProps";
@@ -16,7 +24,7 @@ function taskRecordDate(task: Task): string {
 
 export function TodayPage(props: TaskPageProps & { selectedDate: string | null; onDateChange: (date: string) => void }) {
   const { m, lang } = useI18n();
-  const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask, selectedDate, onDateChange } = props;
+  const { projects, tasks, onCreateTask, onUpdateTask, onDeleteTask, onMoveTasks, selectedDate, onDateChange } = props;
   const today = useToday();
   // A null selection follows today across midnight; explicit dates stay put.
   const viewDate = selectedDate ?? today;
@@ -31,15 +39,9 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
     setShownDate(viewDate);
     setNavDir(viewDate > shownDate ? 1 : -1);
   }
-  const [focusTaskId, setFocusTaskId] = useState<string | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const bodySettledRef = useRef(false);
   const bodySlideRef = useRef<Animation | null>(null);
-
-  // A remembered focus target only applies to the day it was created on.
-  useEffect(() => {
-    setFocusTaskId(null);
-  }, [viewDate]);
 
   const datedTasks = tasks.filter((task) => {
     if (task.deleted_at || task.archived || task.status === "cancelled") return false;
@@ -48,26 +50,26 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
   });
   const displayTasks = datedTasks.filter((task) => taskRecordDate(task) === viewDate);
   const summary = summarizeProgress(displayTasks);
-  const unfinishedTasks = displayTasks.filter((task) => getTaskProgress(task) < 100);
+  // An empty leftover row isn't unfinished work; it doesn't travel.
+  const unfinishedTasks = displayTasks.filter((task) => getTaskProgress(task) < 100 && !isBlankTask(task));
+  const nextDay = addDays(viewDate, 1);
 
-  function addTask() {
-    const id = onCreateTask({
-      title: "",
+  function addTask(title: string, importance: TaskImportance) {
+    onCreateTask({
+      title,
       project_id: null,
       status: "todo",
-      priority: importancePriority(2),
+      priority: importancePriority(importance),
       start_date: viewDate,
       next_action: null,
-      extra_json: JSON.stringify({ importance: 2, progress_percent: 0 })
+      extra_json: JSON.stringify({ importance, progress_percent: 0 })
     });
-    setFocusTaskId(id);
   }
 
-  // Every unfinished task moves to tomorrow at once; the table folds the
-  // rows out top to bottom.
+  // Every unfinished task moves to the next day at once (the table folds
+  // the rows out top to bottom), and the undo bar offers them back.
   function rolloverUnfinished() {
-    const date = addDays(viewDate, 1);
-    for (const task of unfinishedTasks) onUpdateTask(task, { start_date: date });
+    onMoveTasks(unfinishedTasks, nextDay);
   }
 
   // The new day arrives as one sheet: everything under the header slides
@@ -113,26 +115,11 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
           nextAria={m.today.nextDay}
           homeAria={m.today.backToToday}
         />
-        <p>{m.today.subtitle(displayTasks.length, summary.weightedPercent)}</p>
+        <p>{m.today.subtitle(summary.taskCount, summary.weightedPercent)}</p>
       </header>
       <div className="page-body" ref={bodyRef}>
       <ProgressSummary label={m.today.dailySummary} summary={summary} />
-      <div className="add-row-actions">
-        <button type="button" className="add-row-button" onClick={addTask}>
-          <Plus size={18} aria-hidden="true" />
-          <span>{m.today.addTask}</span>
-        </button>
-        <button
-          type="button"
-          className="add-row-button"
-          onClick={rolloverUnfinished}
-          disabled={unfinishedTasks.length === 0}
-          aria-label={m.today.rolloverAria}
-        >
-          <ChevronsRight size={18} aria-hidden="true" />
-          <span>{m.today.rollover}</span>
-        </button>
-      </div>
+      <TaskComposer onCreate={addTask} />
       {/* Mounted even when the day empties, so its last rows can fold out.
           Keyed by day: each day is its own list, so a day switch swaps it
           whole and it rides the body's slide (it has no entrance of its own). */}
@@ -141,13 +128,21 @@ export function TodayPage(props: TaskPageProps & { selectedDate: string | null; 
         tasks={displayTasks}
         projects={projects}
         showDate={false}
-        focusTaskId={focusTaskId}
         onCreate={onCreateTask}
         onUpdate={onUpdateTask}
         onDelete={onDeleteTask}
+        onMove={(task, date) => onMoveTasks([task], date)}
       />
       {displayTasks.length === 0 ? (
         <p className="empty-state">{m.today.empty(formatShortDate(viewDate, lang))}</p>
+      ) : null}
+      {/* Rolling over is what you do after going through the day, so it
+          sits where the day's list ends, and only while there is some. */}
+      {unfinishedTasks.length > 0 ? (
+        <button type="button" className="add-row-button today-rollover" onClick={rolloverUnfinished}>
+          <ChevronsRight size={18} aria-hidden="true" />
+          <span>{m.today.rollover(unfinishedTasks.length, formatDayLabel(nextDay, lang))}</span>
+        </button>
       ) : null}
       </div>
     </main>

@@ -121,14 +121,18 @@ const en = {
     pending: (n: number) => `${plural(n, "Change")} Pending`,
     syncNow: "Sync Now"
   },
+  undo: {
+    action: "Undo",
+    deleted: (title: string) => (title ? `Deleted “${title}”` : "Deleted Empty Task"),
+    moved: (n: number, date: string) => (n === 1 ? `Moved to ${date}` : `${plural(n, "Task")} Moved to ${date}`)
+  },
   today: {
     title: "Today",
     subtitle: (n: number, pct: number) => `${plural(n, "Task")} · Weighted ${pct}%`,
     dailySummary: "Daily Summary",
-    addTask: "Add Task",
-    rollover: "Roll Over Unfinished",
-    rolloverAria: "Move This Day's Unfinished Tasks to the Next Day",
-    empty: (date: string) => `No tasks for ${date} yet. Use “Add Task” to start.`,
+    addTask: "Add a Task",
+    rollover: (n: number, date: string) => `Roll ${plural(n, "Unfinished Task")} to ${date}`,
+    empty: (date: string) => `Nothing planned for ${date} yet.`,
     prevDay: "Previous Day",
     nextDay: "Next Day",
     backToToday: "Return to Today"
@@ -163,8 +167,6 @@ const en = {
     quickMoveNext: "Move +1 Day",
     quickCopyNext: "Copy +1 Day",
     deleteTask: "Delete Task",
-    deletePrompt: "Delete This Task Permanently?",
-    confirmDelete: "Confirm Delete",
     noteAria: "Note",
     showing: (visible: number, total: number) => `Showing ${visible} of ${total}. Scroll for more, or search to narrow down.`
   },
@@ -369,8 +371,9 @@ const en = {
     forceResync: "Force Full Resync",
     forceResyncHint:
       "Clears the local cache and re-downloads everything from the cloud. Use only after the cloud data was wiped and re-imported, to remove duplicate tasks.",
+    forceResyncTitle: "Force a Full Resync?",
     forceResyncConfirm:
-      "Force full resync clears the local cache and re-downloads all data from the cloud. Use it only when the cloud was wiped and re-imported, or duplicate/stale tasks appear on this device. Continue?",
+      "Clears the local cache on this device and re-downloads everything from the cloud. Use it only after the cloud was wiped and re-imported, or when duplicate or stale tasks appear here.",
     syncError: "Sync Error",
     conflictDetails: "Synchronization Conflict Details",
     downloadJson: "Download JSON Backup",
@@ -378,8 +381,10 @@ const en = {
     restoring: "Restoring",
     backupHint:
       "The JSON backup contains every field of every project, task, and Next idea. Restoring merges the file into the cloud data (matching records are overwritten, nothing is deleted).",
+    restoreTitle: "Restore from This Backup?",
     restoreConfirm: (projects: number, tasks: number, nextProjects: number, nextIdeas: number) =>
-      `Restore ${projects} projects, ${tasks} tasks, ${nextProjects} Next projects and ${nextIdeas} ideas from this file? Matching records will be overwritten.`,
+      `Merges ${plural(projects, "project")}, ${plural(tasks, "task")}, ${plural(nextProjects, "Next project")} and ${plural(nextIdeas, "idea")} into the cloud. Records with the same ID are overwritten; nothing is deleted.`,
+    restoreAction: "Restore",
     restoreDone: (projects: number, tasks: number, nextProjects: number, nextIdeas: number) =>
       `Restored ${projects} projects, ${tasks} tasks, ${nextProjects} Next projects, ${nextIdeas} ideas.`,
     restoreInvalid: "This File Is Not a Valid Backup JSON.",
@@ -392,8 +397,10 @@ const en = {
       "Change the 4-digit sign-in passcode. It takes effect immediately; the old passcode — including the initial one from deployment — stops working. Other signed-in devices are signed out.",
     installNote: "In Safari, open Share, choose Add to Home Screen, then launch Projects from the Home Screen icon.",
     signOut: "Sign Out",
-    signOutPendingConfirm: (n: number) =>
-      `${plural(n, "change")} could not be synced and will be lost if you sign out now. Sign out anyway?`
+    signOutPendingTitle: (n: number) => `Sign Out with ${plural(n, "Unsynced Change")}?`,
+    signOutPendingConfirm: "They are saved only on this device and will be lost when you sign out.",
+    signOutDiscard: "Discard and Sign Out",
+    stayIn: "Stay Signed In"
   },
   importer: {
     pick: "Import Excel",
@@ -528,14 +535,18 @@ const zh: Messages = {
     pending: (n) => `${n} 项更改待同步`,
     syncNow: "立即同步"
   },
+  undo: {
+    action: "撤销",
+    deleted: (title) => (title ? `已删除「${title}」` : "已删除空白任务"),
+    moved: (n, date) => (n === 1 ? `已移到 ${date}` : `${n} 个任务已移到 ${date}`)
+  },
   today: {
     title: "今天",
     subtitle: (n, pct) => `${n} 个任务 · 加权推进 ${pct}%`,
     dailySummary: "每日总结",
     addTask: "添加任务",
-    rollover: "顺延未完成",
-    rolloverAria: "把当天未完成的任务移到后一天",
-    empty: (date) => `${date} 还没有任务，点「添加任务」开始记录。`,
+    rollover: (n, date) => `把 ${n} 个未完成任务顺延到 ${date}`,
+    empty: (date) => `${date} 还没有安排任务。`,
     prevDay: "前一天",
     nextDay: "后一天",
     backToToday: "回到今天"
@@ -567,8 +578,6 @@ const zh: Messages = {
     quickMoveNext: "移到后一天",
     quickCopyNext: "复制到后一天",
     deleteTask: "删除任务",
-    deletePrompt: "永久删除这个任务？",
-    confirmDelete: "确认删除",
     noteAria: "备注",
     showing: (visible, total) => `已显示 ${visible} / ${total} 条，向下滚动加载更多，或用搜索缩小范围。`
   },
@@ -763,15 +772,18 @@ const zh: Messages = {
     syncNow: "立即同步",
     forceResync: "强制全量同步",
     forceResyncHint: "清空本机缓存并从云端重新拉取全部数据。仅在云端被清空重导后用于消除重复任务。",
-    forceResyncConfirm: "强制全量同步会清空本机缓存并从云端重新拉取全部数据。仅在云端数据被清空重导、本机出现重复/残留任务时使用。继续？",
+    forceResyncTitle: "强制全量同步？",
+    forceResyncConfirm: "会清空本机缓存，并从云端重新拉取全部数据。仅在云端被清空重导、或本机出现重复/残留任务时使用。",
     syncError: "同步错误",
     conflictDetails: "同步冲突详情",
     downloadJson: "下载 JSON 备份",
     restoreJson: "从 JSON 恢复",
     restoring: "恢复中",
     backupHint: "JSON 备份包含所有项目、任务和想法的完整字段。恢复时会把文件合并进云端数据（同 ID 记录被覆盖，不会删除任何数据）。",
+    restoreTitle: "从这个备份恢复？",
     restoreConfirm: (projects, tasks, nextProjects, nextIdeas) =>
-      `从该文件恢复 ${projects} 个项目、${tasks} 个任务、${nextProjects} 个想法分组和 ${nextIdeas} 条想法？同 ID 记录将被覆盖。`,
+      `将把 ${projects} 个项目、${tasks} 个任务、${nextProjects} 个想法分组和 ${nextIdeas} 条想法合并进云端。同 ID 记录会被覆盖，不会删除任何数据。`,
+    restoreAction: "恢复",
     restoreDone: (projects, tasks, nextProjects, nextIdeas) =>
       `已恢复 ${projects} 个项目、${tasks} 个任务、${nextProjects} 个想法分组、${nextIdeas} 条想法。`,
     restoreInvalid: "该文件不是有效的备份 JSON。",
@@ -783,7 +795,10 @@ const zh: Messages = {
     passcodeHint: "修改登录密码（4 位数字）。修改后立即生效，旧密码——包括部署时自带的初始密码——将不再可用，其他已登录设备会被登出。",
     installNote: "在 Safari 中打开「分享」，选择「添加到主屏幕」，之后从主屏幕图标启动应用。",
     signOut: "退出登录",
-    signOutPendingConfirm: (n) => `还有 ${n} 项更改未能同步，现在退出将丢失这些更改。仍要退出？`
+    signOutPendingTitle: (n) => `有 ${n} 项更改未同步，仍要退出？`,
+    signOutPendingConfirm: "这些更改只保存在本机，退出登录后会丢失。",
+    signOutDiscard: "丢弃并退出",
+    stayIn: "保持登录"
   },
   importer: {
     pick: "导入 Excel",

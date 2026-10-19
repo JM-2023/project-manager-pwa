@@ -18,6 +18,7 @@ export function ProjectsPage(props: TaskPageProps & { projectTaskCounts: Readonl
     onCreateTask,
     onUpdateTask,
     onDeleteTask,
+    onMoveTasks,
     onCreateProject,
     onArchiveProject,
     onUnarchiveProject,
@@ -63,7 +64,15 @@ export function ProjectsPage(props: TaskPageProps & { projectTaskCounts: Readonl
         onDelete={onDeleteProject}
         onRename={onRenameProject}
       />
-      <TaskTable key={selectedProjectId} tasks={projectTasks} projects={projects} onCreate={onCreateTask} onUpdate={onUpdateTask} onDelete={onDeleteTask} />
+      <TaskTable
+        key={selectedProjectId}
+        tasks={projectTasks}
+        projects={projects}
+        onCreate={onCreateTask}
+        onUpdate={onUpdateTask}
+        onDelete={onDeleteTask}
+        onMove={(task, date) => onMoveTasks([task], date)}
+      />
     </main>
   );
 }

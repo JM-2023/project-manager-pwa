@@ -43,6 +43,9 @@ interface TaskTableProps {
   tasks: Task[];
   projects: Project[];
   showDate?: boolean;
+  // When set, the matching row's title field focuses on mount (used by the
+  // Today page so a freshly added task is immediately typeable).
+  focusTaskId?: string | null;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
@@ -63,6 +66,7 @@ interface TaskRowProps {
   // The table is in its wide spreadsheet layout: the row is a line of
   // editable cells instead of a card.
   wide: boolean;
+  autoFocusTitle?: boolean;
   // The task is gone from the data and the row is folding out
   // (lib/listMotion): inert, and it must not write anything back.
   exiting: boolean;
@@ -725,9 +729,9 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap, o
 
 /* ---------- rows ------------------------------------------------------ */
 
-function TaskRowComponent({ task, projects, projectOptions, projectName, showDate, wide, exiting, onCreate, onUpdate, onDelete, onMove }: TaskRowProps) {
+function TaskRowComponent({ task, projects, projectOptions, projectName, showDate, wide, autoFocusTitle, exiting, onCreate, onUpdate, onDelete, onMove }: TaskRowProps) {
   const { m } = useI18n();
-  const [expanded, setExpanded] = useState(!task.title.trim());
+  const [expanded, setExpanded] = useState(Boolean(autoFocusTitle || !task.title.trim()));
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
   const [blocker, setBlocker] = useState(worklogBlocker(task));
@@ -883,18 +887,7 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
     onMove(task, taskDateWithOffset(offset));
   }
 
-  // Nothing typed into it anywhere: a leftover of an add that was walked
-  // away from (lib/progress isBlankTask, but on the unsaved draft).
-  const draftIsBlank =
-    !title.trim() && !output.trim() && !blocker.trim() && !nextAction.trim() && !notes.trim() && progress === 0;
-
-  // Closing a card nobody wrote in takes it away, with the usual undo, so
-  // an abandoned add doesn't stay behind as a "New Task…" row.
   function toggle() {
-    if (expanded && draftIsBlank) {
-      onDelete(task);
-      return;
-    }
     commitText();
     setExpanded((value) => !value);
   }
@@ -908,10 +901,6 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
   }
 
   function collapseFromFooter() {
-    if (draftIsBlank) {
-      onDelete(task);
-      return;
-    }
     commitText();
     setExpanded(false);
     rowRef.current?.querySelector<HTMLButtonElement>(".task-summary")?.focus({ preventScroll: true });
@@ -932,6 +921,7 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
         onChange={(event) => setTitle(event.target.value)}
         onBlur={commitText}
         rows={1}
+        autoFocus={autoFocusTitle}
         placeholder={m.taskTable.newTask}
         aria-label={m.taskTable.task}
       />
@@ -1137,6 +1127,7 @@ function taskRowPropsEqual(previous: Readonly<TaskRowProps>, next: Readonly<Task
     previous.projectName === next.projectName &&
     previous.showDate === next.showDate &&
     previous.wide === next.wide &&
+    previous.autoFocusTitle === next.autoFocusTitle &&
     previous.exiting === next.exiting
   );
 }
@@ -1188,6 +1179,7 @@ export function TaskTable({
   tasks,
   projects,
   showDate = true,
+  focusTaskId,
   onCreate,
   onUpdate,
   onDelete,
@@ -1277,6 +1269,7 @@ export function TaskTable({
             projectName={liveProjects.find((project) => project.id === task.project_id)?.name ?? m.common.noProject}
             showDate={showDate}
             wide={wide}
+            autoFocusTitle={task.id === focusTaskId}
             exiting={exiting}
             onCreate={createFromRow}
             onUpdate={updateFromRow}

@@ -56,7 +56,7 @@
 
   --ink: #191816;
   --ink-soft: #4a4740;
-  --muted: #7c776e;
+  --muted: #6c675f;
   --line: #e6e2d9;
   --line-strong: #d4cfc3;
 
@@ -227,7 +227,7 @@
 
     --ink: #edeae4;
     --ink-soft: #bab4a9;
-    --muted: #8b857a;
+    --muted: #989287;
     --line: #2e2b26;
     --line-strong: #413d36;
 
@@ -321,7 +321,7 @@
 
   --ink: #edeae4;
   --ink-soft: #bab4a9;
-  --muted: #8b857a;
+  --muted: #989287;
   --line: #2e2b26;
   --line-strong: #413d36;
 
@@ -428,7 +428,7 @@
 
   --ink: #1b1c1e;
   --ink-soft: #4a4c51;
-  --muted: #75787f;
+  --muted: #64666d;
   --line: #e1e4e9;
   --line-strong: #ccd1d8;
 
@@ -458,7 +458,7 @@
 
     --ink: #ececee;
     --ink-soft: #b6b9bf;
-    --muted: #85888f;
+    --muted: #9a9da3;
     --line: #303237;
     --line-strong: #43464d;
 
@@ -484,7 +484,7 @@
 
   --ink: #ececee;
   --ink-soft: #b6b9bf;
-  --muted: #85888f;
+  --muted: #9a9da3;
   --line: #303237;
   --line-strong: #43464d;
 
@@ -547,7 +547,7 @@
 
   --ink: #1b2c3e;
   --ink-soft: #45576b;
-  --muted: #7b8594;
+  --muted: #5f6a79;
   --line: #ece3d6;
   --line-strong: #dccfbd;
 
@@ -591,7 +591,7 @@
 
     --ink: #f1e6d7;
     --ink-soft: #c9bba8;
-    --muted: #8e98a5;
+    --muted: #9aa3af;
     --line: #24303c;
     --line-strong: #34414e;
 
@@ -634,7 +634,7 @@
 
   --ink: #f1e6d7;
   --ink-soft: #c9bba8;
-  --muted: #8e98a5;
+  --muted: #9aa3af;
   --line: #24303c;
   --line-strong: #34414e;
 
@@ -794,24 +794,24 @@ button.project-row:focus-visible {
    that and stamps the chevron back on top of the digit. A token is set on
    :root and read by the one `select` rule, so the palette can change without
    ever entering that specificity race. */
-:root { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%237C776E' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+:root { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%236C675F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+  :root:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23989287' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 }
-:root[data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238B857A' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+:root[data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%23989287' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 /* The gray ground's own --muted, baked the same way. Ordered after the paper
    pair, with the dark variants qualified so they outrank the light one. */
-:root[data-bg="gray"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2375787F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+:root[data-bg="gray"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2364666D' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 @media (prefers-color-scheme: dark) {
-  :root[data-bg="gray"]:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+  :root[data-bg="gray"]:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239A9DA3' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 }
-:root[data-bg="gray"][data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%2385888F' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+:root[data-bg="gray"][data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239A9DA3' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 /* The Prussian palette's --muted, same arrangement. */
-:root[data-bg="prussian"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%237B8594' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+:root[data-bg="prussian"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%235F6A79' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 @media (prefers-color-scheme: dark) {
-  :root[data-bg="prussian"]:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238E98A5' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+  :root[data-bg="prussian"]:not([data-theme="light"]) { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239AA3AF' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 }
-:root[data-bg="prussian"][data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%238E98A5' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
+:root[data-bg="prussian"][data-theme="dark"] { --select-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none' stroke='%239AA3AF' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='3.2 5.4 7 9.2 10.8 5.4'/%3E%3C/svg%3E"); }
 
 select {
   appearance: none;
@@ -829,8 +829,6 @@ select {
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes scale-in { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes pop-in { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-@keyframes toast-in { from { opacity: 0; transform: translateY(-8px) scale(0.97); } to { opacity: 1; transform: none; } }
-@keyframes toast-out { to { opacity: 0; transform: translateY(-8px) scale(0.96); } }
 @keyframes overlay-fade-out { to { opacity: 0; } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -843,10 +841,8 @@ select {
 }
 .first-reveal .page-content,
 .first-reveal .login-screen { animation: ink-reveal 0.7s var(--ease); transform: translateZ(0); }
-.first-reveal .offline-banner,
 .first-reveal .bottom-nav { animation: fade-in 0.8s var(--ease) both; }
 .reveal-complete .login-screen,
-.reveal-complete .offline-banner,
 .reveal-complete .bottom-nav { animation: none; }
 /* On launch (after the first reveal) the page rises in softly. Tab switches
    skip this: pageTransition.ts finishes it and lands the page row by row
@@ -933,7 +929,10 @@ select {
    second line. Every other page is a single-line title on a shared baseline.
    Must stay below the .page-header p reset: same specificity, so from above
    the reset's margin: 0 would win the cascade and drop the lift. */
-.today-page-header { align-items: flex-end; }
+/* A 10px gap, not 16px, so "3 Tasks · 1 Done" holds one line beside the
+   switcher (whose title reserves "Wednesday"). On a phone the switcher
+   draws in a little more (the 430px block) so it still does at 375px. */
+.today-page-header { align-items: flex-end; gap: 10px; }
 .today-page-header > p { margin-bottom: 6px; }
 
 /* Settings header carries a theme segmented control on the right; let the
@@ -1032,16 +1031,9 @@ select {
   white-space: nowrap;
   min-width: 0;
 }
+/* The rolls themselves run on WAAPI (RollText), so a press mid-roll
+   continues from where each text is drawn. */
 .roll-text__ghost { pointer-events: none; }
-.roll-text__in.roll-fwd { animation: roll-in-fwd 0.18s var(--ease-out) both; }
-.roll-text__ghost.roll-fwd { animation: roll-out-fwd 0.18s var(--ease-out) both; }
-.roll-text__in.roll-back { animation: roll-in-back 0.18s var(--ease-out) both; }
-.roll-text__ghost.roll-back { animation: roll-out-back 0.18s var(--ease-out) both; }
-
-@keyframes roll-in-fwd { from { opacity: 0; transform: translateX(0.9em); } }
-@keyframes roll-out-fwd { to { opacity: 0; transform: translateX(-0.9em); } }
-@keyframes roll-in-back { from { opacity: 0; transform: translateX(-0.9em); } }
-@keyframes roll-out-back { to { opacity: 0; transform: translateX(0.9em); } }
 
 /* ---- Split-flap digits (RollDigits: the calendar hero %) ----
    Each character sits on its own drum column; only columns whose character
@@ -1191,6 +1183,20 @@ select {
 }
 .bottom-nav button.active span { font-weight: 700; }
 
+/* While a touch keyboard is up (lib/typing.ts) the Dock slides down and
+   fades: it has nothing to do there, and the keyboard has taken half the
+   view. It comes back when the field lets go. */
+@media (hover: none) and (pointer: coarse) {
+  .bottom-nav { transition: opacity 0.18s var(--ease), translate 0.18s var(--ease), visibility 0s linear 0s; }
+  :root[data-typing] .bottom-nav {
+    opacity: 0;
+    translate: 0 24px;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.18s var(--ease), translate 0.18s var(--ease), visibility 0s linear 0.18s;
+  }
+}
+
 /* A continuous curve approaches the Dock's softened corners on browsers
    that support it; the same inset geometry retains a rounded fallback. */
 @supports (corner-shape: superellipse(1.5)) {
@@ -1200,37 +1206,46 @@ select {
 }
 
 /* =========================================================================
-   Sync pill — a floating solid status chip. Elevation (shadow-lg) is earned:
-   it overlays scrolling content. State is carried by a single tinted icon
-   chip, not a loud full-bleed fill. --accent drives it.
+   Sync pill — the bottom notice layer's other tenant: centred above the
+   Dock in the undo bar's slot and material (solid surface, hairline,
+   shadow-lg), and only while the undo bar isn't there. State is carried by
+   a single tinted icon chip, not a loud full-bleed fill. --accent drives it.
+   Its entrance, exit and label width run on WAAPI (OfflineBanner.tsx), so
+   a state change mid-move continues from where the pill is.
    ========================================================================= */
 .offline-banner {
   position: fixed;
-  top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
-  z-index: 40;
+  bottom: calc(8px + env(safe-area-inset-bottom) + 70px + 12px);
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 34;
   --accent: var(--warning);
   display: flex;
   align-items: center;
-  gap: 10px;
-  max-width: min(340px, calc(100vw - 24px));
-  padding: 6px 7px 6px 8px;
+  gap: 9px;
+  width: fit-content;
+  max-width: min(360px, calc(100vw - 24px));
+  min-height: 44px;
+  margin-inline: auto;
+  padding: 6px 14px 6px 7px;
   color: var(--ink);
   background: var(--surface);
   border: 1px solid var(--line-strong);
-  border-radius: var(--r-lg);
+  border-radius: 999px;
   box-shadow: var(--shadow-lg);
-  animation: toast-in var(--t) var(--ease) both;
-  transform-origin: top right;
+  transform-origin: 50% 100%;
 }
+.offline-banner:has(.offline-banner__sync) { padding-right: 4px; }
 .offline-banner.offline { --accent: var(--muted); }
 .offline-banner.error   { --accent: var(--danger); }
 .offline-banner.syncing { --accent: var(--primary); }
+.offline-banner.synced  { --accent: var(--prog-done); }
 .offline-banner.queued,
 .offline-banner.loading { --accent: var(--warning); }
-.offline-banner.is-leaving { animation: toast-out 0.26s var(--ease) both; pointer-events: none; }
+.offline-banner.is-leaving { pointer-events: none; }
 
 .offline-banner__icon {
+  position: relative;
   display: inline-grid;
   place-items: center;
   flex: none;
@@ -1239,23 +1254,40 @@ select {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   border-radius: 50%;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 24%, transparent);
+  transition: color 0.16s var(--ease), background 0.16s var(--ease), box-shadow 0.16s var(--ease);
 }
-.offline-banner__icon svg { flex: none; }
-.offline-banner.syncing .offline-banner__icon svg { animation: spin 1s linear infinite; }
-.offline-banner.offline .offline-banner__icon svg { animation: pulse-dot 2.2s var(--ease) infinite; }
+/* The outgoing and incoming icons share the chip's one cell. */
+.offline-banner__glyph { grid-area: 1 / 1; display: grid; place-items: center; }
+.offline-banner__glyph svg { flex: none; }
+.offline-banner__glyph.is-spinning svg { animation: spin 1s linear infinite; }
+.offline-banner.offline .offline-banner__glyph:last-child svg { animation: pulse-dot 2.2s var(--ease) infinite; }
 
 .offline-banner__text {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
-  font-size: 0.86rem;
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--ink);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.offline-banner button {
+.offline-banner__label { animation: fade-in 0.16s var(--ease) both; }
+/* Laid over the whole pill; the sync button sits above it. */
+.offline-banner__open {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.offline-banner__open:active { background: var(--wash); }
+.offline-banner__open:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.offline-banner__sync {
+  position: relative;
   display: inline-grid;
   place-items: center;
   flex: none;
@@ -1266,13 +1298,15 @@ select {
   border-radius: 50%;
   transition: background var(--t) var(--ease), color var(--t) var(--ease), transform 0.14s var(--ease-out);
 }
-@media (hover: hover) { .offline-banner button:hover { background: var(--wash); color: var(--ink); } }
-.offline-banner button:active { transform: scale(0.97); }
-.offline-banner button:disabled { opacity: 0.45; }
-
-@media (max-width: 640px) {
-  .offline-banner { top: max(10px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); max-width: min(300px, calc(100vw - 20px)); }
-  .offline-banner__text { font-size: 0.82rem; }
+@media (hover: hover) { .offline-banner__sync:hover { background: var(--wash); color: var(--ink); } }
+.offline-banner__sync:active { transform: scale(0.97); }
+.offline-banner__sync:disabled { opacity: 0.45; }
+@media (min-width: 900px) {
+  .offline-banner {
+    right: calc(var(--safe-right) + 16px);
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    left: calc(var(--safe-left) + var(--rail-space) + 16px);
+  }
 }
 
 /* =========================================================================
@@ -1599,13 +1633,11 @@ select {
 /* =========================================================================
    Inputs / fields
    ========================================================================= */
-.search-filters > :is(input, select),
 .project-create input,
 .field-label input,
 .field-label select,
 .field-label textarea,
-.mapping-row select,
-.filter-grid select {
+.mapping-row select {
   width: 100%;
   min-height: 44px;
   padding: 11px 13px;
@@ -1617,16 +1649,15 @@ select {
 }
 
 @media (hover: hover) {
-  .search-filters > :is(input, select):hover, .project-create input:hover,
-  .field-label input:hover, .field-label select:hover, .field-label textarea:hover,
-  .filter-grid select:hover { border-color: var(--muted); }
+  .project-create input:hover,
+  .field-label input:hover, .field-label select:hover, .field-label textarea:hover { border-color: var(--muted); }
 }
 
 input:focus, select:focus, textarea:focus { outline: none; }
 
-.search-filters > :is(input, select):focus, .project-create input:focus,
+.project-create input:focus,
 .field-label input:focus, .field-label select:focus, .field-label textarea:focus,
-.mapping-row select:focus, .filter-grid select:focus,
+.mapping-row select:focus,
 .cache-item textarea:focus,
 .task-table-row select:focus, .task-table-row input:focus, .task-table-row textarea:focus {
   border-color: var(--primary);
@@ -1635,18 +1666,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 ::placeholder { color: var(--muted); opacity: 0.75; }
 
-.task-controls, .filter-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-  gap: 8px;
-  margin-top: 8px;
-}
 
 /* =========================================================================
    Panels / cards (filters, mapping) — solid surfaces that sit on the page:
    hairline + contact shadow only.
    ========================================================================= */
-.search-filters,
 .mapping-panel {
   padding: 16px;
   margin-bottom: 16px;
@@ -1657,10 +1681,62 @@ input:focus, select:focus, textarea:focus { outline: none; }
   animation: fade-up var(--t-slow) var(--ease) both;
 }
 .mapping-panel { margin-top: 12px; animation: scale-in var(--t) var(--ease) both; }
-/* The filter card is a control surface, not content: it wants a clear break
-   before the results it governs. */
-.search-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; margin-bottom: 24px; }
-.search-filters > .filter-grid { margin-top: 0; }
+/* Search: the field, then one line of filter chips, then the results.
+   The field is the page's one control surface; the chips sit on the page. */
+.search-bar { display: grid; gap: 12px; margin-bottom: 20px; }
+.search-field {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 48px; padding: 0 6px 0 14px;
+  color: var(--muted);
+  background: var(--field-bg); border: 1px solid var(--line-strong); border-radius: var(--r-lg);
+  transition: border-color var(--t) var(--ease), box-shadow var(--t) var(--ease);
+}
+@media (hover: hover) { .search-field:hover { border-color: var(--muted); } }
+.search-field:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
+.search-field > svg { flex: none; }
+.search-field input {
+  flex: 1; min-width: 0; height: 46px; padding: 0;
+  color: var(--ink); font-size: 1rem;
+  background: transparent; border: 0; border-radius: 0;
+  -webkit-appearance: none; appearance: none;
+}
+/* The field has its own clear button. */
+.search-field input::-webkit-search-cancel-button,
+.search-field input::-webkit-search-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.search-field__clear {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px;
+  color: var(--surface); background: transparent; border: 0; border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+.search-field__clear > svg { box-sizing: content-box; padding: 2px; background: var(--muted); border-radius: 50%; transition: background-color var(--t) var(--ease); }
+@media (hover: hover) { .search-field__clear:hover > svg { background: var(--ink-soft); } }
+.search-field__clear:active > svg { background: var(--ink-soft); }
+.search-field__clear:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+/* The chips run past the page's edge and scroll sideways, so a clipped
+   last chip says there is more. The bleed matches the page gutter. */
+.filter-chips {
+  display: flex; gap: 8px;
+  margin-inline: -14px; padding: 2px 14px;
+  overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain;
+}
+.filter-chips::-webkit-scrollbar { display: none; }
+.filter-chip {
+  flex: none; display: inline-flex; align-items: center; gap: 5px;
+  height: 34px; padding: 0 11px 0 13px;
+  color: var(--ink-soft); font-size: 0.84rem; font-weight: 600; line-height: 1; white-space: nowrap;
+  background: var(--surface); border: 1px solid var(--line-strong); border-radius: 17px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--t) var(--ease), border-color var(--t) var(--ease), color var(--t) var(--ease), transform 0.12s var(--ease-out);
+}
+.filter-chip > svg { flex: none; opacity: 0.75; transition: transform var(--t) var(--ease); }
+.filter-chip[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.filter-chip:active { transform: scale(0.97); }
+.filter-chip:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+/* In use: the project picker's selected slab, so "on" looks the same
+   wherever the app has it. */
+.filter-chip.is-active { color: var(--chip-slab-ink); background: var(--chip-slab); border-color: var(--chip-slab); }
+.filter-chip--clear { padding: 0 12px; color: var(--primary-dark); background: transparent; border-color: transparent; }
+@media (hover: hover) { .filter-chip--clear:hover { background: var(--primary-tint); } }
 
 /* =========================================================================
    Progress summary (Today hero)
@@ -1863,6 +1939,30 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-table-row.is-exiting,
 .task-table.is-folding { overflow: hidden !important; min-height: 0 !important; pointer-events: none; }
 .task-table-wrap.is-empty .task-table { display: none; }
+/* Long lists (Projects, Search) come in days, newest first. A day's heading
+   sticks to the top while its tasks scroll under it; the next one slides
+   up over it (all headings share the table, so a later one covers an
+   earlier one). It moves with the rows through lib/listMotion. Today's
+   heading takes the accent the Today page gives its date. */
+.task-day-head {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 3;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin: 0; padding: 8px 2px 10px;
+  color: var(--ink-soft); background: var(--bg);
+  font-size: 0.6875rem; font-weight: 700; line-height: 1.3; letter-spacing: 0.09em; text-transform: uppercase;
+}
+.task-day-head.is-today { color: var(--primary-dark); }
+.task-day-head__date { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-day-head__stats {
+  flex: none; color: var(--muted);
+  font-size: 0.78rem; font-weight: 600; letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums;
+}
+.task-day-head.is-exiting { overflow: hidden; pointer-events: none; }
+/* On a phone the Projects picker sticks 16px down (44px tall); the day
+   headings stick just under it rather than half behind it. */
+@media (max-width: 719px) {
+  .project-page .task-day-head { top: calc(16px + 44px + env(safe-area-inset-top, 0px)); }
+}
 /* A row gliding past its neighbours is solid for the trip — the same tint
    laid on the ground it covers, so it looks unchanged but hides the rows it
    crosses instead of showing through them. */
@@ -2051,6 +2151,23 @@ input:focus, select:focus, textarea:focus { outline: none; }
   opacity: 0;
   pointer-events: none;
 }
+/* The detents, shown only while a drag is on (TaskTable sets the
+   attributes): three notches through the bar at 25/50/75, the one the drag
+   will land on in full ink. They stand a little proud of the bar so they
+   read over the fill as well as over the track. */
+.progress-ticks { position: absolute; inset: -4px 0; pointer-events: none; opacity: 0; transition: opacity 0.12s var(--ease); }
+[data-scrubbing] .progress-ticks { opacity: 1; }
+.progress-ticks > i {
+  position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px;
+  background: color-mix(in srgb, var(--ink) 24%, transparent); border-radius: 1px;
+  transition: background-color 0.12s var(--ease);
+}
+.progress-ticks > i:nth-child(1) { left: 25%; }
+.progress-ticks > i:nth-child(2) { left: 50%; }
+.progress-ticks > i:nth-child(3) { left: 75%; }
+[data-detent="25"] .progress-ticks > i:nth-child(1),
+[data-detent="50"] .progress-ticks > i:nth-child(2),
+[data-detent="75"] .progress-ticks > i:nth-child(3) { background: var(--ink-soft); }
 /* The input paints nothing, so the focus ring has to go on the bar it drives
    — otherwise keyboard focus is invisible. */
 .progress-meter:has(.progress-slider:focus-visible) {
@@ -2092,12 +2209,40 @@ input:focus, select:focus, textarea:focus { outline: none; }
   width: 100%; padding: 0; text-align: left; background: transparent; border: 0;
   -webkit-tap-highlight-color: transparent;
 }
-.task-summary__meta { grid-column: 1; grid-row: 1; color: var(--muted); font-size: 0.8125rem; line-height: 1.4; overflow-wrap: anywhere; }
+.task-summary__meta { grid-column: 1; grid-row: 1; display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--muted); font-size: 0.8125rem; line-height: 1.4; }
+.task-summary__project { min-width: 0; overflow-wrap: anywhere; }
+/* Importance as a numbered chip, in the wide table's colour ramp: the deep
+   levels (1, 2) solid, the light ones (3, 4) outlined, so the weight reads
+   at a glance instead of from a 4% tint and two small letters. The outline
+   is a shadow, so both kinds are the same size. */
+.imp-chip {
+  flex: none; display: inline-grid; place-items: center;
+  min-width: 20px; height: 20px; padding: 0 5px;
+  color: color-mix(in srgb, var(--importance-color) 50%, var(--ink));
+  font-size: 0.75rem; font-weight: 750; line-height: 1; font-variant-numeric: tabular-nums;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px var(--importance-color);
+}
+.imp-chip--1, .imp-chip--2 { color: var(--surface); background: var(--importance-color); box-shadow: none; }
 .task-summary__chevron { grid-column: 2; grid-row: 1; align-self: center; color: var(--muted); transform: rotate(calc(var(--disclose) * 180deg)); }
 .task-summary__title {
   grid-column: 1 / -1; margin-top: 6px;
   font-size: 1rem; font-weight: 650; line-height: 1.5; overflow-wrap: anywhere;
   transition: color 0.4s var(--ease);
+}
+/* Done: a hairline is drawn through the title, left to right and line by
+   line (an unsliced inline background runs on across the line breaks),
+   once the reading has turned over. Undone, it lifts at once. */
+.task-summary__strike {
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 60% / 0% 1px;
+  transition: background-size 0.24s var(--ease);
+}
+.task-table-row.is-done .task-summary__strike { background-size: 100% 1px; transition-delay: 0.3s; }
+mark.search-hit {
+  margin: 0 -2px; padding: 0 2px;
+  color: var(--primary-dark); background: var(--primary-tint);
+  border-radius: 3px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
 }
 /* The preview gives way to the fields it summarises: it folds shut as the
    editor opens (the spring writes its height) and fades out ahead of the
@@ -2118,10 +2263,20 @@ input:focus, select:focus, textarea:focus { outline: none; }
 .task-card-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; margin-top: 12px; }
 .task-card-meter { min-width: 0; }
 .task-card-progress__pct {
-  min-width: 4ch; text-align: right;
+  display: grid; justify-items: end; align-items: center; min-width: 4ch;
   color: var(--ink-soft); font-size: 0.8125rem; font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums;
   transition: color 0.4s var(--ease);
 }
+/* The number and "✓ Done" share one cell (so it is as wide as the wider
+   of the two and the bar never changes length). At 100% the number lifts
+   away and Done comes up from under it, a beat after the fill lands. */
+.task-card-progress__pct > span {
+  grid-area: 1 / 1;
+  transition: opacity 0.18s var(--ease), translate 0.18s var(--ease-out);
+}
+.task-card-progress__done { display: inline-flex; align-items: center; gap: 3px; color: var(--prog-done); white-space: nowrap; opacity: 0; translate: 0 6px; }
+.task-table-row.is-done .task-card-progress__num { opacity: 0; translate: 0 -6px; transition-delay: 0.12s; }
+.task-table-row.is-done .task-card-progress__done { opacity: 1; translate: 0 0; transition-delay: 0.12s; }
 
 /* Done: the card steps back. The fill has already turned the done tone; the
    words recede a step so the open work reads first. */
@@ -2220,6 +2375,11 @@ input:focus, select:focus, textarea:focus { outline: none; }
      column's text. */
   .task-table-header span { min-height: 36px; min-width: 0; padding: 11px 9px; border-right: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .task-table-header span:last-child { border-right: 0; }
+  /* A day's heading is a band across the spreadsheet, held under the
+     column headings (37px: their row plus its hairline) while its rows
+     scroll. */
+  .task-table-header { z-index: 4; }
+  .task-day-head { top: 37px; padding: 9px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
 
   .task-table > .task-table-row { margin-bottom: 0; }
   .task-table-row {
@@ -2702,6 +2862,35 @@ button.project-row > span { flex: 1; min-width: 0; }
 }
 .cache-add input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
 
+/* What sits between Today's header and its list: the progress card and the
+   add buttons, or on an empty day the plan card in their place. A flow root, so
+   its children's margins stay inside it and its measured height is the
+   space it takes (the hand-over between the two eases that height). */
+.day-top { display: flow-root; }
+/* The empty day's plan card: it names the day and holds Add Task, so the
+   first thing on an empty day is the place to start it. */
+.day-plan {
+  margin: 0 0 20px; padding: 16px 16px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-xl); box-shadow: var(--shadow-sm);
+}
+.day-plan__eyebrow {
+  margin: 0 0 3px; color: var(--muted);
+  font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.day-plan__title { margin: 0; color: var(--ink); font-size: 1.25rem; font-weight: 650; line-height: 1.2; letter-spacing: -0.02em; }
+.day-plan__note { margin: 0; color: var(--ink-soft); font-size: 0.9375rem; font-weight: 550; }
+.day-plan .add-row-actions { margin: 14px 0 0; }
+.day-plan__carry {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line);
+}
+.day-plan__carry-text { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.day-plan__carry-text strong { color: var(--ink-soft); font-size: 0.8125rem; font-weight: 650; }
+.day-plan__carry-text span {
+  overflow: hidden; color: var(--muted); font-size: 0.75rem; font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.day-plan__carry .task-card-action { flex: none; }
 .cache-items { display: grid; gap: 8px; }
 .cache-item {
   display: grid; grid-template-columns: minmax(0, 1fr) 32px; gap: 8px; align-items: center;
@@ -2710,7 +2899,9 @@ button.project-row > span { flex: 1; min-width: 0; }
   transition: border-color var(--t) var(--ease), background var(--t) var(--ease), box-shadow var(--t) var(--ease);
 }
 .cache-item:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px var(--ring); }
-.cache-item textarea { width: 100%; min-width: 0; padding: 2px 0; overflow: hidden; color: var(--ink); font-size: 0.875rem; font-weight: 600; line-height: 1.4; background: transparent; border: 0; resize: none; }
+/* 16px: iPhone Safari zooms the page into any smaller field it focuses. A
+   tighter line height keeps the row as compact as the 14px it was. */
+.cache-item textarea { width: 100%; min-width: 0; padding: 2px 0; overflow: hidden; color: var(--ink); font-size: 1rem; font-weight: 600; line-height: 1.32; background: transparent; border: 0; resize: none; }
 .cache-item textarea:focus { outline: none; box-shadow: none; }
 .cache-item .icon-button { align-self: center; width: 30px; min-width: 30px; height: 30px; min-height: 30px; }
 /* Inside a group the ideas move through lib/listMotion, so they space with
@@ -2719,7 +2910,6 @@ button.project-row > span { flex: 1; min-width: 0; }
 .cache-section .cache-items { gap: 0; }
 .cache-section .cache-item { margin-bottom: 8px; animation: none; }
 .search-next-results { display: grid; gap: 16px; }
-.search-filters > .cal-seg { justify-self: start; }
 .search-next-results h2 {
   margin: 0;
   color: var(--muted);
@@ -3114,21 +3304,17 @@ button.project-row > span { flex: 1; min-width: 0; }
   border: 1px solid var(--line-strong);
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-lg);
-  animation: task-menu-morph 0.24s var(--ease-out) both;
 }
-@keyframes task-menu-morph { from { opacity: 0; transform: translate(3px, 5px) scale(0.92); } to { opacity: 1; transform: translate(0, 0) scale(1); } }
 @keyframes task-menu-item { from { opacity: 0; } to { opacity: 1; } }
 
-/* Exit: the panel morphs back toward its trigger corner (usePresence keeps it
-   mounted until this finishes). */
-.task-action-menu.is-closing {
-  pointer-events: none;
-  animation: task-menu-morph-out 0.18s var(--ease) both;
-}
-.task-action-menu.is-closing button { animation: none; }
+/* The panel grows out of its trigger's corner and morphs back toward it on
+   exit (lib/floatingPopover, lib/morph). Those tweens are WAAPI, not
+   keyframes here, so a tap mid-flight turns the panel around from where it
+   is. The items' fade is left alone on close: swapping it would replay it
+   from 0 if the menu reopens before it has gone. */
+.task-action-menu.is-closing { pointer-events: none; }
 .task-action-menu--floating,
 .project-action-menu { position: fixed; inset: auto; z-index: 100; visibility: hidden; max-width: calc(100vw - 16px); max-height: calc(100dvh - 16px); overflow-y: auto; }
-@keyframes task-menu-morph-out { to { opacity: 0; transform: translate(2px, 4px) scale(0.94); } }
 
 .task-action-menu button {
   display: flex; width: 100%; min-height: 36px; align-items: center; justify-content: flex-start; gap: 0;
@@ -3150,15 +3336,12 @@ button.project-row > span { flex: 1; min-width: 0; }
 @media (hover: hover) { .task-action-menu button.danger:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); color: var(--danger); } }
 /* The project picker drops from its field (or rises, when there's no room
    below) and shows the current choice with a check. */
-.task-project-menu { transform-origin: top left; animation-name: task-menu-drop; }
+.task-project-menu { transform-origin: top left; }
 .task-project-menu[data-side="up"] { transform-origin: bottom left; }
-.task-project-menu.is-closing { animation-name: task-menu-drop-out; }
 .task-project-menu button { justify-content: space-between; gap: 16px; animation: none; }
 .task-project-menu button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .task-project-menu button[aria-checked="true"] { color: var(--ink); }
 .task-project-menu button > svg { flex: none; color: var(--primary); }
-@keyframes task-menu-drop { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
-@keyframes task-menu-drop-out { to { opacity: 0; transform: scale(0.97); } }
 .task-action-menu__prompt { display: block; padding: 6px 12px 4px; color: var(--muted); font-size: 0.8125rem; font-weight: 700; white-space: nowrap; }
 .task-action-menu__warning { display: block; margin-top: -2px; padding: 0 12px 6px; color: var(--danger); font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 
@@ -3842,7 +4025,7 @@ button.project-row > span { flex: 1; min-width: 0; }
 
   .project-sidebar { --project-sidebar-bottom: calc(32px + env(safe-area-inset-bottom)); top: calc(32px + env(safe-area-inset-top)); }
 
-  .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .filter-chips { margin-inline: 0; padding-inline: 0; }
   .mapping-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 360px; }
 }
 
@@ -3865,7 +4048,10 @@ button.project-row > span { flex: 1; min-width: 0; }
 
 @media (max-width: 430px) {
   .page-content { padding-right: 11px; padding-left: 11px; }
-  .task-controls, .filter-grid { grid-template-columns: 1fr; }
+  .today-page-header { gap: 8px; }
+  .today-date-switcher { gap: 2px; }
+  .today-title-button { padding-inline: 10px; }
+  .filter-chips { margin-inline: -11px; padding-inline: 11px; }
   .progress-summary { margin-bottom: 20px; }
   .summary-hero { min-height: 112px; padding: 18px 15px 20px; }
   .summary-hero__value { font-size: 2.75rem; }

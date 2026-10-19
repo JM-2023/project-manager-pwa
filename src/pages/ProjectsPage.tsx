@@ -4,7 +4,7 @@ import { useLayoutEffect, useMemo, useRef } from "react";
 import { useI18n } from "../lib/i18n";
 import { isWorklogTask, summarizeWorklogOverview } from "../lib/progress";
 import { settleRegion } from "../lib/pageTransition";
-import { matchesProjectFilter } from "../state/appStore";
+import { matchesProjectFilter, newestFirst } from "../state/appStore";
 import type { TaskPageProps } from "./pageProps";
 
 export function ProjectsPage(props: TaskPageProps & { projectTaskCounts: ReadonlyMap<string, number> }) {
@@ -39,8 +39,9 @@ export function ProjectsPage(props: TaskPageProps & { projectTaskCounts: Readonl
     shownProjectRef.current = selectedProjectId;
     settleRegion(pageRef.current?.querySelector(".task-table-wrap") ?? null);
   }, [selectedProjectId]);
+  // A worklog, read from the latest day down.
   const projectTasks = useMemo(
-    () => tasks.filter((task) => isWorklogTask(task) && matchesProjectFilter(selectedProjectId, task.project_id)),
+    () => newestFirst(tasks.filter((task) => isWorklogTask(task) && matchesProjectFilter(selectedProjectId, task.project_id))),
     [selectedProjectId, tasks]
   );
   const summary = useMemo(() => summarizeWorklogOverview(projectTasks), [projectTasks]);
@@ -68,6 +69,7 @@ export function ProjectsPage(props: TaskPageProps & { projectTaskCounts: Readonl
         key={selectedProjectId}
         tasks={projectTasks}
         projects={projects}
+        dayGroups="progress"
         onCreate={onCreateTask}
         onUpdate={onUpdateTask}
         onDelete={onDeleteTask}

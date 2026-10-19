@@ -104,7 +104,22 @@ function NextIdeaItem({
 
   return (
     <article className={`cache-item${exiting ? " is-exiting" : ""}`} data-idea-id={idea.id} data-motion-key={idea.id}>
-      <AutoTextarea value={title} onChange={(event) => setTitle(event.target.value)} onBlur={commit} rows={1} aria-label={m.next.ideaAria} />
+      {/* An idea is one line: Return saves it and closes the keyboard (the
+          blur commits), and a pasted line break becomes a space. */}
+      <AutoTextarea
+        value={title}
+        onChange={(event) => setTitle(event.target.value.replace(/\s*[\r\n]+\s*/g, " "))}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
+        onBlur={commit}
+        rows={1}
+        enterKeyHint="done"
+        aria-label={m.next.ideaAria}
+      />
       <button type="button" className="icon-button danger" onClick={() => onDelete(idea)} aria-label={m.next.deleteIdea} title={m.common.delete}>
         <Trash2 size={16} aria-hidden="true" />
       </button>

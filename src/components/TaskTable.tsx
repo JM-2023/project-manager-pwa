@@ -16,7 +16,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { Project, Task } from "../lib/types";
-import { addDays, todayDate, toDateInput } from "../lib/dates";
+import { addDays, formatDoneMoment, formatGroupDay, todayDate, toDateInput } from "../lib/dates";
 import { useI18n } from "../lib/i18n";
 import {
   getTaskImportance,
@@ -26,16 +26,19 @@ import {
   progressStatus,
   progressTone,
   stringifyTaskExtra,
+  summarizeProgress,
   worklogBlocker,
   worklogOutput,
   type TaskImportance,
   type TaskProgress
 } from "../lib/progress";
+import { useToday } from "../lib/useToday";
 import { useSpringDisclosure } from "../lib/disclosure";
 import { useListMotion } from "../lib/listMotion";
-import { usePresence } from "../lib/usePresence";
+import { coverTrigger, DROP_MOTION, dropFromTrigger, MORPH_MOTION, useFloatingPopover } from "../lib/floatingPopover";
 import { handleMenuKeyDown } from "../lib/menuKeys";
 import { useMeterDither } from "../lib/meterDither";
+import { Marked } from "./Marked";
 import { RollDigits } from "./RollDigits";
 import { SegControl, type SegOption } from "./SegControl";
 
@@ -54,6 +57,12 @@ interface TaskTableProps {
   /** How fast its rows move (lib/listMotion): "quick" for a list that
    * changes as fast as the user types. */
   motionPace?: "normal" | "quick";
+  /** Split the list into days under sticky headings, in the order the
+   * tasks come (the long lists pass them newest first). "progress" heads
+   * carry the day's count and weighted progress, "count" only the count. */
+  dayGroups?: "progress" | "count";
+  /** The search query, lowercased: its matches are marked on the cards. */
+  highlight?: string;
 }
 
 interface TaskRowProps {
@@ -70,6 +79,8 @@ interface TaskRowProps {
   // The task is gone from the data and the row is folding out
   // (lib/listMotion): inert, and it must not write anything back.
   exiting: boolean;
+  // The search query to mark on the card ("" when there is none).
+  highlight: string;
   onCreate: (input: Partial<Task> & { title: string }) => void;
   onUpdate: (task: Task, changes: Partial<Task>) => void;
   onDelete: (task: Task) => void;
@@ -176,114 +187,6 @@ function reducedMotion(): boolean {
   return typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-/* ---------- floating popovers (task actions, project picker) ----------- */
-
-type Placement = (anchor: DOMRect, popover: HTMLElement) => { left: number; top: number; up?: boolean };
-
-const VIEW_EDGE = 8;
-const clampLeft = (left: number, width: number) => Math.max(VIEW_EDGE, Math.min(left, window.innerWidth - width - VIEW_EDGE));
-const clampTop = (top: number, height: number) => Math.max(VIEW_EDGE, Math.min(top, window.innerHeight - height - VIEW_EDGE));
-
-/** Over the trigger, grown out of its bottom-right corner. */
-const coverTrigger: Placement = (anchor, popover) => ({
-  left: clampLeft(anchor.right - popover.offsetWidth, popover.offsetWidth),
-  top: clampTop(anchor.bottom - popover.offsetHeight, popover.offsetHeight)
-});
-
-/** Dropped below the trigger, left edges aligned; above it when the view
- * has no room underneath. */
-const dropFromTrigger: Placement = (anchor, popover) => {
-  const height = popover.offsetHeight;
-  const below = anchor.bottom + 6;
-  const up = below + height > window.innerHeight - VIEW_EDGE && anchor.top - 6 - height >= VIEW_EDGE;
-  return {
-    left: clampLeft(anchor.left, popover.offsetWidth),
-    top: clampTop(up ? anchor.top - 6 - height : below, height),
-    up
-  };
-};
-
-interface FloatingPopoverOptions {
-  open: boolean;
-  close: () => void;
-  triggerRef: RefObject<HTMLButtonElement>;
-  popoverRef: RefObject<HTMLDivElement>;
-  place: Placement;
-}
-
-/**
- * A popover portaled to <body> so no clipped card or table can cut it off:
- * mounted through its exit animation, closed by an outside press or Escape,
- * and kept placed against its trigger as the page scrolls or resizes. It
- * closes if the trigger scrolls out of view. On open, focus lands on the
- * checked item, or the first.
- */
-function useFloatingPopover({ open, close, triggerRef, popoverRef, place }: FloatingPopoverOptions) {
-  const presence = usePresence(open, 300);
-  const closeRef = useRef(close);
-  closeRef.current = close;
-
-  useEffect(() => {
-    if (!open) return;
-    // pointerdown, not mousedown: a press that cancels its compatibility
-    // mouse events (the table's meter does) must still close the popover.
-    function closeOnOutsidePress(event: PointerEvent) {
-      const target = event.target as Node;
-      if (!triggerRef.current?.contains(target) && !popoverRef.current?.contains(target)) closeRef.current();
-    }
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      closeRef.current();
-      triggerRef.current?.focus({ preventScroll: true });
-    }
-    document.addEventListener("pointerdown", closeOnOutsidePress);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePress);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open, triggerRef, popoverRef]);
-
-  useLayoutEffect(() => {
-    if (!presence.mounted || presence.closing) return;
-    const trigger = triggerRef.current;
-    const popover = popoverRef.current;
-    if (!trigger || !popover) return;
-    function position() {
-      if (!trigger || !popover) return;
-      const rect = trigger.getBoundingClientRect();
-      if (rect.bottom <= 0 || rect.top >= window.innerHeight) {
-        closeRef.current();
-        return;
-      }
-      const { left, top, up } = place(rect, popover);
-      popover.style.left = `${left}px`;
-      popover.style.top = `${top}px`;
-      // An attribute, not a class: React rewrites className on the closing render.
-      popover.dataset.side = up ? "up" : "down";
-      popover.style.visibility = "visible";
-    }
-    position();
-    (popover.querySelector<HTMLButtonElement>('[aria-checked="true"]') ?? popover.querySelector<HTMLButtonElement>("button"))?.focus({
-      preventScroll: true
-    });
-    const observer = new ResizeObserver(position);
-    observer.observe(popover);
-    observer.observe(trigger);
-    window.addEventListener("scroll", position, true);
-    window.addEventListener("resize", position);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("scroll", position, true);
-      window.removeEventListener("resize", position);
-    };
-    // `place` is a module-level constant per caller.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [presence.mounted, presence.closing, triggerRef, popoverRef]);
-
-  return presence;
-}
-
 interface TaskMenuProps {
   // A folding row closes its menu; the actions would act on a stale task.
   exiting: boolean;
@@ -300,7 +203,7 @@ function TaskMenu({ exiting, nextDay = true, onCopy, onMove, onDelete }: TaskMen
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const close = useCallback(() => setMenuOpen(false), []);
-  const menu = useFloatingPopover({ open: menuOpen, close, triggerRef, popoverRef, place: coverTrigger });
+  const menu = useFloatingPopover({ open: menuOpen, close, triggerRef, popoverRef, place: coverTrigger, motion: MORPH_MOTION });
 
   useEffect(() => {
     if (exiting) setMenuOpen(false);
@@ -331,9 +234,6 @@ function TaskMenu({ exiting, nextDay = true, onCopy, onMove, onDelete }: TaskMen
           role="menu"
           aria-label={m.taskTable.taskActions}
           onKeyDown={handleMenuKeyDown}
-          onAnimationEnd={(event) => {
-            if (event.target === event.currentTarget) menu.onExited();
-          }}
         >
           <button type="button" role="menuitem" onClick={() => act(() => onCopy(-1))}>
             <span>{m.taskTable.copyToPrevDay}</span>
@@ -381,7 +281,7 @@ function ProjectPicker({ labelId, value, projects, disabled, onChange }: Project
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const close = useCallback(() => setOpen(false), []);
-  const menu = useFloatingPopover({ open, close, triggerRef, popoverRef, place: dropFromTrigger });
+  const menu = useFloatingPopover({ open, close, triggerRef, popoverRef, place: dropFromTrigger, motion: DROP_MOTION });
 
   useEffect(() => {
     if (disabled) setOpen(false);
@@ -419,9 +319,6 @@ function ProjectPicker({ labelId, value, projects, disabled, onChange }: Project
           aria-label={m.common.project}
           style={{ minWidth: triggerRef.current?.offsetWidth }}
           onKeyDown={handleMenuKeyDown}
-          onAnimationEnd={(event) => {
-            if (event.target === event.currentTarget) menu.onExited();
-          }}
         >
           {choices.map((choice) => {
             const checked = choice.id === (current?.id ?? null);
@@ -564,9 +461,24 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap, o
 
   // Head for a detent; the summary follows every one passed.
   function aim(value: TaskProgress) {
+    if (draggingRef.current) wrapRef.current?.setAttribute("data-detent", String(value));
     if (value === targetRef.current) return;
     targetRef.current = value;
     onInput(value);
+  }
+
+  // While a drag is on, the 25/50/75 detents show as ticks on the bar and
+  // the one it will land on darkens. Attributes, not classes: the row
+  // re-renders at every detent and React rewrites className.
+  function showTicks(on: boolean) {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    if (on) {
+      wrap.setAttribute("data-scrubbing", "");
+      wrap.setAttribute("data-detent", String(targetRef.current));
+    } else {
+      wrap.removeAttribute("data-scrubbing");
+    }
   }
 
   function track(clientX: number) {
@@ -580,6 +492,7 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap, o
     if (!gesture) return;
     gesture.live = true;
     draggingRef.current = true;
+    showTicks(true);
     onGrab?.();
     try {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -591,6 +504,7 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap, o
 
   function release() {
     draggingRef.current = false;
+    showTicks(false);
     glideTo(targetRef.current);
     onCommit(targetRef.current);
   }
@@ -661,6 +575,11 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap, o
       <span ref={meterRef} className="progress-meter">
         <span className="progress-meter__fill" />
         <canvas ref={ditherRef} className="progress-meter__dither" aria-hidden="true" />
+        <span className="progress-ticks" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
         {/* No step attribute: a stepped input quantizes programmatic writes,
           which would snap the fill out of the damped glide. Keys step
           manually. */}
@@ -729,8 +648,8 @@ function ProgressField({ progress, onInput, onCommit, variant = "cell", onTap, o
 
 /* ---------- rows ------------------------------------------------------ */
 
-function TaskRowComponent({ task, projects, projectOptions, projectName, showDate, wide, autoFocusTitle, exiting, onCreate, onUpdate, onDelete, onMove }: TaskRowProps) {
-  const { m } = useI18n();
+function TaskRowComponent({ task, projects, projectOptions, projectName, showDate, wide, autoFocusTitle, exiting, highlight, onCreate, onUpdate, onDelete, onMove }: TaskRowProps) {
+  const { m, lang } = useI18n();
   const [expanded, setExpanded] = useState(Boolean(autoFocusTitle || !task.title.trim()));
   const [title, setTitle] = useState(task.title);
   const [output, setOutput] = useState(worklogOutput(task));
@@ -915,13 +834,23 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
   const titleField = (
     <label className="tt-cell tt-task">
       <span className="tt-label">{m.taskTable.task}</span>
+      {/* A title is one line that wraps: Return saves it and moves on to
+          the output field, and a pasted line break becomes a space. */}
       <AutoTextarea
         className="task-table-title"
         value={title}
-        onChange={(event) => setTitle(event.target.value)}
+        onChange={(event) => setTitle(event.target.value.replace(/\s*[\r\n]+\s*/g, " "))}
+        onKeyDown={(event) => {
+          // Return inside an IME composition picks the candidate (pinyin).
+          if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+          event.preventDefault();
+          commitText();
+          rowRef.current?.querySelector<HTMLTextAreaElement>(".tt-output textarea")?.focus();
+        }}
         onBlur={commitText}
         rows={1}
         autoFocus={autoFocusTitle}
+        enterKeyHint="next"
         placeholder={m.taskTable.newTask}
         aria-label={m.taskTable.task}
       />
@@ -1021,8 +950,22 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
   // Card. Closed, it is something to act on, not just a door to a form: a tap
   // opens it, a sideways drag on its meter sets the progress. Open, it adds
   // the fields that need typing and the actions for the task.
-  const preview = blocker ? `${m.taskTable.blocker}: ${blocker}` : output ? `${m.taskTable.output}: ${output}` : nextAction ? `${m.taskTable.nextStep}: ${nextAction}` : notes;
+  // The preview line shows the first worklog field that has something in
+  // it; while searching, the first one the query matches, so the card says
+  // why it is in the results.
+  const previewFields: Array<[string, string]> = [
+    [m.taskTable.blocker, blocker],
+    [m.taskTable.output, output],
+    [m.taskTable.nextStep, nextAction],
+    ["", notes]
+  ];
+  const [previewLabel, previewText] =
+    (highlight ? previewFields.find(([, text]) => text.toLowerCase().includes(highlight)) : undefined) ??
+    previewFields.find(([, text]) => text) ??
+    ["", ""];
   const editorId = `task-editor-${task.id}`;
+  // Finished: the meta line says when (lib/dates formatDoneMoment).
+  const doneMoment = done ? (task.completed_at ? formatDoneMoment(task.completed_at, task.start_date, lang) : "") : "";
 
   return (
     <div ref={rowRef} data-motion-key={task.id} className={rowClass}>
@@ -1035,20 +978,47 @@ function TaskRowComponent({ task, projects, projectOptions, projectName, showDat
         onPointerCancel={editor.cool}
         onClick={toggle}
       >
-        <span className="task-summary__meta">{projectName}{showDate && task.start_date ? ` · ${task.start_date}` : ""} · P{importance}</span>
+        <span className="task-summary__meta">
+          {/* Importance as a numbered chip: the deep levels solid, the
+              light ones outlined, so the weight reads before the words. */}
+          <span className={`imp-chip imp-chip--${importance}`}>
+            <span aria-hidden="true">{importance}</span>
+            <span className="sr-only">{`${m.taskTable.importance} ${importance}`}</span>
+          </span>
+          <span className="task-summary__project">
+            <Marked text={projectName} query={highlight} />
+            {done ? ` · ${doneMoment ? m.taskTable.doneAt(doneMoment) : m.taskTable.done}` : ""}
+          </span>
+        </span>
         <ChevronDown className="task-summary__chevron" size={16} aria-hidden="true" />
-        <strong className="task-summary__title">{title || m.taskTable.newTask}</strong>
-        {preview ? (
+        <strong className="task-summary__title">
+          {/* Struck through left to right when the task is done. */}
+          <span className="task-summary__strike">
+            {title ? <Marked text={title} query={highlight} /> : m.taskTable.newTask}
+          </span>
+        </strong>
+        {previewText ? (
           <span ref={previewRef} className="task-summary__preview">
-            <span>{preview}</span>
+            <span>
+              {previewLabel ? `${previewLabel}: ` : ""}
+              <Marked text={previewText} query={highlight} />
+            </span>
           </span>
         ) : null}
       </button>
 
       <div className="task-card-progress" onPointerDown={warmEditor} onPointerCancel={editor.cool}>
         <ProgressField variant="card" progress={progress} onInput={setProgress} onCommit={commitProgress} onTap={toggle} onGrab={editor.cool} />
+        {/* At 100% the reading turns over to "Done"; both share one cell,
+            so the bar keeps its length either way. */}
         <span className="task-card-progress__pct" aria-hidden="true">
-          <RollDigits value={progress} text={`${progress}%`} />
+          <span className="task-card-progress__num">
+            <RollDigits value={progress} text={`${progress}%`} />
+          </span>
+          <span className="task-card-progress__done">
+            <Check size={13} strokeWidth={2.6} />
+            {m.taskTable.done}
+          </span>
         </span>
       </div>
 
@@ -1128,7 +1098,8 @@ function taskRowPropsEqual(previous: Readonly<TaskRowProps>, next: Readonly<Task
     previous.showDate === next.showDate &&
     previous.wide === next.wide &&
     previous.autoFocusTitle === next.autoFocusTitle &&
-    previous.exiting === next.exiting
+    previous.exiting === next.exiting &&
+    previous.highlight === next.highlight
   );
 }
 
@@ -1152,7 +1123,13 @@ const WIDE_MIN_WIDTH = 881;
 // starts in the right mode instead of correcting itself a frame later.
 let lastWide = false;
 
-const taskKey = (task: Task) => task.id;
+/** One line of the table: a task, or the heading of the day it is on. */
+type TableItem =
+  | { kind: "task"; key: string; task: Task }
+  | { kind: "day"; key: string; date: string; count: number; percent: number };
+
+const itemKey = (item: TableItem) => item.key;
+const dayKey = (date: string) => `day:${date}`;
 
 /** Whether the table is in its wide spreadsheet layout. The switch is a CSS
  * container query on the wrap; this mirrors it so rows render as cells or
@@ -1184,9 +1161,12 @@ export function TaskTable({
   onUpdate,
   onDelete,
   onMove,
-  motionPace = "normal"
+  motionPace = "normal",
+  dayGroups,
+  highlight = ""
 }: TaskTableProps) {
-  const { m } = useI18n();
+  const { m, lang } = useI18n();
+  const today = useToday();
   const liveProjects = useMemo(() => projects.filter((project) => !project.deleted_at && project.archived === 0), [projects]);
   const projectOptions = useMemo(
     () =>
@@ -1217,14 +1197,60 @@ export function TaskTable({
     setCount(INITIAL_BATCH);
   }, [signature]);
 
-  const visible = count >= tasks.length ? tasks : tasks.slice(0, count);
+  // A batch never ends partway through a day: it runs on to the day's last task.
+  let shown = Math.min(count, tasks.length);
+  if (dayGroups) {
+    const lastDay = shown > 0 ? toDateInput(tasks[shown - 1].start_date) : "";
+    while (shown < tasks.length && toDateInput(tasks[shown].start_date) === lastDay) shown += 1;
+  }
+  const visible = shown >= tasks.length ? tasks : tasks.slice(0, shown);
   const remaining = tasks.length - visible.length;
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const tableRef = useRef<HTMLDivElement | null>(null);
   const wrapRef = useRef<HTMLElement | null>(null);
   const wide = useWideLayout(wrapRef);
-  const present = useMemo(() => new Set(tasks.map((task) => task.id)), [tasks]);
-  const rows = useListMotion(visible, taskKey, tableRef, present, { pace: motionPace });
+
+  // The days of the whole result set: a heading counts its day's tasks
+  // even before a later batch has mounted all of them.
+  const days = useMemo(() => {
+    const byDay = new Map<string, Task[]>();
+    if (!dayGroups) return byDay;
+    for (const task of tasks) {
+      const date = toDateInput(task.start_date);
+      const list = byDay.get(date);
+      if (list) list.push(task);
+      else byDay.set(date, [task]);
+    }
+    return byDay;
+  }, [dayGroups, tasks]);
+  const items = useMemo(() => {
+    const list: TableItem[] = [];
+    let day: string | null = null;
+    for (const task of visible) {
+      const date = toDateInput(task.start_date);
+      if (dayGroups && date !== day) {
+        day = date;
+        const dayTasks = days.get(date) ?? [];
+        const summary = dayGroups === "progress" ? summarizeProgress(dayTasks) : null;
+        list.push({
+          kind: "day",
+          key: dayKey(date),
+          date,
+          count: summary ? summary.taskCount : dayTasks.length,
+          percent: summary ? summary.weightedPercent : 0
+        });
+      }
+      list.push({ kind: "task", key: task.id, task });
+    }
+    return list;
+  }, [dayGroups, days, visible]);
+  const present = useMemo(() => {
+    const keys = new Set(tasks.map((task) => task.id));
+    for (const date of days.keys()) keys.add(dayKey(date));
+    return keys;
+  }, [days, tasks]);
+  // Headings arrive, leave and glide with the rows they head (lib/listMotion).
+  const rows = useListMotion(items, itemKey, tableRef, present, { pace: motionPace });
 
   useEffect(() => {
     if (remaining <= 0) {
@@ -1237,14 +1263,14 @@ export function TaskTable({
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          setCount((current) => Math.min(current + BATCH_STEP, tasks.length));
+          setCount((current) => Math.min(Math.max(current, shown) + BATCH_STEP, tasks.length));
         }
       },
       { rootMargin: "600px 0px" }
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [remaining, tasks.length]);
+  }, [remaining, shown, tasks.length]);
 
   return (
     <section ref={wrapRef} className={`task-table-wrap${rows.length === 0 ? " is-empty" : ""}`} aria-label={m.taskTable.tableAria}>
@@ -1260,23 +1286,37 @@ export function TaskTable({
           <span>{m.taskTable.nextStep}</span>
           <span>{m.common.notes}</span>
         </div>
-        {rows.map(({ key, item: task, exiting }) => (
-          <TaskRow
-            key={key}
-            task={task}
-            projects={liveProjects}
-            projectOptions={projectOptions}
-            projectName={liveProjects.find((project) => project.id === task.project_id)?.name ?? m.common.noProject}
-            showDate={showDate}
-            wide={wide}
-            autoFocusTitle={task.id === focusTaskId}
-            exiting={exiting}
-            onCreate={createFromRow}
-            onUpdate={updateFromRow}
-            onDelete={deleteFromRow}
-            onMove={moveFromRow}
-          />
-        ))}
+        {rows.map(({ key, item, exiting }) =>
+          item.kind === "day" ? (
+            <h2
+              key={key}
+              data-motion-key={key}
+              className={`task-day-head${item.date === today ? " is-today" : ""}${exiting ? " is-exiting" : ""}`}
+            >
+              <span className="task-day-head__date">{formatGroupDay(item.date, today, lang)}</span>
+              <span className="task-day-head__stats">
+                {dayGroups === "progress" ? m.taskTable.dayStats(item.count, item.percent) : item.count}
+              </span>
+            </h2>
+          ) : (
+            <TaskRow
+              key={key}
+              task={item.task}
+              projects={liveProjects}
+              projectOptions={projectOptions}
+              projectName={liveProjects.find((project) => project.id === item.task.project_id)?.name ?? m.common.noProject}
+              showDate={showDate}
+              wide={wide}
+              autoFocusTitle={item.task.id === focusTaskId}
+              exiting={exiting}
+              highlight={highlight}
+              onCreate={createFromRow}
+              onUpdate={updateFromRow}
+              onDelete={deleteFromRow}
+              onMove={moveFromRow}
+            />
+          )
+        )}
       </div>
       {remaining > 0 ? (
         <>
